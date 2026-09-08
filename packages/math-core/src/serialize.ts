@@ -88,7 +88,8 @@ class Serializer {
 
       case "mul": {
         const parts = n.args.map((a, i) => {
-          // A negative literal is fine leading, needs parens elsewhere.
+          // -2x reads correctly; 2(-3) needs the brackets.
+          if (i === 0 && a.type === "num") return this.render(a);
           const min = i === 0 ? 2 : a.type === "num" && a.value.isNegative() ? 4 : 2;
           return this.wrap(a, min);
         });
@@ -106,7 +107,8 @@ class Serializer {
       case "pow": {
         const base =
           n.base.type === "add" || n.base.type === "mul" || n.base.type === "neg" ||
-          n.base.type === "div" || (n.base.type === "num" && n.base.value.isNegative())
+          n.base.type === "div" || n.base.type === "pow" ||
+          (n.base.type === "num" && n.base.value.isNegative())
             ? `\\left(${this.render(n.base)}\\right)`
             : this.render(n.base);
         return `${base}^{${this.render(n.exp)}}`;

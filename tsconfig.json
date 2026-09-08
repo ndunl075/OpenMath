@@ -1,4 +1,14 @@
 {
   "files": [],
-  "references": [{ "path": "./packages/math-core" }]
+  "references": [
+    {
+      "path": "./packages/math-core"
+    },
+    {
+      "path": "./packages/steps"
+    },
+    {
+      "path": "./packages/corpus"
+    }
+  ]
 }
