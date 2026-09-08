@@ -12,6 +12,7 @@ export default defineConfig({
       "@openmath/step-motion": new URL("./packages/step-motion/src/index.ts", import.meta.url).pathname,
       "@openmath/ocr": new URL("./packages/ocr/src/index.ts", import.meta.url).pathname,
       "@openmath/corpus": new URL("./packages/corpus/src/index.ts", import.meta.url).pathname,
+      "@openmath/bench": new URL("./packages/bench/src/index.ts", import.meta.url).pathname,
     },
   },
 });

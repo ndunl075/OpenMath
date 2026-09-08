@@ -51,6 +51,7 @@ problems, calculus, systems of equations, matrices, and trigonometric equations.
 | `packages/step-motion` | Animations generated from step data | MIT |
 | `packages/ocr` | Image preprocessing, LaTeX normalizer, model providers | MIT |
 | `packages/corpus` | Regression problems with hand-written answers | MIT |
+| `packages/bench` | The OCR accuracy benchmark and its corpus format | MIT |
 | `apps/web` | The Preact PWA | MIT |
 
 `packages/steps` is the interesting one and the part worth forking. It has no
@@ -61,7 +62,7 @@ dependency on the app, the camera, or any model.
 ```bash
 pnpm install
 pnpm dev        # http://localhost:5173
-pnpm test       # 160 tests
+pnpm test       # 240 tests
 pnpm typecheck
 ```
 
@@ -92,11 +93,13 @@ app has a report button that prefills one for you.
 These are real and worth knowing before you rely on it:
 
 - **Recognition is unverified on real photos.** The model providers are wired
-  and the preprocessing is tested, but no accuracy benchmark has been run on
-  actual homework. That benchmark, and the 200-photo corpus it needs, is the
-  next piece of work. See ARCHITECTURE §11 step 2.
+  and the preprocessing is tested, but no accuracy benchmark has been *run* on
+  actual homework. The harness to run it is `packages/bench`; what it lacks is
+  photos. See ARCHITECTURE §11 step 2.
 - **The photo corpus does not exist yet.** `packages/corpus` is text problems,
-  which gate the solver. Photos gate the model choice.
+  which gate the solver. Photos gate the model choice, and
+  [packages/bench/README.md](./packages/bench/README.md) says how to shoot and
+  label the first twenty in half an hour.
 - **Handwriting is untested.** Texo is the default on its published handwriting
   score, not on anything measured here.
 
