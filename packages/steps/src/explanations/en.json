@@ -634,5 +634,17 @@
   "LIMIT_VANISHING_TERM": {
     "title": "That term dies away to nothing",
     "text": "{term} shrinks towards zero as {variable} goes to {point}, so in the limit it contributes nothing and the rest of the sum is the whole answer."
+  },
+  "INT_SEC": {
+    "title": "Integrate the secant",
+    "text": "Multiplying secant by (sec + tan) over itself makes the top the derivative of the bottom, and the integral falls out as the log of that sum."
+  },
+  "INT_CSC": {
+    "title": "Integrate the cosecant",
+    "text": "The same trick as the secant, with (csc + cot), and the minus sign comes from cosecant falling where secant rises."
+  },
+  "INT_COMPLETE_THE_SQUARE": {
+    "title": "Complete the square, then read the inverse tangent",
+    "text": "The bottom has no real roots, so it never vanishes. Writing it as {square} squared plus {a} squared puts it in the inverse tangent form, shifted along by {shift}."
   }
 }

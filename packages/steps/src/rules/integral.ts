@@ -330,6 +330,18 @@ export const intTan = tableRule(
   (v) => neg(fn("ln", [fn("abs", [fn("cos", [sym(v)])])])),
 );
 
+export const intSec = tableRule(
+  "INT_SEC",
+  (body, v) => isCall(body, "sec", v),
+  (v) => fn("ln", [fn("abs", [add([fn("sec", [sym(v)]), fn("tan", [sym(v)])])])]),
+);
+
+export const intCsc = tableRule(
+  "INT_CSC",
+  (body, v) => isCall(body, "csc", v),
+  (v) => neg(fn("ln", [fn("abs", [add([fn("csc", [sym(v)]), fn("cot", [sym(v)])])])])),
+);
+
 export const intCot = tableRule(
   "INT_COT",
   (body, v) => isCall(body, "cot", v),
@@ -409,20 +421,36 @@ export const intArctanScaled = integralRule(
     if (body.type !== "div" || !isOne(body.num)) return null;
     const p = toPolynomial(body.den, v);
     if (!p || degree(p) !== 2) return null;
-    if (!coeff(p, 2).equals(Rational.ONE) || !coeff(p, 1).isZero()) return null;
+    if (!coeff(p, 2).equals(Rational.ONE)) return null;
+    const b = coeff(p, 1);
     const c = coeff(p, 0);
-    if (c.isNegative() || c.isZero() || c.equals(Rational.ONE)) return null;
-    const a = c.nthRoot(2n);
+
+    // Completing the square turns x^2 + bx + c into (x + b/2)^2 + k. A
+    // positive k means no real roots, so the quadratic never vanishes and
+    // this is an inverse tangent; a negative one is partial fractions' job.
+    const half = b.div(Rational.of(2));
+    const k = c.sub(half.mul(half));
+    if (k.isNegative() || k.isZero()) return null;
+    if (b.isZero() && k.equals(Rational.ONE)) return null; // plain arctan's
+
+    const a = k.nthRoot(2n);
     if (!a) return null;
 
+    const shifted = b.isZero() ? sym(v) : add([sym(v), num(half)]);
     const out = mul([
       div(num(Rational.ONE), num(a)),
-      fn("arctan", [div(sym(v), num(a))]),
+      fn("arctan", [div(shifted, num(a))]),
     ]);
     return {
       node: out,
       changes: [{ kind: "replace", fromIds: [node.id], toIds: [out.id] }],
-      vars: { variable: v, a: a.toLatex() },
+      vars: {
+        variable: v,
+        a: a.toLatex(),
+        shift: half.toLatex(),
+        square: toLatex(shifted),
+      },
+      ...(b.isZero() ? {} : { explanationKey: "INT_COMPLETE_THE_SQUARE" }),
     };
   },
 );
@@ -951,6 +979,8 @@ export const integralRules: Rule[] = [
   intSecSquared,
   intTan,
   intCot,
+  intSec,
+  intCsc,
   intArctan,
   intArcsin,
   intArctanScaled,

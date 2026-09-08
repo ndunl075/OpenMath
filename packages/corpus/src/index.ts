@@ -425,6 +425,10 @@ export const problems: CorpusProblem[] = [
   { latex: "\\int \\sec(x)^{2} \\, dx", kind: "integrate", answer: "\\tan\\left(x\\right) + C", upToConstant: true, tags: ["integral", "trig"] },
   { latex: "\\int \\frac{1}{1+x^{2}} \\, dx", kind: "integrate", answer: "\\arctan\\left(x\\right) + C", upToConstant: true, tags: ["integral", "arctan"] },
   { latex: "\\int \\tan(x) \\, dx", kind: "integrate", answer: "-\\ln\\left|\\cos\\left(x\\right)\\right| + C", upToConstant: true, tags: ["integral", "trig"] },
+  { latex: "\\int \\sec(x) \\, dx", kind: "integrate", answer: "\\ln\\left|\\sec\\left(x\\right) + \\tan\\left(x\\right)\\right| + C", upToConstant: true, tags: ["integral", "trig"] },
+  { latex: "\\int \\frac{1}{x^{2}+2x+5} \\, dx", kind: "integrate", answer: "\\frac{\\arctan\\left(\\frac{x + 1}{2}\\right)}{2} + C", upToConstant: true, tags: ["integral", "complete-square"] },
+  // sqrt(3/4) is irrational, so there is no exact answer to give.
+  { latex: "\\int \\frac{1}{x^{2}+x+1} \\, dx", kind: "integrate", unsupported: true, declineReason: "unsupported", tags: ["integral", "irrational"] },
   { latex: "\\int \\sin(x)^{2} \\, dx", kind: "integrate", answer: "\\frac{x - \\frac{1}{2} \\sin\\left(2 x\\right)}{2} + C", upToConstant: true, tags: ["integral", "trig", "power-reduction"] },
   { latex: "\\int \\cos(x)^{3} \\, dx", kind: "integrate", answer: "\\sin\\left(x\\right) - \\frac{\\sin\\left(x\\right)^{3}}{3} + C", upToConstant: true, tags: ["integral", "trig", "odd-power"] },
   { latex: "\\int \\frac{1}{x^{2}+4} \\, dx", kind: "integrate", answer: "\\frac{\\arctan\\left(\\frac{x}{2}\\right)}{2} + C", upToConstant: true, tags: ["integral", "arctan"] },

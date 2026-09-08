@@ -22,6 +22,9 @@ const INDEFINITE = [
   "\\int \\frac{1}{x^{2}+4} \\, dx", "\\int \\frac{1}{x^{2}+9} \\, dx",
   // Fractional powers.
   "\\int x^{\\frac{1}{2}} \\, dx", "\\int x^{-2} \\, dx",
+  // The secant pair, and the inverse tangent after completing the square.
+  "\\int \\sec(x) \\, dx", "\\int \\csc(x) \\, dx",
+  "\\int \\frac{1}{x^{2}+2x+5} \\, dx", "\\int \\frac{1}{x^{2}+6x+13} \\, dx",
 ];
 
 describe("every antiderivative differentiates back to its integrand", () => {
