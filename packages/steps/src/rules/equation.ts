@@ -1,6 +1,6 @@
 import {
-  add, div, isOne, isZero, type MathNode, mul, neg, num, rel, Rational,
-  splitCoefficient, symbols, toLatex,
+  add, div, freeSymbols, isOne, isZero, type MathNode, mul, neg, num, rel,
+  Rational, splitCoefficient, symbols, toLatex,
 } from "@openmath/math-core";
 import type { Rule, RuleContext } from "../types.js";
 import { relationDegree } from "../poly.js";
@@ -24,9 +24,15 @@ function joinTerms(terms: MathNode[], id?: number): MathNode {
   return add(terms, id);
 }
 
-/** Pick the variable to solve for: the only symbol, or x/y/z by convention. */
+/**
+ * Pick the variable to solve for: the only symbol, or x/y/z by convention.
+ *
+ * `freeSymbols` rather than `symbols`, so a named constant is never mistaken for
+ * an unknown. Without it, 2e = 4 is "solved" as e = 2, which quietly redefines
+ * Euler's number instead of saying the claim is false.
+ */
 export function chooseVariable(n: MathNode): string | undefined {
-  const syms = [...symbols(n)].filter((s) => s !== "pi");
+  const syms = [...freeSymbols(n)];
   if (syms.length === 0) return undefined;
   if (syms.length === 1) return syms[0];
   for (const pref of ["x", "y", "z", "t", "n"]) if (syms.includes(pref)) return pref;
