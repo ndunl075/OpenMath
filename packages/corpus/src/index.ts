@@ -480,7 +480,11 @@ export const problems: CorpusProblem[] = [
   { latex: "\\int e^{x^{2}} \\, dx", kind: "integrate", unsupported: true, tags: ["integral", "no-elementary-antiderivative"] },
   { latex: "\\int \\sin(x^{2}) \\, dx", kind: "integrate", unsupported: true, tags: ["integral", "no-elementary-antiderivative"] },
   { latex: "\\int \\frac{1}{\\ln(x)} \\, dx", kind: "integrate", unsupported: true, tags: ["integral", "no-elementary-antiderivative"] },
-  { latex: "\\int_{1}^{\\infty} \\frac{1}{x^{2}} \\, dx", kind: "integrate", unsupported: true, declineReason: "parse", tags: ["integral", "improper"] },
+  // The convergent improper integrals live in integral-independent.test.ts:
+  // every answer here is confirmed by measuring the problem, and quadrature
+  // has no way to measure an area running out to infinity.
+  // Divergent: there is no number to report, and saying so is the answer.
+  { latex: "\\int_{1}^{\\infty} \\frac{1}{x} \\, dx", kind: "integrate", unsupported: true, declineReason: "unsupported", tags: ["integral", "improper", "divergent"] },
   { latex: "\\int_{-1}^{1} \\frac{1}{x} \\, dx", kind: "integrate", unsupported: true, tags: ["integral", "improper", "pole-inside"] },
   { latex: "\\int_{0}^{1} \\frac{1}{x} \\, dx", kind: "integrate", unsupported: true, tags: ["integral", "improper", "pole-at-limit"] },
   { latex: "\\int ax \\, dx", kind: "integrate", unsupported: true, tags: ["integral", "ambiguous"] },

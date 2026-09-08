@@ -618,22 +618,12 @@ class Parser {
    * "limit of integration" it is usually called, because `parseLimit` already
    * means the other kind of limit, the one \lim writes.
    *
-   * An infinite bound is refused here rather than parsed, because an improper
-   * integral is a limit problem and answering it as though the bound were an
-   * ordinary number would be wrong.
+   * An infinite bound reads as infinity like any other. It used to be refused
+   * here, on the grounds that an improper integral is a limit problem — which
+   * is true, and is now how it is answered: @openmath/steps rewrites it as a
+   * limit of a proper integral and hands that to the limit engine.
    */
-  private parseIntegralBound(tk: Token): MathNode {
-    let j = this.i;
-    if (this.t[j]?.kind === "lbrace") j++;
-    const sign = this.t[j];
-    if (sign && sign.kind === "op" && (sign.value === "-" || sign.value === "+")) j++;
-    const bound = this.t[j];
-    if (bound && bound.kind === "command" && bound.value === "infty") {
-      throw new ParseError(
-        "an integral with an infinite limit is improper and is not supported yet",
-        tk.pos,
-      );
-    }
+  private parseIntegralBound(_tk: Token): MathNode {
     return this.parseGroup();
   }
 

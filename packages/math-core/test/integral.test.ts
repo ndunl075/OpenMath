@@ -65,11 +65,13 @@ describe("reading an integral", () => {
     expect(() => parseLatex("\\int_{0} x \\, dx")).toThrow(/both limits or neither/);
   });
 
-  it("refuses an infinite limit rather than treating it as a number", () => {
-    expect(() => parseLatex("\\int_{1}^{\\infty} \\frac{1}{x^{2}} \\, dx")).toThrow(
-      /improper/,
-    );
-    expect(() => parseLatex("\\int_{-\\infty}^{0} e^{x} \\, dx")).toThrow(/improper/);
+  it("reads an infinite bound, leaving the improper case to the solver", () => {
+    // The parser used to refuse these. @openmath/steps answers them now, by
+    // rewriting the integral as a limit of a proper one, so the notation has
+    // to survive being read.
+    expect(toDebug(parseLatex("\\int_{1}^{\\infty} \\frac{1}{x^{2}} \\, dx")))
+      .toContain("infinity");
+    expect(toDebug(parseLatex("\\int_{-\\infty}^{0} e^{x} \\, dx"))).toContain("infinity");
   });
 });
 

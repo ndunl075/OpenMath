@@ -1,5 +1,5 @@
 import {
-  add, asLimit, diff, div, evaluateExact, evaluateNumeric, isInfinity,
+  add, asLimit, diff, div, evaluateExact, evaluateNumeric, isInfinity, isZero,
   type LimitParts, limitNumerically, makeTerm, type MathNode, mul, num, pow,
   Rational, substitute, sym, symbols, toLatex, undefinedReason, withLimitBody,
 } from "@openmath/math-core";
@@ -298,6 +298,56 @@ export const limitBoundedOverUnbounded = limitRule(
   },
 );
 
+/**
+ * A term inside a sum that dies away to nothing becomes nothing.
+ *
+ * lim b->inf (1 - e^-b) is 1, but nothing here could say so: substitution
+ * cannot put infinity in, the degree comparison only reads fractions, and
+ * l'Hopital needs a quotient. Zeroing the vanishing term leaves 1 - 0, which
+ * every remaining rule handles, and it is how the step is read aloud anyway.
+ *
+ * Only ever fires on one term of a sum, never on the whole body, so it cannot
+ * answer a limit by asserting the thing being asked.
+ */
+/** Does this expression involve the variable at all? */
+function dependsOn(n: MathNode, v: string): boolean {
+  return symbols(n).has(v);
+}
+
+export const limitVanishingTerm = limitRule(
+  "LIMIT_VANISHING_TERM",
+  (l): RuleResult | null => {
+    if (l.body.type !== "add" || l.body.args.length < 2) return null;
+    const at = pointValue(l);
+    if (Number.isFinite(at)) return null;
+
+    const terms = l.body.args;
+    for (let i = 0; i < terms.length; i++) {
+      const term = terms[i]!;
+      if (!dependsOn(term, l.variable)) continue;
+      if (isZero(term)) continue;
+      const value = limitNumerically(bodyAt(l, term), at, l.side);
+      if (!Number.isFinite(value) || Math.abs(value) > 1e-9) continue;
+
+      // Something else has to survive, or this is the whole answer and the
+      // rule would be asserting it rather than reasoning to it.
+      const survives = terms.some((other, j) => j !== i && !isZero(other));
+      if (!survives) continue;
+
+      const zero = num(Rational.ZERO);
+      const rebuilt = add(terms.map((t, j) => (j === i ? zero : t)), l.body.id);
+      const node = withLimitBody(l, rebuilt);
+      return {
+        node,
+        changes: [{ kind: "replace", fromIds: [term.id], toIds: [zero.id] }],
+        vars: { term: toLatex(term), variable: l.variable, point: toLatex(l.point) },
+      };
+    }
+    return null;
+  },
+);
+
+
 // ---------------------------------------------------------------- l'Hopital
 
 /**
@@ -348,5 +398,6 @@ export const limitTransformRules: Rule[] = [
   limitFactorAndCancel,
   limitAtInfinity,
   limitBoundedOverUnbounded,
+  limitVanishingTerm,
   limitLHopital,
 ];

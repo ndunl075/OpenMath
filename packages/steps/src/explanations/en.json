@@ -626,5 +626,13 @@
   "ABS_OF_POSITIVE": {
     "title": "Drop the absolute value",
     "text": "{value} is positive wherever it is defined, so the bars around it change nothing and can come off."
+  },
+  "INT_IMPROPER_SETUP": {
+    "title": "Rewrite the infinite limit as a limit",
+    "text": "An area stretching out for ever is not something you can substitute into, so put {bound} where {infinite} was, work out the area up to {bound}, and then see where that total heads as {bound} runs off."
+  },
+  "LIMIT_VANISHING_TERM": {
+    "title": "That term dies away to nothing",
+    "text": "{term} shrinks towards zero as {variable} goes to {point}, so in the limit it contributes nothing and the rest of the sum is the whole answer."
   }
 }

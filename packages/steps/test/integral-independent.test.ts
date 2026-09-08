@@ -71,6 +71,42 @@ describe("definite integrals, against values worked by hand", () => {
   }
 });
 
+/**
+ * Improper integrals, against values worked by hand. Not in the corpus,
+ * because every corpus answer is checked by measuring the problem and
+ * quadrature cannot measure an area that runs out to infinity.
+ */
+describe("improper integrals", () => {
+  const CONVERGENT: Array<[string, number]> = [
+    ["\\int_{1}^{\\infty} \\frac{1}{x^{2}} \\, dx", 1],
+    ["\\int_{1}^{\\infty} \\frac{1}{x^{3}} \\, dx", 1 / 2],
+    ["\\int_{2}^{\\infty} \\frac{1}{x^{2}} \\, dx", 1 / 2],
+    ["\\int_{0}^{\\infty} e^{-x} \\, dx", 1],
+    ["\\int_{-\\infty}^{0} e^{x} \\, dx", 1],
+  ];
+  for (const [problem, want] of CONVERGENT) {
+    it(`${problem} = ${want}`, () => {
+      const r = trySolve(problem);
+      if (!r.ok) throw new Error(`${problem}: ${r.message}`);
+      const got = evaluateNumeric(parseLatex(r.solution.answer));
+      expect(Math.abs(got - want), `got ${r.solution.answer} = ${got}`).toBeLessThan(1e-9);
+      expect(r.solution.verified, "verified").toBe(true);
+    });
+  }
+
+  // Divergent: there is no number, and saying so is the answer.
+  for (const problem of [
+    "\\int_{1}^{\\infty} \\frac{1}{x} \\, dx",
+    "\\int_{1}^{\\infty} x \\, dx",
+  ]) {
+    it(`${problem} diverges`, () => {
+      const r = trySolve(problem);
+      expect(r.ok).toBe(false);
+      if (!r.ok) expect(r.message).toContain("diverges");
+    });
+  }
+});
+
 describe("declines rather than inventing an antiderivative", () => {
   for (const problem of ["\\int e^{x^{2}} \\, dx", "\\int \\frac{1}{\\ln(x)} \\, dx"]) {
     it(`refuses ${problem}`, () => expect(trySolve(problem).ok).toBe(false));
