@@ -1,8 +1,8 @@
 import { lex, ParseError, type Token } from "./lexer.js";
 import { Rational } from "./rational.js";
 import {
-  add, DEFAULT_DERIVATIVE_VARIABLE, diff, div, fn, isConstantSymbol, type MathNode,
-  mul, neg, num, pow, rel, type Relation, sym, symbols,
+  add, DEFAULT_DERIVATIVE_VARIABLE, definiteIntegral, diff, div, fn, integral,
+  isConstantSymbol, type MathNode, mul, neg, num, pow, rel, type Relation, sym, symbols,
 } from "./ast.js";
 
 export { ParseError };
@@ -27,6 +27,13 @@ class Parser {
   private barDepth = 0;
   /** Depth of enclosing exponents, so a prime is never read as belonging to one. */
   private exponentDepth = 0;
+  /**
+   * Token offsets where an integrand ends, i.e. the `d` of a trailing `dx`.
+   * Implicit multiplication stops there, which is what keeps `\\int \\frac{1}{x} dx`
+   * from reading the dx as two more factors of the fraction. It is a set rather
+   * than one offset so a nested integral cannot clear its parent's marker.
+   */
+  private readonly integrandEnds = new Set<number>();
 
   constructor(src: string) {
     this.t = lex(src);
@@ -120,6 +127,7 @@ class Parser {
 
   /** True when the current token can begin a factor, i.e. implicit multiplication. */
   private startsFactor(): boolean {
+    if (this.integrandEnds.has(this.i)) return false;
     const tk = this.peek();
     switch (tk.kind) {
       case "number":
@@ -312,6 +320,8 @@ class Parser {
       return fn("sqrt", [this.parseGroup()]);
     }
 
+    if (name === "int") return this.parseIntegral(tk);
+
     if (name === "pm" || name === "mp") {
       throw new ParseError("\\pm is not supported yet", tk.pos);
     }
@@ -434,6 +444,110 @@ class Parser {
   private parseDerivativeOperand(): MathNode {
     if (this.at("lparen") || this.at("lbrace")) return this.parseFactor();
     return this.parseImplicitRun();
+  }
+
+  /**
+   * `\int f(x) \, dx` and `\int_{a}^{b} f(x) \, dx`.
+   *
+   * The trailing d-variable is what closes the integrand and names the
+   * variable, so it is located *before* the integrand is parsed: the offset of
+   * its `d` goes into `integrandEnds`, and every implicit-multiplication loop
+   * stops there. Doing it in that order is what keeps `\int \frac{1}{x} dx`
+   * from reading as one over x, times d, times x.
+   */
+  private parseIntegral(tk: Token): MathNode {
+    const limits = this.parseIntegralLimits(tk);
+    const end = this.findIntegrandEnd(this.i);
+    if (end === null) {
+      throw new ParseError(
+        "an integral needs a variable at the end, as in \\int x \\, dx",
+        tk.pos,
+      );
+    }
+    this.integrandEnds.add(end);
+    let body: MathNode;
+    try {
+      body = this.parseExpr();
+    } finally {
+      this.integrandEnds.delete(end);
+    }
+    if (this.i !== end) {
+      throw new ParseError("could not tell where this integrand ends", this.peek().pos);
+    }
+    this.next();
+    const variable = this.next().value;
+    return limits
+      ? definiteIntegral(body, sym(variable), limits.lower, limits.upper)
+      : integral(body, sym(variable));
+  }
+
+  /** Both limits or neither: `\int_{0}` is not an integral anyone means. */
+  private parseIntegralLimits(tk: Token): { lower: MathNode; upper: MathNode } | null {
+    let lower: MathNode | null = null;
+    let upper: MathNode | null = null;
+    for (let k = 0; k < 2; k++) {
+      if (!lower && this.at("op", "_")) {
+        this.next();
+        lower = this.parseLimit(tk);
+      } else if (!upper && this.at("op", "^")) {
+        this.next();
+        upper = this.parseLimit(tk);
+      } else break;
+    }
+    if (lower && upper) return { lower, upper };
+    if (!lower && !upper) return null;
+    throw new ParseError("an integral needs both limits or neither", tk.pos);
+  }
+
+  /**
+   * One limit of a definite integral. An infinite limit is refused here rather
+   * than parsed, because an improper integral is a limit problem and answering
+   * it as though the bound were an ordinary number would be wrong.
+   */
+  private parseLimit(tk: Token): MathNode {
+    let j = this.i;
+    if (this.t[j]?.kind === "lbrace") j++;
+    const sign = this.t[j];
+    if (sign && sign.kind === "op" && (sign.value === "-" || sign.value === "+")) j++;
+    const bound = this.t[j];
+    if (bound && bound.kind === "command" && bound.value === "infty") {
+      throw new ParseError(
+        "an integral with an infinite limit is improper and is not supported yet",
+        tk.pos,
+      );
+    }
+    return this.parseGroup();
+  }
+
+  /**
+   * The offset of the `d` in the trailing `dx`, or null when there is none.
+   * Only a pair at the same bracket depth as the `\int` counts, so a `dx`
+   * inside a fraction or a function argument is left where it is.
+   */
+  private findIntegrandEnd(from: number): number | null {
+    let depth = 0;
+    for (let j = from; j < this.t.length; j++) {
+      const tok = this.t[j]!;
+      if (tok.kind === "eof") return null;
+      if (tok.kind === "lparen" || tok.kind === "lbrace" || tok.kind === "lbracket") depth++;
+      else if (tok.kind === "rparen" || tok.kind === "rbrace" || tok.kind === "rbracket") {
+        depth--;
+        // The group containing the \int closed first, so there is no dx to find.
+        if (depth < 0) return null;
+      }
+      if (depth !== 0 || j === from) continue;
+      if (tok.kind !== "ident" || tok.value !== "d") continue;
+      const name = this.t[j + 1];
+      if (!name) continue;
+      const namesVariable =
+        name.kind === "ident" || (name.kind === "command" && GREEK.has(name.value));
+      if (!namesVariable) continue;
+      // `dx^2` is a power of something called dx, not the end of an integrand.
+      const after = this.t[j + 2];
+      if (after && after.kind === "op" && (after.value === "^" || after.value === "_")) continue;
+      return j;
+    }
+    return null;
   }
 
   /** Parenthesised or braced group, used for `\sin(x)`. */

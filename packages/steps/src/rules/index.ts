@@ -6,6 +6,7 @@ import { distribute, distributeNegative, distributeRules } from "./distribute.js
 import { equationRules } from "./equation.js";
 import { fractionRules } from "./fractions.js";
 import { identityRules } from "./identities.js";
+import { integralRules } from "./integral.js";
 
 export * from "./arithmetic.js";
 export * from "./collect.js";
@@ -14,6 +15,7 @@ export * from "./distribute.js";
 export * from "./equation.js";
 export * from "./fractions.js";
 export * from "./identities.js";
+export * from "./integral.js";
 
 /**
  * Priority order. The engine takes the first rule that applies anywhere, so
@@ -51,4 +53,4 @@ export const differentiationRules: Rule[] = [
   distribute,
 ];
 
-export const allRules: Rule[] = [...differentiationRules, ...equationRules];
+export const allRules: Rule[] = [...differentiationRules, ...integralRules, ...equationRules];

@@ -63,13 +63,13 @@ describe("scoring one read", () => {
   });
 
   it("marks a read the solver refuses as out of scope, not as a parse error", () => {
-    const score = scoreItem("2x + 3 = 7", "\\int 2x\\,dx = 7");
+    const score = scoreItem("2x + 3 = 7", "\\sum_{i=1}^{n} i = 7");
     expect(score.failure).toBe("out-of-scope");
     expect(score.answerMatch).toBe(false);
   });
 
   it("does not score answers for a ground truth the solver cannot answer", () => {
-    const score = scoreItem("\\int x\\,dx", "\\int x\\,dx");
+    const score = scoreItem("\\lim_{x \\to 0} x", "\\lim_{x \\to 0} x");
     expect(score.exactMatch).toBe(true);
     expect(score.scorable).toBe(false);
     expect(score.unscorableReason).toBe("out-of-scope");

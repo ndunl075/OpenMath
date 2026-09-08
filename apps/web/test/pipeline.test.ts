@@ -41,8 +41,17 @@ describe("scan to steps", () => {
   }
 
   it("routes an out-of-scope scan to a message instead of the solver", () => {
+    const latex = normalizeLatex("\\sum_{i=1}^{n} i");
+    expect(detectOutOfScope(latex)).toBe("sums and products");
+  });
+
+  it("sends a scanned integral to the solver rather than refusing it here", () => {
     const latex = normalizeLatex("\\int_0^1 x\\,dx");
-    expect(detectOutOfScope(latex)).toBe("integrals");
+    expect(detectOutOfScope(latex)).toBeNull();
+    const outcome = trySolve(latex);
+    if (!outcome.ok) throw new Error(`${latex}: ${outcome.message}`);
+    expect(outcome.solution.answer).toBe("\\frac{1}{2}");
+    expect(outcome.solution.verified).toBe(true);
   });
 
   it("hands a derivative it cannot take back as unsupported, not half-solved", () => {

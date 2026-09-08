@@ -8,9 +8,17 @@
  */
 export interface CorpusProblem {
   latex: string;
-  kind: "simplify" | "evaluate" | "solve" | "differentiate";
+  kind: "simplify" | "evaluate" | "solve" | "differentiate" | "integrate";
   /** Exact expected answer LaTeX. */
   answer?: string;
+  /**
+   * The answer is only fixed up to an additive constant, which is true of every
+   * indefinite integral. The check differentiates the answer written here and
+   * compares it with the integrand, then compares the solver's answer with this
+   * one by confirming the gap between them stays constant — string equality is
+   * the wrong test when x^2/2 and (x^2+1)/2 are both right.
+   */
+  upToConstant?: true;
   /** Numeric value of each solution, checked by substitution. */
   roots?: number[];
   /** Expected to be rejected rather than answered. */
@@ -186,7 +194,77 @@ export const problems: CorpusProblem[] = [
   { latex: "\\frac{d}{dx}\\arctan(x)", kind: "differentiate", unsupported: true, tags: ["derivative", "no-rule"] },
   { latex: "\\frac{d}{dx}\\left|x\\right|", kind: "differentiate", unsupported: true, tags: ["derivative", "no-rule"] },
   { latex: "\\frac{d}{dx}(x^{2})=2x", kind: "differentiate", unsupported: true, tags: ["derivative", "equation"] },
-  { latex: "\\int x\\,dx", kind: "differentiate", unsupported: true, declineReason: "parse", tags: ["integral"] },
+
+  // ---- integrals: the table
+  { latex: "\\int x \\, dx", kind: "integrate", answer: "\\frac{x^{2}}{2} + C", upToConstant: true, tags: ["integral", "power"] },
+  { latex: "\\int x^{2} \\, dx", kind: "integrate", answer: "\\frac{x^{3}}{3} + C", upToConstant: true, tags: ["integral", "power"] },
+  { latex: "\\int x^{5} \\, dx", kind: "integrate", answer: "\\frac{x^{6}}{6} + C", upToConstant: true, tags: ["integral", "power"] },
+  { latex: "\\int 3 \\, dx", kind: "integrate", answer: "3x + C", upToConstant: true, tags: ["integral", "constant"] },
+  { latex: "\\int \\frac{1}{x} \\, dx", kind: "integrate", answer: "\\ln\\left|x\\right| + C", upToConstant: true, tags: ["integral", "log"] },
+  { latex: "\\int \\frac{1}{x^{3}} \\, dx", kind: "integrate", answer: "-\\frac{1}{2x^{2}} + C", upToConstant: true, tags: ["integral", "power", "negative-exponent"] },
+  { latex: "\\int \\sqrt{x} \\, dx", kind: "integrate", answer: "\\frac{2}{3}x^{\\frac{3}{2}} + C", upToConstant: true, tags: ["integral", "roots"] },
+  { latex: "\\int e^{x} \\, dx", kind: "integrate", answer: "e^{x} + C", upToConstant: true, tags: ["integral", "exponential"] },
+  { latex: "\\int 2^{x} \\, dx", kind: "integrate", answer: "\\frac{2^{x}}{\\ln\\left(2\\right)} + C", upToConstant: true, tags: ["integral", "exponential"] },
+  { latex: "\\int \\sin(x) \\, dx", kind: "integrate", answer: "-\\cos\\left(x\\right) + C", upToConstant: true, tags: ["integral", "trig"] },
+  { latex: "\\int \\cos(x) \\, dx", kind: "integrate", answer: "\\sin\\left(x\\right) + C", upToConstant: true, tags: ["integral", "trig"] },
+  { latex: "\\int \\sec(x)^{2} \\, dx", kind: "integrate", answer: "\\tan\\left(x\\right) + C", upToConstant: true, tags: ["integral", "trig"] },
+  { latex: "\\int \\frac{1}{1+x^{2}} \\, dx", kind: "integrate", answer: "\\arctan\\left(x\\right) + C", upToConstant: true, tags: ["integral", "arctan"] },
+  { latex: "\\int \\frac{1}{\\sqrt{1-x^{2}}} \\, dx", kind: "integrate", answer: "\\arcsin\\left(x\\right) + C", upToConstant: true, tags: ["integral", "arcsin"] },
+
+  // ---- integrals: sums and constant multiples
+  { latex: "\\int (x^{2}+3x) \\, dx", kind: "integrate", answer: "\\frac{x^{3}}{3} + \\frac{3x^{2}}{2} + C", upToConstant: true, tags: ["integral", "sum"] },
+  { latex: "\\int (4x^{3}-2x+5) \\, dx", kind: "integrate", answer: "x^{4} - x^{2} + 5x + C", upToConstant: true, tags: ["integral", "sum", "difference"] },
+  { latex: "\\int 5x^{4} \\, dx", kind: "integrate", answer: "x^{5} + C", upToConstant: true, tags: ["integral", "constant-multiple"] },
+  { latex: "\\int \\frac{x^{2}}{3} \\, dx", kind: "integrate", answer: "\\frac{x^{3}}{9} + C", upToConstant: true, tags: ["integral", "constant-multiple"] },
+  { latex: "\\int (x+1)(x+2) \\, dx", kind: "integrate", answer: "\\frac{x^{3}}{3} + \\frac{3x^{2}}{2} + 2x + C", upToConstant: true, tags: ["integral", "expand"] },
+  { latex: "\\int (x^{2}+1)^{2} \\, dx", kind: "integrate", answer: "\\frac{x^{5}}{5} + \\frac{2x^{3}}{3} + x + C", upToConstant: true, tags: ["integral", "expand"] },
+  { latex: "\\int t^{2} \\, dt", kind: "integrate", answer: "\\frac{t^{3}}{3} + C", upToConstant: true, tags: ["integral", "other-variable"] },
+
+  // ---- integrals: substitution
+  { latex: "\\int 2x(x^{2}+1)^{3} \\, dx", kind: "integrate", answer: "\\frac{(x^{2}+1)^{4}}{4} + C", upToConstant: true, tags: ["integral", "substitution"] },
+  { latex: "\\int \\sin(3x) \\, dx", kind: "integrate", answer: "-\\frac{\\cos\\left(3x\\right)}{3} + C", upToConstant: true, tags: ["integral", "substitution", "trig"] },
+  { latex: "\\int \\cos(2x) \\, dx", kind: "integrate", answer: "\\frac{\\sin\\left(2x\\right)}{2} + C", upToConstant: true, tags: ["integral", "substitution", "trig"] },
+  { latex: "\\int e^{3x} \\, dx", kind: "integrate", answer: "\\frac{e^{3x}}{3} + C", upToConstant: true, tags: ["integral", "substitution", "exponential"] },
+  { latex: "\\int xe^{x^{2}} \\, dx", kind: "integrate", answer: "\\frac{e^{x^{2}}}{2} + C", upToConstant: true, tags: ["integral", "substitution", "exponential"] },
+  { latex: "\\int \\frac{2x}{x^{2}+1} \\, dx", kind: "integrate", answer: "\\ln\\left|x^{2}+1\\right| + C", upToConstant: true, tags: ["integral", "substitution", "log"] },
+  { latex: "\\int \\frac{\\ln(x)}{x} \\, dx", kind: "integrate", answer: "\\frac{\\ln\\left(x\\right)^{2}}{2} + C", upToConstant: true, tags: ["integral", "substitution", "log"] },
+  { latex: "\\int (2x+1)^{5} \\, dx", kind: "integrate", answer: "\\frac{(2x+1)^{6}}{12} + C", upToConstant: true, tags: ["integral", "substitution", "power"] },
+  { latex: "\\int \\frac{1}{(x-1)^{2}} \\, dx", kind: "integrate", answer: "-\\frac{1}{x-1} + C", upToConstant: true, tags: ["integral", "substitution", "power"] },
+
+  // ---- integrals: by parts
+  { latex: "\\int x\\sin(x) \\, dx", kind: "integrate", answer: "\\sin\\left(x\\right) - x\\cos\\left(x\\right) + C", upToConstant: true, tags: ["integral", "by-parts", "trig"] },
+  { latex: "\\int x\\cos(x) \\, dx", kind: "integrate", answer: "x\\sin\\left(x\\right) + \\cos\\left(x\\right) + C", upToConstant: true, tags: ["integral", "by-parts", "trig"] },
+  { latex: "\\int xe^{x} \\, dx", kind: "integrate", answer: "xe^{x} - e^{x} + C", upToConstant: true, tags: ["integral", "by-parts", "exponential"] },
+  { latex: "\\int x^{2}e^{x} \\, dx", kind: "integrate", answer: "x^{2}e^{x} - 2xe^{x} + 2e^{x} + C", upToConstant: true, tags: ["integral", "by-parts", "twice"] },
+  { latex: "\\int \\ln(x) \\, dx", kind: "integrate", answer: "x\\ln\\left(x\\right) - x + C", upToConstant: true, tags: ["integral", "by-parts", "log"] },
+  { latex: "\\int x\\ln(x) \\, dx", kind: "integrate", answer: "\\frac{x^{2}\\ln\\left(x\\right)}{2} - \\frac{x^{2}}{4} + C", upToConstant: true, tags: ["integral", "by-parts", "log"] },
+
+  // ---- integrals: rational functions
+  { latex: "\\int \\frac{5x-3}{x^{2}-2x-3} \\, dx", kind: "integrate", answer: "3\\ln\\left|x-3\\right| + 2\\ln\\left|x+1\\right| + C", upToConstant: true, tags: ["integral", "partial-fractions"] },
+  { latex: "\\int \\frac{1}{x^{2}-1} \\, dx", kind: "integrate", answer: "\\frac{1}{2}\\ln\\left|x-1\\right| - \\frac{1}{2}\\ln\\left|x+1\\right| + C", upToConstant: true, tags: ["integral", "partial-fractions"] },
+  { latex: "\\int \\frac{1}{x^{2}+3x+2} \\, dx", kind: "integrate", answer: "\\ln\\left|x+1\\right| - \\ln\\left|x+2\\right| + C", upToConstant: true, tags: ["integral", "partial-fractions"] },
+  { latex: "\\int \\frac{x^{2}}{x+1} \\, dx", kind: "integrate", answer: "\\frac{x^{2}}{2} - x + \\ln\\left|x+1\\right| + C", upToConstant: true, tags: ["integral", "long-division"] },
+
+  // ---- integrals: definite, where the answer is one number and pinned exactly
+  { latex: "\\int_{0}^{1} x^{2} \\, dx", kind: "integrate", answer: "\\frac{1}{3}", tags: ["integral", "definite"] },
+  { latex: "\\int_{1}^{3} 2x \\, dx", kind: "integrate", answer: "8", tags: ["integral", "definite"] },
+  { latex: "\\int_{0}^{2} (x^{2}+1) \\, dx", kind: "integrate", answer: "\\frac{14}{3}", tags: ["integral", "definite", "sum"] },
+  { latex: "\\int_{1}^{2} \\frac{1}{x^{2}} \\, dx", kind: "integrate", answer: "\\frac{1}{2}", tags: ["integral", "definite"] },
+  { latex: "\\int_{0}^{1} e^{x} \\, dx", kind: "integrate", answer: "e - 1", tags: ["integral", "definite", "exponential"] },
+  { latex: "\\int_{-1}^{1} x^{3} \\, dx", kind: "integrate", answer: "0", tags: ["integral", "definite", "odd"] },
+  { latex: "\\int_{0}^{1} \\sqrt{x} \\, dx", kind: "integrate", answer: "\\frac{2}{3}", tags: ["integral", "definite", "roots"] },
+  { latex: "\\int_{2}^{1} x \\, dx", kind: "integrate", answer: "-\\frac{3}{2}", tags: ["integral", "definite", "reversed-limits"] },
+  { latex: "\\int_{0}^{3} (2x+1) \\, dx", kind: "integrate", answer: "12", tags: ["integral", "definite"] },
+
+  // ---- integrals out of scope, must be refused rather than half-answered
+  { latex: "\\int e^{x^{2}} \\, dx", kind: "integrate", unsupported: true, tags: ["integral", "no-elementary-antiderivative"] },
+  { latex: "\\int \\sin(x^{2}) \\, dx", kind: "integrate", unsupported: true, tags: ["integral", "no-elementary-antiderivative"] },
+  { latex: "\\int \\frac{1}{\\ln(x)} \\, dx", kind: "integrate", unsupported: true, tags: ["integral", "no-elementary-antiderivative"] },
+  { latex: "\\int_{1}^{\\infty} \\frac{1}{x^{2}} \\, dx", kind: "integrate", unsupported: true, declineReason: "parse", tags: ["integral", "improper"] },
+  { latex: "\\int_{-1}^{1} \\frac{1}{x} \\, dx", kind: "integrate", unsupported: true, tags: ["integral", "improper", "pole-inside"] },
+  { latex: "\\int_{0}^{1} \\frac{1}{x} \\, dx", kind: "integrate", unsupported: true, tags: ["integral", "improper", "pole-at-limit"] },
+  { latex: "\\int ax \\, dx", kind: "integrate", unsupported: true, tags: ["integral", "ambiguous"] },
+  { latex: "\\int x \\, dx = 5", kind: "integrate", unsupported: true, tags: ["integral", "equation"] },
 ];
 
 export const byTag = (tag: string): CorpusProblem[] =>

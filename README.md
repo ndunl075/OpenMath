@@ -6,7 +6,8 @@ step, not just the answer.
 Everything runs in your browser. No account, no ads, no subscription, no server.
 Your photos never leave your device.
 
-**Status:** v1 in development. Algebra through quadratics and derivatives works end to end.
+**Status:** v1 in development. Algebra through quadratics, derivatives and
+integrals works end to end.
 Recognition is wired but has not yet been benchmarked on real photos, see
 [Known gaps](#known-gaps).
 
@@ -41,9 +42,17 @@ quadratics by factoring or the formula with exact radical roots, and
 derivatives in a single variable including the product, quotient and chain
 rules.
 
+Integrals too, indefinite and definite: the standard table, sums and constant
+multiples, u-substitution, integration by parts, and partial fractions over a
+denominator that factors. Every antiderivative is differentiated back and
+checked against the integrand before you see it, so an integral the search gets
+wrong is discarded rather than shown.
+
 Out of scope for v1, and refused clearly rather than answered wrongly: word
-problems, integrals, systems of equations, matrices, trigonometric equations,
-implicit differentiation, and percentages.
+problems, integrals with no elementary antiderivative such as `\int e^{x^2} dx`,
+improper integrals and any definite integral with a pole between its limits,
+systems of equations, matrices, trigonometric equations, implicit
+differentiation, and percentages.
 
 ## Repository layout
 
@@ -69,7 +78,7 @@ the recognition model on handwritten datasets, kept against the contingency in
 ```bash
 pnpm install
 pnpm dev        # http://localhost:5173
-pnpm test       # 240 tests
+pnpm test       # 459 tests
 pnpm typecheck
 ```
 
