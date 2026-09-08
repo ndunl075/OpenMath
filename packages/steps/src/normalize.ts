@@ -1,5 +1,5 @@
 import {
-  add, children, type MathNode, mul, neg, num, Rational, withChildren,
+  add, children, div, type MathNode, mul, neg, num, Rational, withChildren,
 } from "@openmath/math-core";
 
 /**
@@ -22,6 +22,16 @@ function once(n: MathNode): MathNode {
   // -(number) -> negative number, keeping the outer id
   if (node.type === "neg" && node.arg.type === "num") {
     return num(node.arg.value.neg(), node.id);
+  }
+
+  if (node.type === "div") {
+    // -1/x^2 reads as a negative fraction, not a fraction of a negative.
+    if (node.num.type === "neg") {
+      return neg(div(node.num.arg, node.den, node.id));
+    }
+    if (node.num.type === "num" && node.num.value.isNegative()) {
+      return neg(div(num(node.num.value.neg()), node.den, node.id));
+    }
   }
 
   if (node.type === "add") {

@@ -1,6 +1,6 @@
 import {
-  asDiff, containsDiff, evaluateNumeric, firstDiff, freeSymbols, type MathNode, num,
-  parseLatex, Rational, rel, sym, symbols, toLatex,
+  asDiff, containsDiff, evaluateNumeric, firstDiff, freeSymbols, hasDivisionByZero,
+  type MathNode, num, parseLatex, Rational, rel, sym, symbols, toLatex,
 } from "@openmath/math-core";
 import { run } from "./engine.js";
 import { explain } from "./explain.js";
@@ -266,10 +266,22 @@ function differentiate(node: MathNode): Solution {
 
 /** Solve or simplify an already-parsed expression. */
 export function solveNode(node: MathNode): Solution {
+  if (hasDivisionByZero(node)) {
+    throw new UnsupportedProblemError("this divides by zero, so it has no value");
+  }
   const c = classify(node);
-  if (c.kind === "solve") return solveEquation(node);
-  if (c.kind === "differentiate") return differentiate(node);
-  return simplify(node, c.kind);
+  const solution =
+    c.kind === "solve" ? solveEquation(node)
+    : c.kind === "differentiate" ? differentiate(node)
+    : simplify(node, c.kind);
+
+  // Cancelling terms can produce a zero denominator the problem did not start
+  // with, as in 1/(x-x). Reporting that as an answer is worse than declining.
+  const undefinedResult = (latex: string) => /\\frac\{[^{}]*\}\{0\}/.test(latex);
+  if (undefinedResult(solution.answer) || solution.answers.some(undefinedResult)) {
+    throw new UnsupportedProblemError("this works out to a division by zero, so it has no value");
+  }
+  return solution;
 }
 
 /** Parse LaTeX and solve it. Throws ParseError or UnsupportedProblemError. */
