@@ -4,9 +4,11 @@ import { collectRules } from "./collect.js";
 import { derivativeRules } from "./derivative.js";
 import { distribute, distributeNegative, distributeRules } from "./distribute.js";
 import { equationRules } from "./equation.js";
+import { factorRules } from "./factor.js";
 import { fractionRules } from "./fractions.js";
 import { identityRules } from "./identities.js";
 import { limitTransformRules } from "./limit.js";
+import { logEquationRules } from "./log-equations.js";
 import { logRules } from "./logs.js";
 import { trigRules } from "./trig.js";
 
@@ -15,9 +17,11 @@ export * from "./collect.js";
 export * from "./derivative.js";
 export * from "./distribute.js";
 export * from "./equation.js";
+export * from "./factor.js";
 export * from "./fractions.js";
 export * from "./identities.js";
 export * from "./limit.js";
+export * from "./log-equations.js";
 export * from "./logs.js";
 export * from "./trig.js";
 
@@ -80,3 +84,29 @@ export const differentiationRules: Rule[] = [
 export const limitRules: Rule[] = [...differentiationRules, ...limitTransformRules];
 
 export const allRules: Rule[] = [...limitRules, ...equationRules];
+
+/**
+ * Enough to get one thing on its own and tidy the other side, and nothing that
+ * would reach inside a logarithm or an exponent. The radical, logarithmic and
+ * exponential solvers use this to isolate before they take their one big step;
+ * running the whole curriculum there would expand the very expression they are
+ * about to rewrite.
+ */
+export const isolationRules: Rule[] = [
+  ...identityRules,
+  ...arithmeticRules,
+  ...equationRules,
+];
+
+/**
+ * Every rule in the package, whichever pipeline it belongs to. Only used to
+ * check that each one has an explanation; the pipelines above are what the
+ * engine actually runs.
+ */
+export const everyRule: Rule[] = [
+  ...allRules,
+  ...expressionRules,
+  ...factorRules,
+  ...logRules,
+  ...logEquationRules,
+];

@@ -1,24 +1,101 @@
 import {
   asDiff, asLimit, containsDiff, containsInfinity, containsLimit, evaluateNumeric,
-  firstDiff, firstLimit, freeSymbols, hasDivisionByZero, type MathNode, num,
-  parseLatex, Rational, rel, sym, symbols, toLatex, undefinedReason,
+  firstDiff, firstLimit, freeSymbols, hasDivisionByZero, key, type MathNode, num,
+  parseLatex, Rational, rel, splitCoefficient, sym, symbols, toLatex,
+  undefinedReason, walk,
 } from "@openmath/math-core";
 import { run } from "./engine.js";
 import { explain } from "./explain.js";
+import {
+  isExponentialEquation, isLogarithmicEquation, solveExponentialEquation,
+  solveLogarithmicEquation,
+} from "./explog.js";
+import {
+  isAbsoluteValueProblem, solveAbsoluteValueProblem, solveQuadraticInequality,
+} from "./inequality.js";
 import { solveLimit } from "./limit.js";
 import { chooseVariable } from "./rules/equation.js";
-import { allRules, differentiationRules, expressionRules } from "./rules/index.js";
+import { allRules, differentiationRules, expressionRules, factorRules } from "./rules/index.js";
 import { coeff, degree, relationDegree } from "./poly.js";
+import { solveByRationalRoots } from "./polysolve.js";
 import { polynomialOf, solveQuadratic } from "./quadratic.js";
-import { type Solution, type Step, UnsupportedProblemError } from "./types.js";
+import { isRadicalEquation, solveRadicalEquation } from "./radical.js";
+import { displayStep } from "./step.js";
+import {
+  type Finish, type Resolved, type Solution, type Step, UnsupportedProblemError,
+} from "./types.js";
 import { checkSolution, verifyDerivative } from "./verify.js";
 
-export type ProblemKind = "simplify" | "evaluate" | "solve" | "differentiate" | "limit";
+export type ProblemKind =
+  | "simplify"
+  | "evaluate"
+  | "solve"
+  | "differentiate"
+  | "factor"
+  | "limit";
 
 export interface Classification {
   kind: ProblemKind;
   variable?: string;
   degree?: number;
+}
+
+function containsSum(n: MathNode): boolean {
+  let found = false;
+  walk(n, (x) => {
+    if (x.type === "add") found = true;
+  });
+  return found;
+}
+
+/**
+ * The variable part of a single term, as a comparable string: 3x^2y and -x^2y
+ * share one. Null when the term is not a monomial at all, which a fraction, a
+ * function call or a bracket all are.
+ */
+function monomialKey(n: MathNode): string | null {
+  if (containsSum(n)) return null;
+  const { rest } = splitCoefficient(n);
+  const parts: string[] = [];
+  for (const r of rest) {
+    if (r.type === "sym") parts.push(key(r));
+    else if (
+      r.type === "pow" && r.base.type === "sym" &&
+      r.exp.type === "num" && r.exp.value.isInteger() && !r.exp.value.isNegative()
+    ) {
+      parts.push(key(r));
+    } else return null;
+  }
+  return parts.sort().join("*");
+}
+
+/**
+ * Is this expression one to *factor* rather than one to simplify?
+ *
+ * Factoring and expanding undo each other, so the two cannot both be rules in
+ * one pipeline: whichever ran first would decide the answer, and running them
+ * together would loop. The shape of what the student wrote settles it instead,
+ * once, here. A product, or a power of a bracket, is written that way because
+ * the exercise is to multiply it out. A polynomial already written term by
+ * term, with its like terms collected, is written that way because the exercise
+ * is to put it back into factors. Anything else — two variables, a fraction,
+ * terms still waiting to be combined — is an ordinary simplification.
+ *
+ * The two directions then run in separate rule sets (`expressionRules` and
+ * `factorRules`), neither of which contains a rule that could undo the other,
+ * so there is no cycle for the engine's seen-set to have to catch.
+ */
+export function isFactoringProblem(n: MathNode): boolean {
+  if (n.type !== "add" || n.args.length < 2) return false;
+  const seen = new Set<string>();
+  let hasVariableTerm = false;
+  for (const term of n.args) {
+    const k = monomialKey(term);
+    if (k === null || seen.has(k)) return false;
+    if (k !== "") hasVariableTerm = true;
+    seen.add(k);
+  }
+  return hasVariableTerm;
 }
 
 /** Decide what kind of problem this is before trying to solve it. */
@@ -43,8 +120,13 @@ export function classify(node: MathNode): Classification {
     return { kind: "solve", ...(variable ? { variable } : {}), ...(deg !== undefined ? { degree: deg } : {}) };
   }
   const vars = [...freeSymbols(node)];
-  return vars.length === 0 ? { kind: "evaluate" } : { kind: "simplify" };
+  if (vars.length === 0) return { kind: "evaluate" };
+  if (isFactoringProblem(node)) return { kind: "factor", variable: vars[0]! };
+  return { kind: "simplify" };
 }
+
+/** Matches the ceiling in polysolve; past it the working stops being readable. */
+const MAX_SOLVABLE_DEGREE = 6;
 
 function stepsVerified(steps: Step[]): boolean {
   return steps.every((s) => !s.unverified);
@@ -65,23 +147,217 @@ function simplify(node: MathNode, kind: "simplify" | "evaluate"): Solution {
   };
 }
 
-function finalStep(
-  ruleId: string,
-  before: string,
-  after: string,
-  beforeNode: MathNode,
-  vars: Record<string, string> = {},
-): Step {
-  const wording = explain(ruleId, vars);
+/**
+ * Factor an expression.
+ *
+ * Nothing factoring is not a failure: x^2 + 1 does not come apart over the
+ * rationals, and the honest answer is the expression itself. That case falls
+ * back to the ordinary simplification, and reports that kind, rather than
+ * claiming to have factored something.
+ */
+function factorExpression(node: MathNode): Solution {
+  const problem = toLatex(node);
+  const result = run(node, factorRules, {});
+  if (result.steps.length === 0) return simplify(node, "simplify");
+  const answer = toLatex(result.node);
   return {
-    ruleId,
-    title: wording.title,
-    explanation: wording.text,
-    before,
-    after,
-    beforeNode,
-    display: true,
-    changes: [],
+    kind: "factor",
+    problem,
+    answer,
+    answers: [answer],
+    steps: result.steps,
+    verified: stepsVerified(result.steps),
+    ...(result.incomplete ? { incomplete: true } : {}),
+  };
+}
+
+/**
+ * Solve an equation that is polynomial in the variable, or already isolated.
+ * Every specialised solver funnels back into this once it has reduced its
+ * problem to an ordinary one.
+ */
+function solvePolynomialForm(node: MathNode, variable: string): Resolved {
+  const result = run(node, allRules, { variable });
+  const steps = [...result.steps];
+  const settled = result.node;
+
+  if (settled.type !== "rel") {
+    throw new UnsupportedProblemError("the equation collapsed into an expression");
+  }
+  let current: Extract<MathNode, { type: "rel" }> = settled;
+
+  const poly = polynomialOf(current, variable);
+  const deg = poly ? degree(poly) : relationDegree(current, variable);
+
+  // Degenerate: the variable cancelled out entirely.
+  if (poly && deg !== null && deg <= 0) {
+    const constant = coeff(poly, 0);
+    const holds = constant.isZero();
+    const ruleId = holds ? "IDENTITY_TRUE" : "IDENTITY_FALSE";
+    const wording = explain(ruleId);
+    steps.push(
+      displayStep(ruleId, toLatex(current), holds ? "\\text{true for every } " + variable : "\\text{no solution}", current),
+    );
+    return {
+      steps,
+      answers: [],
+      values: [],
+      answer: holds ? `\\text{every value of } ${variable}` : "\\text{no solution}",
+      note: wording.text,
+      verified: stepsVerified(steps),
+    };
+  }
+
+  if (deg === 2) {
+    if (!poly) throw new UnsupportedProblemError("this quadratic is out of scope");
+    if (current.rel !== "=") {
+      const solved = solveQuadraticInequality(current, variable, poly);
+      if (!solved) throw new UnsupportedProblemError("could not solve this quadratic inequality");
+      return { ...solved, steps: [...steps, ...solved.steps] };
+    }
+    const q = solveQuadratic(current, variable, poly);
+    if (!q) throw new UnsupportedProblemError("could not read the quadratic coefficients");
+    steps.push(...q.steps);
+    const verifiedRoots = q.answerValues.every(
+      (v) => Number.isFinite(v) && checkSolution(node, variable, v) !== "mismatch",
+    );
+    return {
+      steps,
+      answers: q.answers,
+      values: q.answerValues,
+      ...(q.answers.length === 0 ? { answer: "\\text{no real solutions}" } : {}),
+      ...(q.note ? { note: q.note } : {}),
+      verified: stepsVerified(steps) && verifiedRoots,
+    };
+  }
+
+  if (deg !== null && deg > 2) {
+    if (current.rel !== "=") {
+      throw new UnsupportedProblemError(`inequalities of degree ${deg} are not supported yet`);
+    }
+    if (!poly || deg > MAX_SOLVABLE_DEGREE) {
+      throw new UnsupportedProblemError(
+        `equations of degree ${deg} are past what this solver does`,
+      );
+    }
+    const higher = solveByRationalRoots(current, variable, poly);
+    if (!higher) {
+      throw new UnsupportedProblemError(
+        `this degree ${deg} equation has no rational root, so it cannot be solved by factoring`,
+      );
+    }
+    steps.push(...higher.steps);
+    const verifiedRoots = higher.answerValues.every(
+      (v) => Number.isFinite(v) && checkSolution(node, variable, v) !== "mismatch",
+    );
+    return {
+      steps,
+      answers: higher.answers,
+      values: higher.answerValues,
+      ...(higher.answers.length === 0 ? { answer: "\\text{no real solutions}" } : {}),
+      ...(higher.note ? { note: higher.note } : {}),
+      verified: stepsVerified(steps) && verifiedRoots,
+    };
+  }
+
+  // Linear. The rules normally land on `x = value`; this is the safety net.
+  const solved =
+    current.lhs.type === "sym" &&
+    current.lhs.name === variable &&
+    !symbols(current.rhs).has(variable);
+
+  if (!solved) {
+    if (!poly || degree(poly) !== 1) {
+      throw new UnsupportedProblemError("could not isolate the variable");
+    }
+    const a = coeff(poly, 1);
+    const b = coeff(poly, 0);
+    const value = b.neg().div(a);
+    const finished = rel(current.rel, sym(variable), num(value));
+    steps.push(
+      displayStep("DIVIDE_BOTH_SIDES", toLatex(current), toLatex(finished), current, {
+        by: a.toLatex(),
+      }),
+    );
+    if (finished.type === "rel") current = finished;
+  }
+
+  const answerLatex = toLatex(current.rhs);
+  const answerValue = evaluateNumeric(current.rhs);
+  const verifiedRoot =
+    !Number.isFinite(answerValue) ||
+    current.rel !== "=" ||
+    checkSolution(node, variable, answerValue) !== "mismatch";
+
+  const relSymbol =
+    current.rel === "<=" ? "\\le" : current.rel === ">=" ? "\\ge" : current.rel;
+  const statement = `${variable} ${relSymbol} ${answerLatex}`;
+
+  const linear: Resolved = {
+    steps,
+    answers: [statement],
+    values: [answerValue],
+    verified: stepsVerified(steps) && verifiedRoot,
+    ...(result.incomplete ? { incomplete: true } : {}),
+  };
+  if (current.rel === "=") return linear;
+  // A linear inequality is a half-line. It reads the same either way, but
+  // saying so structurally means every inequality answer has the same shape.
+  const closed = current.rel === "<=" || current.rel === ">=";
+  const bound = { value: current.rhs, closed };
+  const upper = current.rel === "<" || current.rel === "<=";
+  return { ...linear, intervals: [upper ? { upper: bound } : { lower: bound }] };
+}
+
+interface Shape {
+  label: string;
+  solve: () => Resolved | null;
+}
+
+/**
+ * Equations that are not polynomial and need a method of their own. Each solver
+ * reduces the problem to an ordinary equation, hands it back to
+ * `solvePolynomialForm`, and then checks what comes out against the original.
+ */
+function specialShape(node: MathNode, variable: string): Shape | null {
+  const finish: Finish = (n, v) => solvePolynomialForm(n, v);
+  if (isAbsoluteValueProblem(node, variable)) {
+    return {
+      label: "absolute value",
+      solve: () => solveAbsoluteValueProblem(node, variable, finish),
+    };
+  }
+  if (isRadicalEquation(node, variable)) {
+    return { label: "radical", solve: () => solveRadicalEquation(node, variable, finish) };
+  }
+  if (isLogarithmicEquation(node, variable)) {
+    return {
+      label: "logarithmic",
+      solve: () => solveLogarithmicEquation(node, variable, finish),
+    };
+  }
+  if (isExponentialEquation(node, variable)) {
+    return {
+      label: "exponential",
+      solve: () => solveExponentialEquation(node, variable, finish),
+    };
+  }
+  return null;
+}
+
+function toSolution(problem: string, variable: string, r: Resolved): Solution {
+  const joined = r.answers.join(" \\quad \\text{or} \\quad ");
+  return {
+    kind: "solve",
+    problem,
+    variable,
+    answer: r.answer ?? (joined || "\\text{no solution}"),
+    answers: r.answers,
+    ...(r.intervals ? { intervals: r.intervals } : {}),
+    steps: r.steps,
+    verified: r.verified && stepsVerified(r.steps),
+    ...(r.note ? { note: r.note } : {}),
+    ...(r.incomplete ? { incomplete: true } : {}),
   };
 }
 
@@ -102,117 +378,27 @@ function solveEquation(node: MathNode): Solution {
       problem,
       answer: holds ? "\\text{true}" : "\\text{false}",
       answers: [],
-      steps: [finalStep(ruleId, problem, holds ? "\\text{true}" : "\\text{false}", node)],
+      steps: [displayStep(ruleId, problem, holds ? "\\text{true}" : "\\text{false}", node)],
       verified: true,
       note: wording.text,
     };
   }
 
-  const result = run(node, allRules, { variable });
-  const steps = [...result.steps];
-  const settled = result.node;
-
-  if (settled.type !== "rel") {
-    throw new UnsupportedProblemError("the equation collapsed into an expression");
-  }
-  let current: Extract<MathNode, { type: "rel" }> = settled;
-
-  const poly = polynomialOf(current, variable);
-  const deg = poly ? degree(poly) : relationDegree(current, variable);
-
-  // Degenerate: the variable cancelled out entirely.
-  if (poly && deg !== null && deg <= 0) {
-    const constant = coeff(poly, 0);
-    const holds = constant.isZero();
-    const ruleId = holds ? "IDENTITY_TRUE" : "IDENTITY_FALSE";
-    const wording = explain(ruleId);
-    steps.push(
-      finalStep(ruleId, toLatex(current), holds ? "\\text{true for every } " + variable : "\\text{no solution}", current),
-    );
-    return {
-      kind: "solve",
-      problem,
-      variable,
-      answer: holds ? `\\text{every value of } ${variable}` : "\\text{no solution}",
-      answers: [],
-      steps,
-      verified: stepsVerified(steps),
-      note: wording.text,
-    };
-  }
-
-  if (deg === 2) {
-    if (!poly) throw new UnsupportedProblemError("this quadratic is out of scope");
-    if (current.rel !== "=") {
-      throw new UnsupportedProblemError("quadratic inequalities are not supported yet");
+  const shape = specialShape(node, variable);
+  if (shape) {
+    // Declining rather than falling through: the ordinary rules would rearrange
+    // a radical or a logarithm into something they cannot finish, and report a
+    // half-solved answer as though it were the whole one.
+    const solved = shape.solve();
+    if (!solved) {
+      throw new UnsupportedProblemError(
+        `${shape.label} equations of this shape are not supported yet`,
+      );
     }
-    const q = solveQuadratic(current, variable, poly);
-    if (!q) throw new UnsupportedProblemError("could not read the quadratic coefficients");
-    steps.push(...q.steps);
-    const verifiedRoots = q.answerValues.every(
-      (v) => Number.isFinite(v) && checkSolution(node, variable, v) !== "mismatch",
-    );
-    return {
-      kind: "solve",
-      problem,
-      variable,
-      answer: q.answers.join(" \\quad \\text{or} \\quad ") || "\\text{no real solutions}",
-      answers: q.answers,
-      steps,
-      verified: stepsVerified(steps) && verifiedRoots,
-      ...(q.note ? { note: q.note } : {}),
-    };
+    return toSolution(problem, variable, solved);
   }
 
-  if (deg !== null && deg > 2) {
-    throw new UnsupportedProblemError(
-      `equations of degree ${deg} are not supported yet`,
-    );
-  }
-
-  // Linear. The rules normally land on `x = value`; this is the safety net.
-  const solved =
-    current.lhs.type === "sym" &&
-    current.lhs.name === variable &&
-    !symbols(current.rhs).has(variable);
-
-  if (!solved) {
-    if (!poly || degree(poly) !== 1) {
-      throw new UnsupportedProblemError("could not isolate the variable");
-    }
-    const a = coeff(poly, 1);
-    const b = coeff(poly, 0);
-    const value = b.neg().div(a);
-    const finished = rel(current.rel, sym(variable), num(value));
-    steps.push(
-      finalStep("DIVIDE_BOTH_SIDES", toLatex(current), toLatex(finished), current, {
-        by: a.toLatex(),
-      }),
-    );
-    if (finished.type === "rel") current = finished;
-  }
-
-  const answerLatex = toLatex(current.rhs);
-  const answerValue = evaluateNumeric(current.rhs);
-  const verifiedRoot =
-    !Number.isFinite(answerValue) ||
-    current.rel !== "=" ||
-    checkSolution(node, variable, answerValue) !== "mismatch";
-
-  const relSymbol =
-    current.rel === "<=" ? "\\le" : current.rel === ">=" ? "\\ge" : current.rel;
-  const statement = `${variable} ${relSymbol} ${answerLatex}`;
-
-  return {
-    kind: "solve",
-    problem,
-    variable,
-    answer: statement,
-    answers: [statement],
-    steps,
-    verified: stepsVerified(steps) && verifiedRoot,
-    ...(result.incomplete ? { incomplete: true } : {}),
-  };
+  return toSolution(problem, variable, solvePolynomialForm(node, variable));
 }
 
 /**
@@ -296,6 +482,7 @@ export function solveNode(node: MathNode): Solution {
     c.kind === "limit" ? solveLimit(node)
     : c.kind === "solve" ? solveEquation(node)
     : c.kind === "differentiate" ? differentiate(node)
+    : c.kind === "factor" ? factorExpression(node)
     : simplify(node, c.kind);
 
   // Cancelling terms can produce a zero denominator the problem did not start

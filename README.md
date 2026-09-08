@@ -37,23 +37,45 @@ hidden rather than displayed, and the app says so.
 ## What it handles today
 
 Arithmetic and exact fractions, powers and roots, expanding brackets,
-collecting like terms, algebraic fractions, linear equations and inequalities,
-quadratics by factoring or the formula with exact radical roots, derivatives in
-a single variable including the product, quotient and chain rules, and limits by
-substitution, factoring and cancelling, l'Hopital's rule, or comparing degrees at
-infinity, one-sided ones included.
+collecting like terms, algebraic fractions, and derivatives in a single
+variable including the product, quotient and chain rules.
 
-Trigonometric and logarithmic values come out exactly: `\sin(\frac{\pi}{6})` is
-`\frac{1}{2}` and `\cos(\frac{\pi}{4})` is `\frac{\sqrt{2}}{2}`, never a
-decimal. Where there is no closed form, as in `\log_2(10)`, the expression is
-left as it stands rather than approximated, and where there is no value at all,
-as in `\tan(\frac{\pi}{2})` or `\ln(0)`, it says so.
+**Factorising** an expression, not only solving an equation: common factors,
+the difference of two squares, sums and differences of cubes, trinomials with
+or without a leading coefficient, and four terms by grouping. Whether an
+expression is multiplied out or factored is decided by how it is written — a
+product is expanded, a polynomial already written term by term is factored — so
+the two directions never fight each other.
+
+**Equations**: linear; quadratic by factoring or by the formula, with exact
+radical roots; cubics and quartics by the rational root theorem and synthetic
+division; radical equations, where every candidate is substituted back into the
+original and the extraneous ones are struck out in a step of their own; and
+exponential and logarithmic equations, including the domain check that rejects
+a root which would take the logarithm of something not positive.
+
+**Inequalities**: linear, absolute value and quadratic. The answer is a range,
+or a union of two, written the way a textbook writes it: `-3 < x < 3`, or
+`x < -2` or `x > 2`.
+
+**Exact values.** Trigonometric and logarithmic values come out exactly:
+`\sin(\frac{\pi}{6})` is `\frac{1}{2}` and `\cos(\frac{\pi}{4})` is
+`\frac{\sqrt{2}}{2}`, never a decimal. Where there is no closed form, as in
+`\log_2(10)`, the expression is left as it stands rather than approximated, and
+where there is no value at all, as in `\tan(\frac{\pi}{2})` or `\ln(0)`, it
+says so.
+
+**Limits**: by substitution, by factoring and cancelling, by l'Hopital's rule,
+or by comparing degrees at infinity, one-sided ones included.
 
 Out of scope for v1, and refused clearly rather than answered wrongly: word
 problems, integrals, systems of equations, matrices, trigonometric equations,
-implicit differentiation, and percentages. Among limits, anything the rules
-cannot settle is declined rather than half-answered, and a limit that runs off
-to infinity is reported as not existing rather than given a value.
+implicit differentiation, and percentages. A polynomial of degree three or more
+with no rational root is declined rather than approximated, because a decimal is
+not an answer a student can check by substituting it back. Among limits,
+anything the rules cannot settle is declined rather than half-answered, and a
+limit that runs off to infinity is reported as not existing rather than given a
+value.
 
 ## Repository layout
 
@@ -79,7 +101,7 @@ the recognition model on handwritten datasets, kept against the contingency in
 ```bash
 pnpm install
 pnpm dev        # http://localhost:5173
-pnpm test       # 514 tests
+pnpm test       # 681 tests
 pnpm typecheck
 ```
 
