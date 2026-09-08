@@ -1,8 +1,8 @@
 import {
-  asDiff, asLimit, containsDiff, containsInfinity, containsLimit, evaluateNumeric,
-  firstDiff, firstLimit, freeSymbols, hasDivisionByZero, key, type MathNode, num,
-  parseLatex, Rational, rel, splitCoefficient, sym, symbols, toLatex,
-  undefinedReason, walk,
+  add, asDiff, asIntegral, asLimit, containsDiff, containsInfinity, containsIntegral,
+  containsLimit, evaluateNumeric, firstDiff, firstIntegral, firstLimit, freeSymbols,
+  hasDivisionByZero, integral, key, type MathNode, neg, num, parseLatex, Rational, rel,
+  splitCoefficient, substitute, sym, symbols, toLatex, undefinedReason, walk,
 } from "@openmath/math-core";
 import { run } from "./engine.js";
 import { explain } from "./explain.js";
@@ -14,8 +14,11 @@ import {
   isAbsoluteValueProblem, solveAbsoluteValueProblem, solveQuadraticInequality,
 } from "./inequality.js";
 import { solveLimit } from "./limit.js";
+import { normalize } from "./normalize.js";
 import { chooseVariable } from "./rules/equation.js";
-import { allRules, differentiationRules, expressionRules, factorRules } from "./rules/index.js";
+import {
+  allRules, differentiationRules, expressionRules, factorRules, integrationRules,
+} from "./rules/index.js";
 import { coeff, degree, relationDegree } from "./poly.js";
 import { solveByRationalRoots } from "./polysolve.js";
 import { polynomialOf, solveQuadratic } from "./quadratic.js";
@@ -24,7 +27,9 @@ import { displayStep } from "./step.js";
 import {
   type Finish, type Resolved, type Solution, type Step, UnsupportedProblemError,
 } from "./types.js";
-import { checkSolution, verifyDerivative } from "./verify.js";
+import {
+  checkSolution, verifyDerivative, verifyEquivalent, verifyIntegrationStep,
+} from "./verify.js";
 
 export type ProblemKind =
   | "simplify"
@@ -32,7 +37,8 @@ export type ProblemKind =
   | "solve"
   | "differentiate"
   | "factor"
-  | "limit";
+  | "limit"
+  | "integrate";
 
 export interface Classification {
   kind: ProblemKind;
@@ -100,6 +106,14 @@ export function isFactoringProblem(n: MathNode): boolean {
 
 /** Decide what kind of problem this is before trying to solve it. */
 export function classify(node: MathNode): Classification {
+  // An integral anywhere makes this an integration problem. It is checked first
+  // because an integrand may contain a derivative, and the integral is the
+  // outer question in that case.
+  if (containsIntegral(node)) {
+    const top = firstIntegral(node);
+    const parts = top ? asIntegral(top) : null;
+    return { kind: "integrate", ...(parts ? { variable: parts.variable } : {}) };
+  }
   // A limit anywhere makes this a limit problem, and it is checked before the
   // derivative because l'Hopital's rule puts derivatives inside limits.
   if (containsLimit(node)) {
@@ -459,6 +473,225 @@ function differentiate(node: MathNode): Solution {
   };
 }
 
+/** The symbol standing for the constant of integration. */
+const INTEGRATION_CONSTANT = "C";
+
+/**
+ * Integration by parts and partial fractions both split one integral into
+ * several, so the ceiling has to be higher than the algebra needs. It is still a
+ * ceiling: an expression that has not settled by here is reported as incomplete
+ * rather than shown half-finished.
+ */
+const MAX_INTEGRATION_STEPS = 120;
+
+/** Points the interval is checked on before a definite integral is evaluated. */
+const POLE_SAMPLES = 257;
+
+/**
+ * Is the integrand undefined anywhere between the limits?
+ *
+ * Two things are looked for: a point where the integrand itself has no value,
+ * and a denominator that changes sign, which is a pole the grid may have
+ * stepped straight over. Either one makes the integral improper, and an
+ * improper integral is a limit problem this engine does not do — reporting a
+ * number for it would be reporting a wrong number.
+ */
+function undefinedBetween(body: MathNode, v: string, from: number, to: number): string | null {
+  const low = Math.min(from, to);
+  const high = Math.max(from, to);
+  const denominators: MathNode[] = [];
+  walk(body, (n) => {
+    if (n.type === "div") denominators.push(n.den);
+    if (n.type === "pow" && n.exp.type === "num" && n.exp.value.isNegative()) {
+      denominators.push(n.base);
+    }
+  });
+
+  let previous: number[] = [];
+  for (let i = 0; i <= POLE_SAMPLES; i++) {
+    const at = low + ((high - low) * i) / POLE_SAMPLES;
+    if (!Number.isFinite(evaluateNumeric(body, { [v]: at }))) {
+      return `the integrand has no value at ${v} = ${Number(at.toFixed(6))}, which is inside the interval, so this integral is improper`;
+    }
+    const values = denominators.map((d) => evaluateNumeric(d, { [v]: at }));
+    for (let j = 0; j < values.length; j++) {
+      const before = previous[j];
+      const now = values[j];
+      if (
+        before !== undefined && now !== undefined &&
+        Number.isFinite(before) && Number.isFinite(now) && before * now < 0
+      ) {
+        return "the integrand has a pole between the limits, so this integral is improper";
+      }
+    }
+    previous = values;
+  }
+  return null;
+}
+
+/**
+ * Run the integration rules until no integral is left standing.
+ *
+ * A surviving integral node is an integral this engine cannot do. The answer
+ * would be partly unevaluated, which is worse than no answer, so it is refused
+ * with the piece it got stuck on named.
+ */
+function findAntiderivative(
+  node: MathNode,
+  variable: string,
+): { node: MathNode; steps: Step[]; incomplete: boolean } {
+  const result = run(node, integrationRules, { variable }, { maxSteps: MAX_INTEGRATION_STEPS });
+  const leftover = firstIntegral(result.node);
+  if (leftover) {
+    const inner = leftover.args[0];
+    throw new UnsupportedProblemError(
+      `the integral of ${inner ? toLatex(inner) : "that"} is not supported yet`,
+    );
+  }
+  if (containsDiff(result.node)) {
+    throw new UnsupportedProblemError("this contains a derivative the engine cannot take");
+  }
+  return { node: result.node, steps: result.steps, incomplete: result.incomplete };
+}
+
+function indefiniteIntegral(node: MathNode, variable: string): Solution {
+  const problem = toLatex(node);
+  const found = findAntiderivative(node, variable);
+  const checked = verifyIntegrationStep(node, found.node, variable);
+
+  // The constant goes on once, at the end. Putting it on an intermediate step
+  // would carry it through the rest of the working for no reason.
+  const withConstant = add([found.node, sym(INTEGRATION_CONSTANT)]);
+  const answer = toLatex(withConstant);
+  const steps = [
+    ...found.steps,
+    displayStep("INT_ADD_CONSTANT", toLatex(found.node), answer, found.node),
+  ];
+
+  return {
+    kind: "integrate",
+    problem,
+    variable,
+    answer,
+    answers: [answer],
+    steps,
+    verified: stepsVerified(steps) && checked === "ok",
+    ...(found.incomplete ? { incomplete: true } : {}),
+  };
+}
+
+/**
+ * A definite integral: find the antiderivative, then evaluate it at both limits
+ * and subtract.
+ *
+ * The limits are set aside for the middle of the working and brought back for
+ * the last line, which is how it is written on paper. Substituting a number for
+ * the variable is exact by construction, so the step is not sampled; what is
+ * checked instead is the number at the end, against numeric quadrature of the
+ * original integral, which is an independent measurement of the same area.
+ */
+function definiteIntegral(
+  node: MathNode,
+  body: MathNode,
+  variable: string,
+  limits: { lower: MathNode; upper: MathNode },
+): Solution {
+  const problem = toLatex(node);
+  const from = evaluateNumeric(limits.lower);
+  const to = evaluateNumeric(limits.upper);
+  if (!Number.isFinite(from) || !Number.isFinite(to)) {
+    throw new UnsupportedProblemError("the limits of this integral are not numbers");
+  }
+  const improper = undefinedBetween(body, variable, from, to);
+  if (improper) throw new UnsupportedProblemError(improper);
+
+  const indefinite = integral(body, sym(variable));
+  const steps: Step[] = [
+    displayStep("INT_DEFINITE_SETUP", problem, toLatex(indefinite), node, {
+      lower: toLatex(limits.lower),
+      upper: toLatex(limits.upper),
+    }),
+  ];
+
+  const found = findAntiderivative(indefinite, variable);
+  steps.push(...found.steps);
+
+  const difference = normalize(
+    add([
+      substitute(found.node, variable, limits.upper),
+      neg(substitute(found.node, variable, limits.lower)),
+    ]),
+  );
+  steps.push({
+    ...displayStep("INT_EVALUATE_LIMITS", toLatex(found.node), toLatex(difference), found.node, {
+      lower: toLatex(limits.lower),
+      upper: toLatex(limits.upper),
+    }),
+    display: false,
+    changes: [{ kind: "replace", fromIds: [found.node.id], toIds: [difference.id] }],
+  });
+
+  const evaluated = run(difference, expressionRules, {}, { maxSteps: MAX_INTEGRATION_STEPS });
+  steps.push(...evaluated.steps);
+
+  const answer = toLatex(evaluated.node);
+  return {
+    kind: "integrate",
+    problem,
+    variable,
+    answer,
+    answers: [answer],
+    steps,
+    verified: stepsVerified(steps) && verifyEquivalent(node, evaluated.node) === "ok",
+    ...(found.incomplete || evaluated.incomplete ? { incomplete: true } : {}),
+  };
+}
+
+/**
+ * Integrate.
+ *
+ * The refusals matter as much as the rules. A second letter is ambiguous in
+ * exactly the way it is for a derivative, so it is declined rather than guessed
+ * at. A definite integral has to be the whole problem, because the limits belong
+ * to one integral and carrying them through an expression would be inventing
+ * notation. And an integral the rules cannot finish is refused by
+ * `findAntiderivative` with the piece it stalled on named.
+ */
+function integrate(node: MathNode): Solution {
+  if (node.type === "rel") {
+    throw new UnsupportedProblemError(
+      "equations containing an integral are not supported yet",
+    );
+  }
+  const top = firstIntegral(node);
+  const parts = top ? asIntegral(top) : null;
+  if (!parts) throw new UnsupportedProblemError("could not tell what to integrate");
+  const variable = parts.variable;
+
+  const others = [...freeSymbols(node)].filter((s) => s !== variable).sort();
+  const other = others[0];
+  if (other !== undefined) {
+    throw new UnsupportedProblemError(
+      `${other} could be a constant or another function of ${variable}, and this integral cannot be read either way`,
+    );
+  }
+
+  let nestedDefinite = false;
+  walk(node, (n) => {
+    const inner = asIntegral(n);
+    if (inner?.bounds && n !== top) nestedDefinite = true;
+  });
+  if (nestedDefinite || (parts.bounds && top !== node)) {
+    throw new UnsupportedProblemError(
+      "a definite integral has to be the whole problem, not part of a larger expression",
+    );
+  }
+
+  return parts.bounds
+    ? definiteIntegral(node, parts.body, variable, parts.bounds)
+    : indefiniteIntegral(node, variable);
+}
+
 /** Solve or simplify an already-parsed expression. */
 export function solveNode(node: MathNode): Solution {
   if (hasDivisionByZero(node)) {
@@ -483,6 +716,7 @@ export function solveNode(node: MathNode): Solution {
     : c.kind === "solve" ? solveEquation(node)
     : c.kind === "differentiate" ? differentiate(node)
     : c.kind === "factor" ? factorExpression(node)
+    : c.kind === "integrate" ? integrate(node)
     : simplify(node, c.kind);
 
   // Cancelling terms can produce a zero denominator the problem did not start

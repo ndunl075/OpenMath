@@ -16,7 +16,7 @@ Free, open-source, camera-to-steps math solver. Runs 100% in the browser. No bac
 | Parser + CAS | **[revised]** Own AST and LaTeX parser, not compute-engine | compute-engine canonicalises on parse, so `x + x` arrives already folded to `2x` and the `before` state a step engine must show is gone. Own AST also gives the stable node ids animations need |
 | OCR | Texo (20M params, in-browser via transformers.js) behind a swappable `OcrProvider` | Best accuracy-per-byte available; handwriting-capable; reference web impl exists |
 | Solver | **[revised]** Own TypeScript rule engine written directly, not vendored mathsteps; every step verified | mathsteps pins mathjs 3.11.2 from 2017 and was archived Aug 2024. Bundling it ships a large CommonJS dependency into an app whose pitch is a small download. Its rule coverage informed ours; none of its code is used |
-| Calculus | v2 derivatives in TS; v3 integrals via lazy-loaded SymPy (Pyodide) | Keeps v1 small; SymPy is the only free step-capable integrator |
+| Calculus | **[revised]** derivatives and integrals both in TS, no Pyodide | Integration is a heuristic search, but its answers are completely checkable: differentiate the candidate and compare it with the integrand. That check makes an aggressive search safe, and it is a few hundred lines against a 15–20 MB Python runtime that the owner did not want |
 | Hosting | **[revised]** Vercel (app) + Hugging Face Hub (weights) | Vercel by owner preference; the app is static files so any host works. `vercel.json` is committed |
 | UI | Copy Photomath's *flow* (screens, gestures, the idea of animated steps); build every asset ourselves | Flow is functional and free; files, artwork, and authored animations are Google's |
 | Step animations | Generated programmatically from our own step data (§6.1), not hand-authored | Scales with the rule engine; cannot reproduce anyone's assets by construction |
@@ -49,9 +49,9 @@ Zero network calls after first load except fetching the app shell and model weig
 | OCR runtime | transformers.js (or onnxruntime-web) | Apache-2.0 | — | WASM now, WebGPU when stable; run in a Worker |
 | Parser / CAS | `packages/math-core` (ours) | MIT | small | Exact BigInt rationals, AST with stable node ids, LaTeX parser and serializer, numeric and exact evaluators. No runtime dependencies |
 | Math input | Plain field + KaTeX preview + custom keypad | MIT | — | MathLive dropped: a full math editor is a large dependency for something mostly used to fix two characters after a scan |
-| Step engine | `packages/steps` (ours) | MIT | small | 116 rules, explanations, CAS verification. Coverage informed by [google/mathsteps](https://github.com/google/mathsteps) (Apache-2.0, archived Aug 2024); no code used |
+| Step engine | `packages/steps` (ours) | MIT | small | 138 rules, explanations, CAS verification. Coverage informed by [google/mathsteps](https://github.com/google/mathsteps) (Apache-2.0, archived Aug 2024); no code used |
 | Render | KaTeX | MIT | — | Step cards; faster than MathJax |
-| Calculus (v3) | SymPy via Pyodide | BSD / MPL | ~15–20 MB lazy | `sympy.integrals.manualintegrate.integral_steps` + SymPy Gamma's step renderers |
+| Calculus | `packages/steps/src/rules/` (ours) | MIT | small | Derivative rules, then integral rules: table, substitution, by parts, partial fractions. Every antiderivative is differentiated back before it is shown. SymPy via Pyodide was the plan and is **[revised]** away; nothing here is Python |
 | Hosting | Vercel | free | — | Static output, so Cloudflare Pages and GitHub Pages work with no code change |
 | Weights hosting | Hugging Face Hub model repo | free | — | Model repos are still free; only Spaces compute went paid. Mirror to GitHub Releases |
 | CI | GitHub Actions | free for public repos | — | Corpus tests block merge |
@@ -89,7 +89,7 @@ interface OcrProvider {
    - `Equal` with 2+ variables → solve for `x`/`y` heuristically, else unsupported
    - `Less`/`Greater` → **inequality** (v1.5)
    - `D`, `\frac{d}{dx}` → **derivative** (v2)
-   - `Integrate`, `\int` → **integral** (v3)
+   - `Integrate`, `\int` → **integral**
    - otherwise → **simplify / evaluate**
    - anything with words, matrices, or systems → unsupported (graceful state + report button)
 
@@ -123,7 +123,7 @@ interface StepEngine {
 
 **Verification (non-negotiable).** For every step, `ce.parse(before).isEqual(ce.parse(after))`; for equations, substitute solutions back; if the CAS can't decide, sample 5 random points with tolerance. Fails → show the answer only, hide steps, surface the report button. Same check runs in CI over the corpus. A hand-written rewrite engine will produce wrong steps; this is what keeps them off screen.
 
-**Roadmap**: derivatives in TS (power/product/quotient/chain rules are a clean rule set, ~1–2 weeks). Integrals via Pyodide + SymPy `integral_steps`, loaded only when an `\int` is classified.
+**Roadmap**: done — derivatives and integrals are both native rules. Integration differs from differentiation in kind: there is no complete algorithm, so `integral.ts` searches (candidate substitutions, a LIATE choice for parts, a rational-root factorisation for partial fractions) and every candidate is differentiated back before it is returned. A guess that does not match the integrand is discarded, and an integral no heuristic finishes is declined rather than half-answered.
 
 ## 6. UI: copy the flow, own every asset
 
@@ -227,8 +227,8 @@ scripts/               bundle-size budget check
 2. **OCR bench — harness DONE (`packages/bench`), the run is NOT.** Texo vs TexTeller vs Pix2Text MFR on that corpus. The harness scores accuracy per category (answer match as the headline, plus exact match, character error rate and solvable rate), separates model load from per-image inference, and diffs a run against an earlier one. It runs in Node, so its latencies are desktop latencies: the in-browser measurement on a mid-range Android and an older iPhone, still needs doing on device. The Texo repo id, dtype, download size and preprocessing have since been confirmed against the model's own shipped browser app and corrected; the other two providers have not been checked that way.
 3. ~~Vertical slice~~ **DONE**: photo → LaTeX → rule engine → KaTeX, on a phone-sized viewport.
 4. ~~Product~~ **DONE**: every screen in §6.0, own design system (§6.2), PWA, offline, report flow.
-5. **v1 launch** — blocked only on steps 1 and 2. The solver covers arithmetic, exact fractions, roots, expanding, like terms, factoring, linear, quadratic and higher-degree polynomial equations, radical, exponential and logarithmic equations, linear, absolute value and quadratic inequalities, derivatives, exact trigonometric and logarithmic values, and limits, verified against 269 corpus problems, 22 of which must be refused rather than answered.
-6. **v1.5**: method switcher, more rule coverage from contributors. **v2**: derivatives (TS). **v3**: integrals (Pyodide + SymPy). The native rule engine that was **v4** landed first, in v1.
+5. **v1 launch** — blocked only on steps 1 and 2. The solver covers arithmetic, exact fractions, roots, expanding, like terms, factoring, linear, quadratic and higher-degree polynomial equations, radical, exponential and logarithmic equations, linear, absolute value and quadratic inequalities, derivatives, integrals, exact trigonometric and logarithmic values, and limits, verified against 325 corpus problems, 29 of which must be refused rather than answered.
+6. **v1.5**: method switcher, more rule coverage from contributors. **v2**: ~~derivatives~~ **DONE**. **v3**: ~~integrals~~ **DONE**, in TypeScript rather than Pyodide + SymPy. The native rule engine that was **v4** landed first, in v1.
 
 ## 12. Non-goals (v1)
 

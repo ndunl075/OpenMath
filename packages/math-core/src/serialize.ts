@@ -174,6 +174,20 @@ class Serializer {
           // a factor that comes after it as part of the derivative.
           return `\\frac{d}{d${this.render(a1)}}\\left(${this.render(a0)}\\right)`;
         }
+        if (n.name === "integral" && a0 && a1) {
+          // The trailing d-variable closes the integrand, so brackets are only
+          // needed around a sum, which would otherwise read as "integrate the
+          // first term, then add the rest".
+          const [, , lower, upper] = n.args;
+          const limits =
+            lower && upper ? `_{${this.render(lower)}}^{${this.render(upper)}}` : "";
+          return `\\int${limits} ${this.wrap(a0, 2)} \\, d${this.render(a1)}`;
+        }
+        // ln|x| is how the antiderivative of 1/x is written; \ln(|x|) is the
+        // same expression and reads like a transcription mistake.
+        if (n.name === "ln" && a0 && a0.type === "fn" && a0.name === "abs") {
+          return `\\ln${this.render(a0)}`;
+        }
         const args = n.args.map((a) => this.render(a)).join(", ");
         const head = LATEX_FUNCTIONS.has(n.name) ? `\\${n.name}` : n.name;
         return `${head}\\left(${args}\\right)`;

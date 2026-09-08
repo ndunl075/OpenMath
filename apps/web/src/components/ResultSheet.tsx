@@ -111,7 +111,8 @@ export function ResultSheet({
               polynomial equations of higher degree with a rational root, radical,
               exponential and logarithmic equations, linear, absolute value and
               quadratic inequalities, exact trigonometric and logarithmic values,
-              derivatives in a single variable, and limits.
+              derivatives in a single variable, integrals by the standard forms,
+              substitution, parts and partial fractions, and limits.
             </p>
             <div class="result__actions">
               <button type="button" class="button button--primary" onClick={onEdit}>

@@ -101,9 +101,10 @@ describe("toModelTensor", () => {
     const white = (255 / 255 - UNIMERNET_MEAN) / UNIMERNET_STD;
     const black = (0 - UNIMERNET_MEAN) / UNIMERNET_STD;
     const tensor = toModelTensor(page());
-    // Scanned for the extremes rather than asserted per pixel: the same claim
-    // about all 384 x 384 of them, without a hundred and fifty thousand
-    // assertions to build and tear down.
+    // Scanned once and asserted on the extremes: every value being in range is
+    // exactly the smallest and largest being in range, and a per-pixel expect()
+    // over the model's whole square is a quarter of a million assertions, which
+    // ran past the default timeout whenever the suite had other work to do.
     let lowest = Infinity;
     let highest = -Infinity;
     for (const v of tensor.data) {

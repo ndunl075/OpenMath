@@ -68,7 +68,8 @@ export type SolutionKind =
   | "evaluate"
   | "differentiate"
   | "factor"
-  | "limit";
+  | "limit"
+  | "integrate";
 
 /**
  * One end of an interval. The bound is kept as an expression rather than a
@@ -111,7 +112,7 @@ export interface Solution {
    */
   intervals?: Interval[];
   steps: Step[];
-  /** The variable an equation was solved for, or differentiated with respect to. */
+  /** The variable an equation was solved for, or differentiated or integrated with respect to. */
   variable?: string;
   /**
    * False when at least one step, or the final answer, failed verification.

@@ -89,7 +89,7 @@ describe("normalizeLatex", () => {
 
 describe("detectOutOfScope", () => {
   it("names the structure the solver cannot handle", () => {
-    expect(detectOutOfScope("\\int x dx")).toBe("integrals");
+    expect(detectOutOfScope("\\oint E dl")).toBe("contour integrals");
     expect(detectOutOfScope("\\sum_{i=1}^{n} i")).toBe("sums and products");
     expect(detectOutOfScope("\\begin{matrix}1&2\\end{matrix}")).toBe(
       "matrices and aligned environments",
@@ -110,11 +110,14 @@ describe("detectOutOfScope", () => {
     expect(detectOutOfScope("\\lim_{x \\to 0^+} \\ln(x)")).toBeNull();
   });
 
-  it("lets derivatives reach the solver now that it can take them", () => {
+  it("lets calculus reach the solver now that it can take it", () => {
     expect(detectOutOfScope("\\frac{d}{dx}(x^2+3x)")).toBeNull();
     expect(detectOutOfScope("\\frac{dy}{dx}")).toBeNull();
     expect(detectOutOfScope("f'(x)")).toBeNull();
-    // Integrals are still the solver's business to refuse, not ours to answer.
-    expect(detectOutOfScope("\\int \\frac{d}{dx} x")).toBe("integrals");
+    expect(detectOutOfScope("\\int x^2 \\, dx")).toBeNull();
+    expect(detectOutOfScope("\\int_{0}^{1} x \\, dx")).toBeNull();
+    // An integral the solver cannot do is its refusal to make, with a reason
+    // naming the integrand, not a blanket one from here.
+    expect(detectOutOfScope("\\int e^{x^2} \\, dx")).toBeNull();
   });
 });

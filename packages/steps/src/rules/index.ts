@@ -7,6 +7,7 @@ import { equationRules } from "./equation.js";
 import { factorRules } from "./factor.js";
 import { fractionRules } from "./fractions.js";
 import { identityRules } from "./identities.js";
+import { integralRules } from "./integral.js";
 import { limitTransformRules } from "./limit.js";
 import { logEquationRules } from "./log-equations.js";
 import { logRules } from "./logs.js";
@@ -20,6 +21,7 @@ export * from "./equation.js";
 export * from "./factor.js";
 export * from "./fractions.js";
 export * from "./identities.js";
+export * from "./integral.js";
 export * from "./limit.js";
 export * from "./log-equations.js";
 export * from "./logs.js";
@@ -83,7 +85,12 @@ export const differentiationRules: Rule[] = [
  */
 export const limitRules: Rule[] = [...differentiationRules, ...limitTransformRules];
 
-export const allRules: Rule[] = [...limitRules, ...equationRules];
+/**
+ * Integration rules sit between the limit rules and the equation moves: an
+ * integral has to be resolved before anything crosses an equals sign, and the
+ * limit rules ahead of them leave a body simple enough to integrate.
+ */
+export const allRules: Rule[] = [...limitRules, ...integralRules, ...equationRules];
 
 /**
  * Enough to get one thing on its own and tidy the other side, and nothing that
@@ -109,4 +116,5 @@ export const everyRule: Rule[] = [
   ...factorRules,
   ...logRules,
   ...logEquationRules,
+  ...integralRules,
 ];

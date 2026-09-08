@@ -267,14 +267,15 @@ export function normalizeLatex(raw: string): string {
 /**
  * Structures the solver has no rules for. Detecting them here turns a confusing
  * parse error into an honest "not supported yet" message. Derivatives came off
- * this list once the rules in @openmath/steps could take them, and limits
- * followed, taking infinity with them: it is the point half of them approach.
- * The solver still declines the ones it cannot do, with a reason naming the
- * expression, which is a better message than this one could be.
+ * this list once the rules in @openmath/steps could take them; integrals and
+ * limits followed, and limits took infinity with them, since it is the point
+ * half of them approach. The solver still declines the ones it cannot do, with
+ * a reason naming the expression, which is a better message than this one
+ * could give.
  */
 const OUT_OF_SCOPE = [
   { pattern: /\\begin\s*\{/, label: "matrices and aligned environments" },
-  { pattern: /\\int|\\oint/, label: "integrals" },
+  { pattern: /\\oint/, label: "contour integrals" },
   { pattern: /\\sum|\\prod/, label: "sums and products" },
   { pattern: /\\pm|\\mp/, label: "plus-or-minus" },
   // Deleting the sign would silently turn "20\\%" into "20", which is a

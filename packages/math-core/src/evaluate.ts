@@ -49,6 +49,95 @@ export function differentiateNumerically(
   return fine;
 }
 
+/** How far a Simpson estimate may sit from the refined one before it splits. */
+const QUADRATURE_TOLERANCE = 1e-11;
+
+/** Halvings allowed on one interval before it is given up on rather than guessed at. */
+const QUADRATURE_DEPTH = 50;
+
+/**
+ * Total evaluations allowed. The depth limit alone does not bound the work,
+ * because every level may split in two; this does, whatever the integrand is.
+ */
+const QUADRATURE_BUDGET = 20000;
+
+function simpson(f: (x: number) => number, a: number, b: number, fa: number, fm: number, fb: number): number {
+  return ((b - a) / 6) * (fa + 4 * fm + fb);
+}
+
+function refine(
+  f: (x: number) => number,
+  a: number, b: number,
+  fa: number, fm: number, fb: number,
+  whole: number, tolerance: number, depth: number,
+): number {
+  const m = (a + b) / 2;
+  const flm = f((a + m) / 2);
+  const frm = f((m + b) / 2);
+  if (!Number.isFinite(flm) || !Number.isFinite(frm)) return NaN;
+  const left = simpson(f, a, m, fa, flm, fm);
+  const right = simpson(f, m, b, fm, frm, fb);
+  // Richardson: the split pair is sixteen times more accurate than the whole.
+  if (Math.abs(left + right - whole) <= 15 * tolerance) {
+    return left + right + (left + right - whole) / 15;
+  }
+  if (depth <= 0) return NaN;
+  // The tolerance is not divided between the halves. Doing so is the rigorous
+  // form, and it asks for sixty levels on an integrand as ordinary as sqrt(x),
+  // whose Simpson error near zero falls off as h^1.5 rather than h^4.
+  return (
+    refine(f, a, m, fa, flm, fm, left, tolerance, depth - 1) +
+    refine(f, m, b, fm, frm, fb, right, tolerance, depth - 1)
+  );
+}
+
+/**
+ * Adaptive Simpson. Returns NaN rather than a number it cannot stand behind:
+ * a singularity inside the interval, or an interval too stiff to resolve at the
+ * depth allowed. The verifier reads NaN as "no information", which is the
+ * honest answer for an integral this cannot evaluate.
+ */
+export function integrateNumerically(
+  f: (x: number) => number,
+  a: number,
+  b: number,
+): number {
+  if (!Number.isFinite(a) || !Number.isFinite(b)) return NaN;
+  if (a === b) return 0;
+  if (a > b) {
+    const flipped = integrateNumerically(f, b, a);
+    return Number.isFinite(flipped) ? -flipped : NaN;
+  }
+  let budget = QUADRATURE_BUDGET;
+  const metered = (x: number): number => (budget-- <= 0 ? NaN : f(x));
+  const fa = metered(a);
+  const fb = metered(b);
+  const fm = metered((a + b) / 2);
+  if (!Number.isFinite(fa) || !Number.isFinite(fm) || !Number.isFinite(fb)) return NaN;
+  const whole = simpson(metered, a, b, fa, fm, fb);
+  const tolerance = QUADRATURE_TOLERANCE * Math.max(1, Math.abs(whole));
+  return refine(metered, a, b, fa, fm, fb, whole, tolerance, QUADRATURE_DEPTH);
+}
+
+/**
+ * A definite integral has a number; an indefinite one does not, since it stands
+ * for a whole family of antiderivatives. Returning NaN for the indefinite case
+ * is what stops the sampling verifier from silently comparing two members of
+ * that family and calling them different.
+ */
+function evaluateIntegral(n: Extract<MathNode, { type: "fn" }>, env: Env): number {
+  const [body, variable, lower, upper] = n.args;
+  if (!body || !variable || variable.type !== "sym") return NaN;
+  if (!lower || !upper) return NaN;
+  const a = evaluateNumeric(lower, env);
+  const b = evaluateNumeric(upper, env);
+  return integrateNumerically(
+    (x) => evaluateNumeric(body, { ...env, [variable.name]: x }),
+    a,
+    b,
+  );
+}
+
 function evaluateDerivative(n: Extract<MathNode, { type: "fn" }>, env: Env): number {
   const [body, variable] = n.args;
   if (!body || !variable || variable.type !== "sym") return NaN;
@@ -193,6 +282,7 @@ export function evaluateNumeric(n: MathNode, env: Env = {}): number {
       if (n.name === "diff") return evaluateDerivative(n, env);
       // Nor can a limit: the body is evaluated near the point, never at it.
       if (n.name === "lim") return evaluateLimitNode(n, env);
+      if (n.name === "integral") return evaluateIntegral(n, env);
       return evaluateFunction(n.name, n.args.map((a) => evaluateNumeric(a, env)));
     case "rel":
       return NaN;
@@ -273,8 +363,13 @@ export function evaluateExact(n: MathNode): Rational | null {
     case "pow": {
       const b = evaluateExact(n.base);
       const e = evaluateExact(n.exp);
-      if (!b || !e || !e.isInteger()) return null;
-      if (b.isZero() && e.isNegative()) return null;
+      if (!b || !e) return null;
+      if (b.isZero()) {
+        // Zero to any positive power is zero, fractional exponents included;
+        // 0^0 and a negative power of zero have no value.
+        return e.isZero() || e.isNegative() ? null : Rational.ZERO;
+      }
+      if (!e.isInteger()) return null;
       return b.powInt(e.n);
     }
     case "neg": {

@@ -122,6 +122,16 @@ export function reid(n: MathNode): MathNode {
   return { ...n, id: freshId() };
 }
 
+/** Every occurrence of a symbol replaced by an expression, which arrives fresh
+ * each time so the copies do not share ids. Substituting a limit into an
+ * antiderivative is what it is for. */
+export function substituteSymbol(n: MathNode, name: string, value: MathNode): MathNode {
+  if (n.type === "sym" && n.name === name) return cloneFresh(value);
+  const kids = children(n);
+  if (kids.length === 0) return n;
+  return withChildren(n, kids.map((k) => substituteSymbol(k, name, value)));
+}
+
 /** Deep copy with entirely fresh ids. */
 export function cloneFresh(n: MathNode): MathNode {
   const kids = children(n).map(cloneFresh);
@@ -492,6 +502,59 @@ export function containsLimit(n: MathNode): boolean {
   return found;
 }
 
+// ------------------------------------------------------------------ integrals
+
+/**
+ * An integral, written as an ordinary `fn` node for the same reason `diff` is:
+ * every traversal, serializer and id-keyed animation already in place keeps
+ * working unchanged. The indefinite form carries the integrand and the
+ * variable; the definite form carries its two limits after them, so one node
+ * shape covers both and the rules can refuse a definite integral by looking at
+ * `args.length`.
+ *
+ * Until the rules in `packages/steps/src/rules/integral.ts` have fired the node
+ * is opaque, which is what lets the solver notice an integral it cannot do and
+ * decline instead of returning half an answer.
+ */
+export const integral = (body: MathNode, variable: MathNode, id = freshId()): MathNode =>
+  fn("integral", [body, variable], id);
+
+export const definiteIntegral = (
+  body: MathNode,
+  variable: MathNode,
+  lower: MathNode,
+  upper: MathNode,
+  id = freshId(),
+): MathNode => fn("integral", [body, variable, lower, upper], id);
+
+export interface IntegralParts {
+  node: FnNode;
+  body: MathNode;
+  variable: string;
+  /** Present only on a definite integral. */
+  bounds?: { lower: MathNode; upper: MathNode };
+}
+
+/** Read a node as an integral, or null when it is not one. */
+export function asIntegral(n: MathNode): IntegralParts | null {
+  if (n.type !== "fn" || n.name !== "integral") return null;
+  const [body, v, lower, upper] = n.args;
+  if (!body || !v || v.type !== "sym") return null;
+  if (n.args.length === 2) return { node: n, body, variable: v.name };
+  if (n.args.length === 4 && lower && upper) {
+    return { node: n, body, variable: v.name, bounds: { lower, upper } };
+  }
+  return null;
+}
+
+export function containsIntegral(n: MathNode): boolean {
+  let found = false;
+  walk(n, (x) => {
+    if (x.type === "fn" && x.name === "integral") found = true;
+  });
+  return found;
+}
+
 export function countLimits(n: MathNode): number {
   let count = 0;
   walk(n, (x) => {
@@ -503,6 +566,14 @@ export function countLimits(n: MathNode): number {
 /** The outermost limit in `n`. `walk` is pre-order, so this is the top one. */
 export function firstLimit(n: MathNode): FnNode | null {
   const path = findPath(n, (x) => x.type === "fn" && x.name === "lim");
+  if (!path) return null;
+  const node = nodeAt(n, path);
+  return node && node.type === "fn" ? node : null;
+}
+
+/** The outermost integral in `n`. `walk` is pre-order, so this is the top one. */
+export function firstIntegral(n: MathNode): FnNode | null {
+  const path = findPath(n, (x) => x.type === "fn" && x.name === "integral");
   if (!path) return null;
   const node = nodeAt(n, path);
   return node && node.type === "fn" ? node : null;

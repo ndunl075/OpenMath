@@ -116,9 +116,20 @@ export const evaluatePower: Rule = {
   apply(n) {
     if (n.type !== "pow" || n.base.type !== "num" || n.exp.type !== "num") return null;
     const e = n.exp.value;
-    if (!e.isInteger()) return null;
     // 0^0 is undefined; powInt would answer 1.
     if (n.base.value.isZero() && e.isZero()) return null;
+    if (!e.isInteger()) {
+      // Zero to a positive power is zero however the power is written, which is
+      // the one fractional exponent with an exact value. Substituting a limit of
+      // zero into an antiderivative like (2/3)x^(3/2) is where this comes up.
+      if (!n.base.value.isZero() || e.isNegative()) return null;
+      const zero = num(Rational.ZERO);
+      return {
+        node: zero,
+        changes: [{ kind: "replace", fromIds: [n.id], toIds: [zero.id] }],
+        vars: { base: "0", exponent: e.toLatex(), result: "0" },
+      };
+    }
     const mag = e.n < 0n ? -e.n : e.n;
     if (mag > MAX_POWER_EXPONENT) return null;
     const result = n.base.value.powInt(e.n);

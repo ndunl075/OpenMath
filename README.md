@@ -6,8 +6,8 @@ step, not just the answer.
 Everything runs in your browser. No account, no ads, no subscription, no server.
 Your photos never leave your device.
 
-**Status:** v1 in development. Algebra through quadratics, derivatives and limits
-works end to end.
+**Status:** v1 in development. Algebra through quadratics, derivatives,
+integrals and limits works end to end.
 Recognition is wired but has not yet been benchmarked on real photos, see
 [Known gaps](#known-gaps).
 
@@ -68,14 +68,21 @@ says so.
 **Limits**: by substitution, by factoring and cancelling, by l'Hopital's rule,
 or by comparing degrees at infinity, one-sided ones included.
 
+Integrals too, indefinite and definite: the standard table, sums and constant
+multiples, u-substitution, integration by parts, and partial fractions over a
+denominator that factors. Every antiderivative is differentiated back and
+checked against the integrand before you see it, so an integral the search gets
+wrong is discarded rather than shown.
+
 Out of scope for v1, and refused clearly rather than answered wrongly: word
-problems, integrals, systems of equations, matrices, trigonometric equations,
-implicit differentiation, and percentages. A polynomial of degree three or more
-with no rational root is declined rather than approximated, because a decimal is
-not an answer a student can check by substituting it back. Among limits,
-anything the rules cannot settle is declined rather than half-answered, and a
-limit that runs off to infinity is reported as not existing rather than given a
-value.
+problems, integrals with no elementary antiderivative such as `\int e^{x^2} dx`,
+improper integrals and any definite integral with a pole between its limits,
+systems of equations, matrices, trigonometric equations, implicit
+differentiation, and percentages. A polynomial of degree three or more with no
+rational root is declined rather than approximated, because a decimal is not an
+answer a student can check by substituting it back. Among limits, anything the
+rules cannot settle is declined rather than half-answered, and a limit that runs
+off to infinity is reported as not existing rather than given a value.
 
 ## Repository layout
 
@@ -101,7 +108,7 @@ the recognition model on handwritten datasets, kept against the contingency in
 ```bash
 pnpm install
 pnpm dev        # http://localhost:5173
-pnpm test       # 681 tests
+pnpm test       # 773 tests
 pnpm typecheck
 ```
 
