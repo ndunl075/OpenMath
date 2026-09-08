@@ -2,19 +2,25 @@
 
 Free, open-source, camera-to-steps math solver. Runs 100% in the browser. No backend, no accounts, no LLMs, $0 to host.
 
+> **Status, updated during implementation.** Everything below is built except the
+> photo corpus and the OCR bench (§11 steps 1 and 2), which need real homework
+> photos. Three decisions changed once the code existed; each is marked
+> **[revised]** with the reason. See the [README](./README.md) for what works today.
+
 ## 0. Decisions (read this if nothing else)
 
 | Decision | Choice | Why |
 |---|---|---|
 | Platform | PWA (installable web app), mobile-first | No app-store review, no $99/yr, no copycat rejection, works on every phone |
 | Compute | Everything on-device in the browser | $0 hosting, no cold starts, images never leave the phone (local-first) |
+| Parser + CAS | **[revised]** Own AST and LaTeX parser, not compute-engine | compute-engine canonicalises on parse, so `x + x` arrives already folded to `2x` and the `before` state a step engine must show is gone. Own AST also gives the stable node ids animations need |
 | OCR | Texo (20M params, in-browser via transformers.js) behind a swappable `OcrProvider` | Best accuracy-per-byte available; handwriting-capable; reference web impl exists |
-| Solver | Own TypeScript rule engine, seeded from google/mathsteps, every step verified by a CAS | No maintained off-the-shelf step engine exists; the step engine *is* the product |
+| Solver | **[revised]** Own TypeScript rule engine written directly, not vendored mathsteps; every step verified | mathsteps pins mathjs 3.11.2 from 2017 and was archived Aug 2024. Bundling it ships a large CommonJS dependency into an app whose pitch is a small download. Its rule coverage informed ours; none of its code is used |
 | Calculus | v2 derivatives in TS; v3 integrals via lazy-loaded SymPy (Pyodide) | Keeps v1 small; SymPy is the only free step-capable integrator |
-| Hosting | Cloudflare Pages (app) + Hugging Face Hub (weights) | Both free, CDN-backed, CORS-enabled |
+| Hosting | **[revised]** Vercel (app) + Hugging Face Hub (weights) | Vercel by owner preference; the app is static files so any host works. `vercel.json` is committed |
 | UI | Copy Photomath's *flow* (screens, gestures, the idea of animated steps); build every asset ourselves | Flow is functional and free; files, artwork, and authored animations are Google's |
 | Step animations | Generated programmatically from our own step data (§6.1), not hand-authored | Scales with the rule engine; cannot reproduce anyone's assets by construction |
-| License | See §9 — Texo is AGPL-3.0, which forces a choice | Decide before first release |
+| License | **[revised]** MIT throughout. See [LICENSING.md](./LICENSING.md) | The app ships no Texo code and no Texo weights: transformers.js does inference and the browser fetches weights at runtime. Nothing copyleft is in the repo or the bundle, so AGPL would be a choice rather than an obligation |
 | v1 scope | Algebra only (simplify, solve linear/quadratic, factor, fractions, exponents) | Ship a measured 80%+ on a real corpus, then widen |
 
 ## 1. Pipeline
@@ -41,16 +47,18 @@ Zero network calls after first load except fetching the app shell and model weig
 | OCR model | [Texo](https://github.com/alephpi/Texo) | AGPL-3.0 | 20M params → ~20 MB int8 / ~40 MB fp16 | PPHGNetV2 encoder + transformer decoder; fine-tuned on UniMER-1M; HWE (handwritten) BLEU 0.86 |
 | OCR fallback (all-MIT path) | [Pix2Text MFR 1.5](https://github.com/breezedeus/Pix2Text) | MIT | ~120 MB fp32 ONNX → ~30 MB int8 | TrOCR-based; use if AGPL is unacceptable |
 | OCR runtime | transformers.js (or onnxruntime-web) | Apache-2.0 | — | WASM now, WebGPU when stable; run in a Worker |
-| Parser / CAS | [@cortex-js/compute-engine](https://github.com/cortex-js/compute-engine) | MIT | — | LaTeX ↔ MathJSON, simplify, solve, numeric eval, equality |
-| Math input | MathLive | MIT | — | Math keyboard + "fix the scan" editor; emits MathJSON natively |
-| Step engine | `packages/steps` (ours) | MIT | — | Seeded from [google/mathsteps](https://github.com/google/mathsteps) (Apache-2.0, archived Aug 2024, pins mathjs 3.11.2) |
+| Parser / CAS | `packages/math-core` (ours) | MIT | small | Exact BigInt rationals, AST with stable node ids, LaTeX parser and serializer, numeric and exact evaluators. No runtime dependencies |
+| Math input | Plain field + KaTeX preview + custom keypad | MIT | — | MathLive dropped: a full math editor is a large dependency for something mostly used to fix two characters after a scan |
+| Step engine | `packages/steps` (ours) | MIT | small | 30 rules, explanations, CAS verification. Coverage informed by [google/mathsteps](https://github.com/google/mathsteps) (Apache-2.0, archived Aug 2024); no code used |
 | Render | KaTeX | MIT | — | Step cards; faster than MathJax |
 | Calculus (v3) | SymPy via Pyodide | BSD / MPL | ~15–20 MB lazy | `sympy.integrals.manualintegrate.integral_steps` + SymPy Gamma's step renderers |
-| Hosting | Cloudflare Pages | free | 25 MiB/file cap | Unlimited bandwidth; GitHub Pages is the fallback (100 MB/file) |
+| Hosting | Vercel | free | — | Static output, so Cloudflare Pages and GitHub Pages work with no code change |
 | Weights hosting | Hugging Face Hub model repo | free | — | Model repos are still free; only Spaces compute went paid. Mirror to GitHub Releases |
 | CI | GitHub Actions | free for public repos | — | Corpus tests block merge |
 
-Explicitly **not** used: any LLM API, Cloud Run, Cloudflare Workers, HF Spaces, OpenCV.js, pix2tex/LaTeX-OCR (100 K rendered-only training set, weak on handwriting, >100 MB ONNX).
+Explicitly **not** used: any LLM API, Cloud Run, Cloudflare Workers, HF Spaces, OpenCV.js, MathLive, mathjs, compute-engine, and pix2tex/LaTeX-OCR (100 K rendered-only training set, weak on handwriting, >100 MB ONNX).
+
+Measured first load: **125 kB gzipped** (KaTeX 76, app 33, CSS 12, worker 5). Enforced in CI by `scripts/check-bundle-size.mjs` against a 200 kB budget. The OCR model is a separate deferred download and is excluded from that budget.
 
 ## 3. OCR
 
@@ -176,45 +184,50 @@ Rendering detail: wrap every addressable sub-expression in `\htmlId{p-<path>}{..
 
 ## 7. Hosting and delivery
 
-- **App**: Cloudflare Pages from `main` (free, unlimited bandwidth, `*.pages.dev` subdomain; a custom domain is the only optional cost).
+- **App**: **[revised]** Vercel from `main`, configured in `vercel.json`: build `pnpm --filter @openmath/web build`, output `apps/web/dist`, SPA rewrite, immutable asset caching, and `no-cache` on the service worker so updates actually land. Static output, so Cloudflare Pages or GitHub Pages need no code change.
+- **Not set**: `Cross-Origin-Embedder-Policy`. It would unlock multi-threaded WASM, but `require-corp` blocks the cross-origin model fetch. Single-threaded inference is the deliberate trade.
 - **Weights**: Hugging Face Hub model repo; transformers.js fetches from it by default. Mirror the ONNX files to GitHub Releases and make the host configurable (`env.remoteHost`) so a provider change is a one-line fix.
 - **PWA**: service worker precaches the app shell; weights cached on first run; manifest for "Add to Home Screen"; works fully offline afterward.
-- **CI**: lint, typecheck, unit tests, corpus tests (`packages/corpus`), and a bundle-size budget. Corpus regressions block merge.
+- **CI**: `.github/workflows/ci.yml` runs typecheck, the full test suite including the corpus, the production build, and the bundle-size budget. Corpus regressions block merge.
 - **No telemetry, no analytics, no error reporting service.** The GitHub issue flow is the feedback channel.
 
 ## 8. Privacy
 
 Images and expressions never leave the device. The only outbound requests are the app shell and model weights. State this on the landing page in one sentence; it is the differentiator against every ad-supported clone.
 
-## 9. Licensing — decide before release
+## 9. Licensing — **[revised]** resolved as MIT
 
-Texo (code and weights) is AGPL-3.0. Shipping it in the browser bundle makes the app a derivative work in any conservative reading. Two clean options:
+Full reasoning in [LICENSING.md](./LICENSING.md). Short version: this section assumed Texo would be bundled into the browser, which under a conservative reading would make the app a derivative work of AGPL-3.0 code. It is not bundled. Inference runs through transformers.js (Apache-2.0) and the viewer's own browser fetches weights from the model host at runtime, so no copyleft code sits in this repo or in the deployed bundle.
 
-- **A (recommended)**: `apps/web` under AGPL-3.0; `packages/steps`, `packages/math-parse`, `packages/corpus` under MIT with their own LICENSE files. The step engine is the thing others would actually fork, and it stays permissive. Students and contributors don't care about AGPL; only companies do.
-- **B (all-MIT)**: swap the default `OcrProvider` to Pix2Text MFR 1.5 (MIT). Cost: larger download, unmeasured accuracy gap. Run both on the corpus before choosing.
+Everything is therefore MIT, `apps/web` included. Three things would put the AGPL question back, and none should happen without deciding the licence first: bundling Texo weights into the build, self-hosting them on our own domain, or vendoring Texo source.
 
-Never mix: don't put AGPL code in the MIT packages.
+For zero exposure, `DEFAULT_PROVIDER_ID = "pix2text-mfr"` (MIT) is a one-line switch, at the cost of a larger download and an unmeasured accuracy gap. Run the bench (§11 step 2) before choosing.
 
 ## 10. Repo layout (pnpm workspace)
 
+As built:
+
 ```
-apps/web/              PWA (Vite + TS; reuse Texo-web's Nuxt inference code only if you accept AGPL)
-packages/ocr/          OcrProvider interface, preprocess, providers/texo, providers/pix2text
-packages/math-parse/   LaTeX normalizer, compute-engine wrapper, classifier
-packages/steps/        step engine, rules/, explanations/, verify/
-packages/step-motion/  MIT: MathJSON before/after diff → animation timeline spec; choreography table (§6.1)
-packages/corpus/       real problem photos + LaTeX + expected answer/steps; bench + test runners
-tools/models/          Python: export + int8-quantize ONNX, push to HF Hub
+apps/web/              PWA (Vite + Preact + KaTeX), own icons and design tokens, service worker
+apps/web/tools/        icon SVGs + generator for every PNG and ICO size
+packages/math-core/    Rational, AST with stable ids, LaTeX lexer/parser/serializer, evaluators
+packages/ocr/          OcrProvider interface, pure image pipeline, LaTeX normalizer, worker, providers
+packages/steps/        rule engine, rules/, explanations/, poly, quadratic, verify
+packages/step-motion/  Change[] → timeline spec, choreography table (§6.1), FLIP DOM player
+packages/corpus/       77 text problems with hand-written answers; the CI gate
+scripts/               bundle-size budget check
 ```
+
+`packages/math-parse` was folded into `math-core` (the parser) and `ocr` (the normalizer and scope check) rather than existing separately. `tools/models/` is unnecessary while weights are fetched from the hub rather than re-exported.
 
 ## 11. Build order
 
-1. **Corpus first** (before any code): 200 photos of real homework — printed textbook, worksheets, handwriting, bad lighting — each labeled with ground-truth LaTeX and expected answer. This decides everything downstream.
-2. **OCR bench**: Texo vs Pix2Text MFR on the corpus, in-browser on a mid-range Android and an older iPhone. Record accuracy, load time, latency. Pick the license path (§9).
-3. **Vertical slice**: photo → LaTeX → mathsteps → KaTeX, ugly UI, on a phone. Measure corpus solve coverage.
-4. **Product**: scan/confirm/result/steps screens (§6.0), own icons + palette + motion tokens (§6.2), PWA, offline, report flow.
-5. **v1 launch**: algebra at ≥80% corpus coverage, highlighted steps plus move/combine/cancel animations (§6.1), unsupported-state honest about limits.
-6. **v1.5**: full per-rule choreography, play-all with speed control, method switcher. **v2**: derivatives (TS). **v3**: integrals (Pyodide + SymPy). **v4**: native MathJSON rule engine replaces mathsteps.
+1. **Photo corpus — NOT DONE, and it is the blocker.** 200 photos of real homework: printed textbook, worksheets, handwriting, bad lighting, each labelled with ground-truth LaTeX and expected answer. Needs a human with a phone. Step 2 depends entirely on it.
+2. **OCR bench — NOT DONE.** Texo vs TexTeller vs Pix2Text MFR on that corpus, in-browser on a mid-range Android and an older iPhone. Record accuracy (handwriting especially), load time, latency. Confirm the model repo ids actually serve transformers.js-compatible ONNX.
+3. ~~Vertical slice~~ **DONE**: photo → LaTeX → rule engine → KaTeX, on a phone-sized viewport.
+4. ~~Product~~ **DONE**: every screen in §6.0, own design system (§6.2), PWA, offline, report flow.
+5. **v1 launch** — blocked only on steps 1 and 2. The solver covers arithmetic, exact fractions, roots, expanding, like terms, linear equations, inequalities and quadratics, verified against 77 corpus problems, three of which must be refused rather than answered.
+6. **v1.5**: method switcher, more rule coverage from contributors. **v2**: derivatives (TS). **v3**: integrals (Pyodide + SymPy). The native rule engine that was **v4** landed first, in v1.
 
 ## 12. Non-goals (v1)
 
@@ -229,6 +242,7 @@ Word problems (reading comprehension is an LLM-shaped problem; revisit only by r
 | 20–40 MB first download on cellular | Show size, download once, cache forever, int8 default |
 | iOS Safari WASM memory | Worker + int8 model; avoid loading two models at once |
 | Texo / HF hosting terms change | `OcrProvider` swap + configurable weight host + GitHub Releases mirror |
+| Model repo ids or ONNX availability wrong | Unverified from the build environment; step 2 confirms it. The app falls back to the type-in path if a model fails to load |
 | mathsteps bugs (archived) | It's a seed, not a dependency; verification hides bad output; native engine replaces it |
 | Lookalike takedown (DMCA to Cloudflare/GitHub, no lawsuit needed) | Zero copied files: own icons, palette, copy, animations generated from our data (§6); never call it a clone |
 
