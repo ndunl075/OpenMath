@@ -38,7 +38,9 @@ describe("normalizeLatex", () => {
   it("unwraps text and font commands", () => {
     expect(n("\\mathrm{x} + 1")).toBe("x + 1");
     expect(n("\\text{x}^{2}")).toBe("x^{2}");
-    expect(n("\\operatorname{sin}")).toBe("sin");
+    // Unwrapped to a bare "sin", the parser reads s*i*n; the backslash is
+    // restored so it stays a function.
+    expect(n("\\operatorname{sin}")).toBe("\\sin");
     expect(n("\\mathbf{\\mathrm{y}}")).toBe("y");
   });
 

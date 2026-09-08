@@ -115,15 +115,30 @@ class Parser {
 
   private parseTerm(): MathNode {
     let acc = this.parseFactor();
+    let last = acc;
     for (;;) {
       if (this.at("op", "*")) {
         this.next();
-        acc = this.mulFlat(acc, this.parseFactor());
+        last = this.parseFactor();
+        acc = this.mulFlat(acc, last);
       } else if (this.at("op", "/")) {
         this.next();
-        acc = div(acc, this.parseFactor());
+        last = this.parseFactor();
+        acc = div(acc, last);
       } else if (this.startsFactor()) {
-        acc = this.mulFlat(acc, this.parseFactor());
+        // Juxtaposing two numerals never means multiplication: real notation
+        // needs \cdot or brackets. It means a scan split one number into
+        // digits, so refusing is right where 1 2 3 -> 6 would be a confident
+        // wrong answer. @openmath/ocr rejoins these before we ever see them;
+        // this is the backstop for the ones it misses.
+        if (last.type === "num" && this.peek().kind === "number") {
+          throw new ParseError(
+            "two numbers written next to each other",
+            this.peek().pos,
+          );
+        }
+        last = this.parseFactor();
+        acc = this.mulFlat(acc, last);
       } else break;
     }
     return acc;
