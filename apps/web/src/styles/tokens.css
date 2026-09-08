@@ -1,0 +1,102 @@
+/*
+ * Design tokens. Our own palette and motion, per ARCHITECTURE section 6.2.
+ * Nothing here is taken from another app: the flow is shared, the assets are not.
+ */
+:root {
+  color-scheme: light dark;
+
+  /* Brand: indigo to violet. Deliberately not a red camera app. */
+  --accent-50: oklch(0.97 0.02 285);
+  --accent-100: oklch(0.93 0.05 285);
+  --accent-300: oklch(0.78 0.13 285);
+  --accent-500: oklch(0.58 0.21 285);
+  --accent-600: oklch(0.52 0.21 288);
+  --accent-700: oklch(0.45 0.19 288);
+  --accent-contrast: oklch(0.99 0 0);
+
+  --surface: oklch(0.99 0.002 285);
+  --surface-raised: oklch(1 0 0);
+  --surface-sunken: oklch(0.96 0.004 285);
+  --surface-inverse: oklch(0.18 0.02 285);
+  --scrim: oklch(0.18 0.02 285 / 0.55);
+
+  --text: oklch(0.24 0.02 285);
+  --text-muted: oklch(0.52 0.02 285);
+  --text-faint: oklch(0.66 0.015 285);
+  --text-inverse: oklch(0.99 0 0);
+
+  --border: oklch(0.9 0.006 285);
+  --border-strong: oklch(0.82 0.01 285);
+
+  --ok: oklch(0.62 0.15 155);
+  --warn: oklch(0.72 0.16 75);
+  --danger: oklch(0.58 0.2 25);
+
+  --highlight: oklch(0.58 0.21 285 / 0.24);
+  --highlight-strong: oklch(0.58 0.21 285 / 0.4);
+
+  /* Spacing: a 4px rhythm. */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 20px;
+  --s-6: 24px;
+  --s-8: 32px;
+  --s-10: 40px;
+  --s-12: 48px;
+
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 22px;
+  --radius-xl: 30px;
+  --radius-pill: 999px;
+
+  --shadow-sheet: 0 -12px 40px oklch(0.2 0.02 285 / 0.18);
+  --shadow-card: 0 1px 2px oklch(0.2 0.02 285 / 0.06), 0 4px 14px oklch(0.2 0.02 285 / 0.05);
+  --shadow-float: 0 6px 24px oklch(0.2 0.02 285 / 0.22);
+
+  /* Motion tokens mirror packages/step-motion so the whole app moves as one. */
+  --duration-fast: 150ms;
+  --duration-base: 250ms;
+  --duration-slow: 400ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-emphasized: cubic-bezier(0.05, 0.7, 0.1, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  --font-ui: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --tap-target: 44px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --accent-50: oklch(0.26 0.05 285);
+    --accent-100: oklch(0.32 0.08 285);
+    --accent-300: oklch(0.6 0.16 285);
+    --accent-500: oklch(0.68 0.17 285);
+    --accent-600: oklch(0.74 0.15 288);
+    --accent-700: oklch(0.8 0.12 288);
+    --accent-contrast: oklch(0.16 0.02 285);
+
+    --surface: oklch(0.17 0.015 285);
+    --surface-raised: oklch(0.22 0.018 285);
+    --surface-sunken: oklch(0.13 0.012 285);
+    --surface-inverse: oklch(0.97 0 0);
+    --scrim: oklch(0.08 0.01 285 / 0.65);
+
+    --text: oklch(0.95 0.005 285);
+    --text-muted: oklch(0.74 0.01 285);
+    --text-faint: oklch(0.6 0.01 285);
+    --text-inverse: oklch(0.16 0.02 285);
+
+    --border: oklch(0.3 0.014 285);
+    --border-strong: oklch(0.4 0.018 285);
+
+    --highlight: oklch(0.68 0.17 285 / 0.3);
+    --highlight-strong: oklch(0.68 0.17 285 / 0.45);
+
+    --shadow-sheet: 0 -12px 40px oklch(0 0 0 / 0.5);
+    --shadow-card: 0 1px 2px oklch(0 0 0 / 0.3), 0 4px 14px oklch(0 0 0 / 0.25);
+    --shadow-float: 0 6px 24px oklch(0 0 0 / 0.5);
+  }
+}

@@ -91,8 +91,15 @@ export const simplifyNumericFraction: Rule = {
     const b = n.den.value;
     if (b.isZero()) return null;
     const result = a.div(b);
+    const gcd = (x: bigint, y: bigint): bigint => {
+      let p = x < 0n ? -x : x;
+      let q = y < 0n ? -y : y;
+      while (q) { const t = p % q; p = q; q = t; }
+      return p;
+    };
     const alreadyLowestTerms =
-      a.isInteger() && b.isInteger() && !b.isNegative() && !b.isOne() && result.d === b.d;
+      a.isInteger() && b.isInteger() && !b.isNegative() && !b.isOne() &&
+      gcd(a.n, b.n) === 1n;
     if (alreadyLowestTerms) return null;
     const merged = num(result);
     return {

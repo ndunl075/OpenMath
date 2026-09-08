@@ -48,6 +48,15 @@ function once(n: MathNode): MathNode {
       node = mul(args, node.id);
     }
     if (node.type === "mul") {
+      // Coefficient first: "2x" is how a student writes it, "x \\cdot 2" is not.
+      const numbers = node.args.filter((a) => a.type === "num");
+      if (numbers.length > 0 && node.args[0]!.type !== "num") {
+        const others = node.args.filter((a) => a.type !== "num");
+        node = mul([...numbers, ...others], node.id);
+      }
+    }
+
+    if (node.type === "mul") {
       // float minus signs out of the product
       const negCount = node.args.filter((a) => a.type === "neg").length;
       if (negCount > 0) {
