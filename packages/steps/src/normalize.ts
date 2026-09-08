@@ -12,8 +12,13 @@ import {
  * still match terms across the step boundary.
  */
 function once(n: MathNode): MathNode {
-  const kids = children(n).map(once);
-  let node = kids.length ? withChildren(n, kids) : n;
+  const original = children(n);
+  const kids = original.map(once);
+  // Rebuild only when a child actually changed. Returning the same object when
+  // nothing did is what lets `normalize` below stop after one pass instead of
+  // running its whole budget on every call.
+  const touched = kids.some((k, i) => k !== original[i]);
+  let node = touched ? withChildren(n, kids) : n;
 
   // -(-x) -> x
   if (node.type === "neg" && node.arg.type === "neg") {

@@ -1,8 +1,9 @@
 import { lex, ParseError, type Token } from "./lexer.js";
 import { Rational } from "./rational.js";
 import {
-  add, DEFAULT_DERIVATIVE_VARIABLE, diff, div, fn, isConstantSymbol, type MathNode,
-  mul, neg, num, pow, rel, type Relation, sym, symbols,
+  add, DEFAULT_DERIVATIVE_VARIABLE, definiteIntegral, diff, div, fn, INFINITY,
+  integral, isConstantSymbol, limit, type LimitSide, type MathNode, mul, neg,
+  num, pow, rel, type Relation, sym, symbols,
 } from "./ast.js";
 
 export { ParseError };
@@ -20,6 +21,9 @@ const GREEK = new Set([
 
 const RELATIONS: Relation[] = ["=", "<", ">", "<=", ">="];
 
+/** Every spelling of the arrow in a limit subscript. */
+const ARROWS = new Set(["to", "rightarrow", "longrightarrow", "rarr", "Rightarrow"]);
+
 class Parser {
   private readonly t: Token[];
   private i = 0;
@@ -27,9 +31,21 @@ class Parser {
   private barDepth = 0;
   /** Depth of enclosing exponents, so a prime is never read as belonging to one. */
   private exponentDepth = 0;
+  /**
+   * Token offsets where an integrand ends, i.e. the `d` of a trailing `dx`.
+   * Implicit multiplication stops there, which is what keeps `\\int \\frac{1}{x} dx`
+   * from reading the dx as two more factors of the fraction. It is a set rather
+   * than one offset so a nested integral cannot clear its parent's marker.
+   */
+  private readonly integrandEnds = new Set<number>();
 
-  constructor(src: string) {
-    this.t = lex(src);
+  /**
+   * Tokens rather than text is how a sub-expression is parsed in isolation: the
+   * approach point of a limit is a slice of the token stream, and re-lexing a
+   * reconstructed string would lose the source positions error messages use.
+   */
+  constructor(src: string | Token[]) {
+    this.t = typeof src === "string" ? lex(src) : src;
   }
 
   private peek(): Token {
@@ -120,6 +136,7 @@ class Parser {
 
   /** True when the current token can begin a factor, i.e. implicit multiplication. */
   private startsFactor(): boolean {
+    if (this.integrandEnds.has(this.i)) return false;
     const tk = this.peek();
     switch (tk.kind) {
       case "number":
@@ -312,9 +329,15 @@ class Parser {
       return fn("sqrt", [this.parseGroup()]);
     }
 
+    if (name === "int") return this.parseIntegral(tk);
+
     if (name === "pm" || name === "mp") {
       throw new ParseError("\\pm is not supported yet", tk.pos);
     }
+
+    if (name === "infty" || name === "infin") return sym(INFINITY);
+
+    if (name === "lim") return this.parseLimit(tk);
 
     if (FUNCTIONS.has(name)) {
       let base: MathNode | null = null;
@@ -434,6 +457,200 @@ class Parser {
   private parseDerivativeOperand(): MathNode {
     if (this.at("lparen") || this.at("lbrace")) return this.parseFactor();
     return this.parseImplicitRun();
+  }
+
+  /**
+   * `\lim_{x \to 0}`, `\lim_{x \to \infty}` and the one-sided `\lim_{x \to 0^+}`.
+   *
+   * The side marker is found and removed before the point is parsed, because
+   * `0^+` is not an exponent and reading it as one turns a perfectly good
+   * one-sided limit into a syntax error.
+   */
+  private parseLimit(tk: Token): MathNode {
+    if (!this.eat("op", "_")) {
+      throw new ParseError("\\lim needs a subscript saying what approaches what", tk.pos);
+    }
+    this.expect("lbrace");
+
+    const vt = this.peek();
+    const named =
+      vt.kind === "ident" || (vt.kind === "command" && GREEK.has(vt.value));
+    if (!named) throw new ParseError("expected a variable in the limit", vt.pos);
+    this.next();
+    const variable = vt.value;
+
+    const arrow = this.peek();
+    if (arrow.kind !== "command" || !ARROWS.has(arrow.value)) {
+      throw new ParseError("expected \\to in the limit", arrow.pos);
+    }
+    this.next();
+
+    const end = this.findGroupEnd(tk.pos);
+    const { side, stop } = this.readLimitSide(end);
+    if (stop <= this.i) {
+      throw new ParseError("the limit does not say what the variable approaches", this.peek().pos);
+    }
+    const point = this.parseSlice(this.i, stop);
+    this.i = end + 1;
+
+    return limit(this.parseLimitBody(), sym(variable), point, side);
+  }
+
+  /** Index of the closing brace matching the group already opened. */
+  private findGroupEnd(pos: number): number {
+    let depth = 0;
+    for (let j = this.i; j < this.t.length; j++) {
+      const k = this.t[j]!.kind;
+      if (k === "lbrace") depth++;
+      else if (k === "rbrace") {
+        if (depth === 0) return j;
+        depth--;
+      } else if (k === "eof") break;
+    }
+    throw new ParseError("unclosed limit subscript", pos);
+  }
+
+  /** Read a trailing `^+`, `^-`, `^{+}` or `^{-}` as the side approached from. */
+  private readLimitSide(end: number): { side: LimitSide; stop: number } {
+    const isOp = (j: number, v: string) => {
+      const t = this.t[j];
+      return !!t && t.kind === "op" && t.value === v;
+    };
+    const sideOf = (v: string): LimitSide => (v === "+" ? "right" : "left");
+    for (const v of ["+", "-"]) {
+      if (isOp(end - 1, v) && isOp(end - 2, "^")) return { side: sideOf(v), stop: end - 2 };
+      if (
+        this.t[end - 1]?.kind === "rbrace" && isOp(end - 2, v) &&
+        this.t[end - 3]?.kind === "lbrace" && isOp(end - 4, "^")
+      ) {
+        return { side: sideOf(v), stop: end - 4 };
+      }
+    }
+    return { side: "both", stop: end };
+  }
+
+  /** Parse tokens [from, to) on their own, so a sub-expression stands alone. */
+  private parseSlice(from: number, to: number): MathNode {
+    const eof: Token = { kind: "eof", value: "", pos: this.t[to]?.pos ?? 0 };
+    return new Parser([...this.t.slice(from, to), eof]).parse();
+  }
+
+  /**
+   * What the limit is taken of. A bracket closes the operand exactly as it does
+   * for `\frac{d}{dx}`, so a serialized limit reads back as the same expression
+   * and nothing after the bracket is swallowed into the body.
+   */
+  private parseLimitBody(): MathNode {
+    if (this.at("lparen") || this.at("lbrace")) return this.parseFactor();
+    return this.parseImplicitRun();
+  }
+
+  /**
+   * `\int f(x) \, dx` and `\int_{a}^{b} f(x) \, dx`.
+   *
+   * The trailing d-variable is what closes the integrand and names the
+   * variable, so it is located *before* the integrand is parsed: the offset of
+   * its `d` goes into `integrandEnds`, and every implicit-multiplication loop
+   * stops there. Doing it in that order is what keeps `\int \frac{1}{x} dx`
+   * from reading as one over x, times d, times x.
+   */
+  private parseIntegral(tk: Token): MathNode {
+    const limits = this.parseIntegralLimits(tk);
+    const end = this.findIntegrandEnd(this.i);
+    if (end === null) {
+      throw new ParseError(
+        "an integral needs a variable at the end, as in \\int x \\, dx",
+        tk.pos,
+      );
+    }
+    this.integrandEnds.add(end);
+    let body: MathNode;
+    try {
+      body = this.parseExpr();
+    } finally {
+      this.integrandEnds.delete(end);
+    }
+    if (this.i !== end) {
+      throw new ParseError("could not tell where this integrand ends", this.peek().pos);
+    }
+    this.next();
+    const variable = this.next().value;
+    return limits
+      ? definiteIntegral(body, sym(variable), limits.lower, limits.upper)
+      : integral(body, sym(variable));
+  }
+
+  /** Both limits or neither: `\int_{0}` is not an integral anyone means. */
+  private parseIntegralLimits(tk: Token): { lower: MathNode; upper: MathNode } | null {
+    let lower: MathNode | null = null;
+    let upper: MathNode | null = null;
+    for (let k = 0; k < 2; k++) {
+      if (!lower && this.at("op", "_")) {
+        this.next();
+        lower = this.parseIntegralBound(tk);
+      } else if (!upper && this.at("op", "^")) {
+        this.next();
+        upper = this.parseIntegralBound(tk);
+      } else break;
+    }
+    if (lower && upper) return { lower, upper };
+    if (!lower && !upper) return null;
+    throw new ParseError("an integral needs both limits or neither", tk.pos);
+  }
+
+  /**
+   * One bound of a definite integral. Named for the bound rather than for the
+   * "limit of integration" it is usually called, because `parseLimit` already
+   * means the other kind of limit, the one \lim writes.
+   *
+   * An infinite bound is refused here rather than parsed, because an improper
+   * integral is a limit problem and answering it as though the bound were an
+   * ordinary number would be wrong.
+   */
+  private parseIntegralBound(tk: Token): MathNode {
+    let j = this.i;
+    if (this.t[j]?.kind === "lbrace") j++;
+    const sign = this.t[j];
+    if (sign && sign.kind === "op" && (sign.value === "-" || sign.value === "+")) j++;
+    const bound = this.t[j];
+    if (bound && bound.kind === "command" && bound.value === "infty") {
+      throw new ParseError(
+        "an integral with an infinite limit is improper and is not supported yet",
+        tk.pos,
+      );
+    }
+    return this.parseGroup();
+  }
+
+  /**
+   * The offset of the `d` in the trailing `dx`, or null when there is none.
+   * Only a pair at the same bracket depth as the `\int` counts, so a `dx`
+   * inside a fraction or a function argument is left where it is.
+   */
+  private findIntegrandEnd(from: number): number | null {
+    let depth = 0;
+    for (let j = from; j < this.t.length; j++) {
+      const tok = this.t[j]!;
+      if (tok.kind === "eof") return null;
+      if (tok.kind === "lparen" || tok.kind === "lbrace" || tok.kind === "lbracket") depth++;
+      else if (tok.kind === "rparen" || tok.kind === "rbrace" || tok.kind === "rbracket") {
+        depth--;
+        // The group containing the \int closed first, so there is no dx to find.
+        if (depth < 0) return null;
+      }
+      if (depth !== 0 || j === from) continue;
+      if (tok.kind !== "ident" || tok.value !== "d") continue;
+      const name = this.t[j + 1];
+      if (!name) continue;
+      const namesVariable =
+        name.kind === "ident" || (name.kind === "command" && GREEK.has(name.value));
+      if (!namesVariable) continue;
+      // `dx^2` is a power of something called dx, not the end of an integrand.
+      const after = this.t[j + 2];
+      if (after && after.kind === "op" && (after.value === "^" || after.value === "_")) continue;
+      return j;
+    }
+    return null;
   }
 
   /** Parenthesised or braced group, used for `\sin(x)`. */

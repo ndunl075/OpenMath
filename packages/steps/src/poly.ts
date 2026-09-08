@@ -1,4 +1,6 @@
-import { type MathNode, Rational } from "@openmath/math-core";
+import {
+  add, makeTerm, type MathNode, num, pow, Rational, sym, ZERO,
+} from "@openmath/math-core";
 
 /** Sparse polynomial: exponent -> coefficient. */
 export type Poly = Map<number, Rational>;
@@ -10,7 +12,7 @@ function addTo(p: Poly, deg: number, c: Rational): void {
   else p.set(deg, next);
 }
 
-function mulPoly(a: Poly, b: Poly): Poly {
+export function mulPoly(a: Poly, b: Poly): Poly {
   const out: Poly = new Map();
   for (const [da, ca] of a) for (const [db, cb] of b) addTo(out, da + db, ca.mul(cb));
   return out;
@@ -160,4 +162,162 @@ export function relationDegree(n: MathNode, v: string): number | null {
   const r = degreeIn(n.rhs, v);
   if (l === null || r === null) return null;
   return Math.max(l, r);
+}
+
+// ------------------------------------------------------- factoring and division
+
+export function addPoly(a: Poly, b: Poly): Poly {
+  const out: Poly = new Map(a);
+  for (const [d, c] of b) addTo(out, d, c);
+  return out;
+}
+
+export function scalePoly(p: Poly, k: Rational): Poly {
+  const out: Poly = new Map();
+  if (k.isZero()) return out;
+  for (const [d, c] of p) out.set(d, c.mul(k));
+  return out;
+}
+
+export function evalPoly(p: Poly, at: Rational): Rational {
+  let acc = Rational.ZERO;
+  for (const [d, c] of p) {
+    const power = at.powInt(BigInt(d));
+    if (!power) return Rational.ZERO;
+    acc = acc.add(c.mul(power));
+  }
+  return acc;
+}
+
+/** Turn a polynomial back into an expression, highest power first. */
+export function polyToNode(p: Poly, v: string): MathNode {
+  const degrees = [...p.keys()].filter((d) => !coeff(p, d).isZero()).sort((a, b) => b - a);
+  if (degrees.length === 0) return ZERO();
+  const terms = degrees.map((d) => {
+    const c = coeff(p, d);
+    if (d === 0) return num(c);
+    const body = d === 1 ? sym(v) : pow(sym(v), num(Rational.of(BigInt(d))));
+    return makeTerm(c, [body]);
+  });
+  return terms.length === 1 ? terms[0]! : add(terms);
+}
+
+/** Long division: a = quotient * b + remainder, with deg(remainder) < deg(b). */
+export function divmodPoly(a: Poly, b: Poly): { quotient: Poly; remainder: Poly } | null {
+  const db = degree(b);
+  if (db < 0) return null;
+  const lead = coeff(b, db);
+  const quotient: Poly = new Map();
+  let remainder: Poly = new Map(a);
+  for (let guard = 0; guard < 64; guard++) {
+    const dr = degree(remainder);
+    if (dr < db) return { quotient, remainder };
+    const factor = coeff(remainder, dr).div(lead);
+    const shift: Poly = new Map([[dr - db, factor]]);
+    addTo(quotient, dr - db, factor);
+    remainder = subPoly(remainder, mulPoly(shift, b));
+  }
+  return null;
+}
+
+/** Divide by (x - r), which is exact when r really is a root. */
+export function divideByRoot(p: Poly, r: Rational): Poly {
+  const n = degree(p);
+  const out: Poly = new Map();
+  let carry = Rational.ZERO;
+  for (let d = n; d >= 1; d--) {
+    carry = coeff(p, d).add(carry.mul(r));
+    addTo(out, d - 1, carry);
+  }
+  return out;
+}
+
+/** Every positive divisor of n, or null when n is too big to enumerate. */
+function divisors(n: bigint): bigint[] | null {
+  const abs = n < 0n ? -n : n;
+  if (abs === 0n || abs > 1000000n) return null;
+  const out: bigint[] = [];
+  for (let i = 1n; i * i <= abs; i++) {
+    if (abs % i === 0n) {
+      out.push(i);
+      if (i !== abs / i) out.push(abs / i);
+    }
+  }
+  return out;
+}
+
+/**
+ * A rational root, by the rational root theorem: after clearing denominators
+ * every root p/q has p dividing the constant term and q the leading one. A
+ * search, not a formula, which is why the caller has to be ready for null.
+ */
+export function rationalRoot(p: Poly): Rational | null {
+  const deg = degree(p);
+  if (deg < 1) return null;
+  if (coeff(p, 0).isZero()) return Rational.ZERO;
+
+  let scale = 1n;
+  for (const [, c] of p) scale = (scale / gcdBig(scale, c.d)) * c.d;
+  const integral: Poly = scalePoly(p, Rational.of(scale));
+
+  const constants = divisors(coeff(integral, 0).n);
+  const leaders = divisors(coeff(integral, deg).n);
+  if (!constants || !leaders) return null;
+
+  for (const q of leaders) {
+    for (const numerator of constants) {
+      for (const sign of [1n, -1n]) {
+        const candidate = Rational.of(sign * numerator, q);
+        if (evalPoly(p, candidate).isZero()) return candidate;
+      }
+    }
+  }
+  return null;
+}
+
+function gcdBig(a: bigint, b: bigint): bigint {
+  let x = a < 0n ? -a : a;
+  let y = b < 0n ? -b : b;
+  while (y) {
+    const t = x % y;
+    x = y;
+    y = t;
+  }
+  return x || 1n;
+}
+
+export interface LinearFactorisation {
+  lead: Rational;
+  /** One entry per distinct root, in the order they were found. */
+  factors: Array<{ root: Rational; multiplicity: number }>;
+}
+
+/**
+ * Split a polynomial into linear factors over the rationals, or return null.
+ *
+ * Null is the answer for x^2 + 1 and for anything whose roots are irrational:
+ * both are real polynomials, neither has a partial-fraction decomposition this
+ * engine can write down, and inventing one would be worse than declining.
+ */
+export function factorOverRationals(p: Poly): LinearFactorisation | null {
+  const deg = degree(p);
+  if (deg < 1) return null;
+  const lead = coeff(p, deg);
+  const found: Rational[] = [];
+  let work = p;
+  for (let guard = 0; guard < 16 && degree(work) > 0; guard++) {
+    const root = rationalRoot(work);
+    if (!root) return null;
+    found.push(root);
+    work = divideByRoot(work, root);
+  }
+  if (degree(work) !== 0) return null;
+
+  const factors: LinearFactorisation["factors"] = [];
+  for (const root of found) {
+    const seen = factors.find((f) => f.root.equals(root));
+    if (seen) seen.multiplicity++;
+    else factors.push({ root, multiplicity: 1 });
+  }
+  return { lead, factors };
 }

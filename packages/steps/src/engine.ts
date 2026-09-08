@@ -1,10 +1,14 @@
 import {
-  children, type MathNode, type Path, replaceAt, toLatex,
+  children, containsIntegral, containsLimit, type MathNode, type Path, replaceAt,
+  toLatex,
 } from "@openmath/math-core";
 import { normalize } from "./normalize.js";
 import { explain } from "./explain.js";
 import type { Rule, RuleContext, RuleResult, Step } from "./types.js";
-import { verifyEquationEquivalent, verifyEquivalent } from "./verify.js";
+import {
+  verifyEquationEquivalent, verifyEquivalent, verifyIntegrationStep,
+  verifyLimitEquivalent,
+} from "./verify.js";
 
 interface Application {
   path: Path;
@@ -100,10 +104,16 @@ export function run(
       };
 
       if (shouldVerify) {
+        // An unevaluated integral has no single value to sample, so a step that
+        // still contains one is checked by differentiating both sides first.
         const verdict =
           current.type === "rel" && found.next.type === "rel"
             ? verifyEquationEquivalent(current, found.next)
-            : verifyEquivalent(current, found.next);
+            : containsIntegral(current) || containsIntegral(found.next)
+              ? verifyIntegrationStep(current, found.next, ctx.variable)
+              : containsLimit(current) || containsLimit(found.next)
+                ? verifyLimitEquivalent(current, found.next)
+                : verifyEquivalent(current, found.next);
         if (verdict !== "ok") step.unverified = true;
       }
 

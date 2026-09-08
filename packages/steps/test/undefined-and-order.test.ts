@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { parseLatex, toDebug } from "@openmath/math-core";
-import { trySolve } from "@openmath/steps";
+import { classify, trySolve } from "@openmath/steps";
 
 describe("higher-order derivative notation", () => {
   it("reads d^2/dx^2 as two derivatives, not a fraction of a variable called d", () => {
@@ -52,6 +52,24 @@ describe("expressions with no value are declined, not answered", () => {
   it("leaves ordinary fractions alone", () => {
     const r = trySolve("\\frac{5}{2}");
     expect(r.ok).toBe(true);
+  });
+});
+
+describe("a named constant is not an unknown", () => {
+  it("does not solve for e or pi", () => {
+    // 2e = 4 is simply false. Reading e as a variable answers "e = 2", which
+    // redefines Euler's number rather than checking the claim.
+    for (const problem of ["2e=4", "2\\pi=4"]) {
+      const r = trySolve(problem);
+      if (!r.ok) throw new Error(r.message);
+      expect(r.solution.answer, problem).toBe("\\text{false}");
+      expect(r.solution.variable, problem).toBeUndefined();
+    }
+  });
+
+  it("still picks the real unknown standing next to one", () => {
+    expect(classify(parseLatex("e^{x}=e^{2}")).variable).toBe("x");
+    expect(classify(parseLatex("2x=\\pi")).variable).toBe("x");
   });
 });
 

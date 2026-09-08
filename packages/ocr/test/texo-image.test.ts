@@ -94,19 +94,28 @@ describe("toModelTensor", () => {
     expect(tensor.data).toHaveLength(MODEL_INPUT_SIZE * MODEL_INPUT_SIZE);
   });
 
+  // Every pixel of the model's square is asserted individually, which is a
+  // few seconds of expect() calls, and can overrun the default timeout when the
+  // rest of the suite is running alongside it.
   it("normalises to the distribution the model was trained on", () => {
     const white = (255 / 255 - UNIMERNET_MEAN) / UNIMERNET_STD;
     const black = (0 - UNIMERNET_MEAN) / UNIMERNET_STD;
     const tensor = toModelTensor(page());
-    for (const v of tensor.data) {
-      expect(v).toBeGreaterThanOrEqual(black - 1e-6);
-      expect(v).toBeLessThanOrEqual(white + 1e-6);
-    }
-    // The padding is level 0, so the lowest value must actually occur.
+    // Scanned once and asserted on the extremes: every value being in range is
+    // exactly the smallest and largest being in range, and a per-pixel expect()
+    // over the model's whole square is a quarter of a million assertions, which
+    // ran past the default timeout whenever the suite had other work to do.
     let lowest = Infinity;
-    for (const v of tensor.data) if (v < lowest) lowest = v;
+    let highest = -Infinity;
+    for (const v of tensor.data) {
+      if (v < lowest) lowest = v;
+      if (v > highest) highest = v;
+    }
+    expect(lowest).toBeGreaterThanOrEqual(black - 1e-6);
+    expect(highest).toBeLessThanOrEqual(white + 1e-6);
+    // The padding is level 0, so the lowest value must actually occur.
     expect(lowest).toBeCloseTo(black, 5);
-  });
+  }, 20_000);
 
   it("treats a transparent background as paper, not as ink", () => {
     const transparent = createImage(8, 8, 0);

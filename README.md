@@ -6,7 +6,8 @@ step, not just the answer.
 Everything runs in your browser. No account, no ads, no subscription, no server.
 Your photos never leave your device.
 
-**Status:** v1 in development. Algebra through quadratics and derivatives works end to end.
+**Status:** v1 in development. Algebra through quadratics, derivatives,
+integrals and limits works end to end.
 Recognition is wired but has not yet been benchmarked on real photos, see
 [Known gaps](#known-gaps).
 
@@ -36,14 +37,52 @@ hidden rather than displayed, and the app says so.
 ## What it handles today
 
 Arithmetic and exact fractions, powers and roots, expanding brackets,
-collecting like terms, algebraic fractions, linear equations and inequalities,
-quadratics by factoring or the formula with exact radical roots, and
-derivatives in a single variable including the product, quotient and chain
-rules.
+collecting like terms, algebraic fractions, and derivatives in a single
+variable including the product, quotient and chain rules.
+
+**Factorising** an expression, not only solving an equation: common factors,
+the difference of two squares, sums and differences of cubes, trinomials with
+or without a leading coefficient, and four terms by grouping. Whether an
+expression is multiplied out or factored is decided by how it is written — a
+product is expanded, a polynomial already written term by term is factored — so
+the two directions never fight each other.
+
+**Equations**: linear; quadratic by factoring or by the formula, with exact
+radical roots; cubics and quartics by the rational root theorem and synthetic
+division; radical equations, where every candidate is substituted back into the
+original and the extraneous ones are struck out in a step of their own; and
+exponential and logarithmic equations, including the domain check that rejects
+a root which would take the logarithm of something not positive.
+
+**Inequalities**: linear, absolute value and quadratic. The answer is a range,
+or a union of two, written the way a textbook writes it: `-3 < x < 3`, or
+`x < -2` or `x > 2`.
+
+**Exact values.** Trigonometric and logarithmic values come out exactly:
+`\sin(\frac{\pi}{6})` is `\frac{1}{2}` and `\cos(\frac{\pi}{4})` is
+`\frac{\sqrt{2}}{2}`, never a decimal. Where there is no closed form, as in
+`\log_2(10)`, the expression is left as it stands rather than approximated, and
+where there is no value at all, as in `\tan(\frac{\pi}{2})` or `\ln(0)`, it
+says so.
+
+**Limits**: by substitution, by factoring and cancelling, by l'Hopital's rule,
+or by comparing degrees at infinity, one-sided ones included.
+
+Integrals too, indefinite and definite: the standard table, sums and constant
+multiples, u-substitution, integration by parts, and partial fractions over a
+denominator that factors. Every antiderivative is differentiated back and
+checked against the integrand before you see it, so an integral the search gets
+wrong is discarded rather than shown.
 
 Out of scope for v1, and refused clearly rather than answered wrongly: word
-problems, integrals, systems of equations, matrices, trigonometric equations,
-implicit differentiation, and percentages.
+problems, integrals with no elementary antiderivative such as `\int e^{x^2} dx`,
+improper integrals and any definite integral with a pole between its limits,
+systems of equations, matrices, trigonometric equations, implicit
+differentiation, and percentages. A polynomial of degree three or more with no
+rational root is declined rather than approximated, because a decimal is not an
+answer a student can check by substituting it back. Among limits, anything the
+rules cannot settle is declined rather than half-answered, and a limit that runs
+off to infinity is reported as not existing rather than given a value.
 
 ## Repository layout
 
@@ -69,7 +108,7 @@ the recognition model on handwritten datasets, kept against the contingency in
 ```bash
 pnpm install
 pnpm dev        # http://localhost:5173
-pnpm test       # 240 tests
+pnpm test       # 773 tests
 pnpm typecheck
 ```
 
@@ -83,7 +122,7 @@ Static files, so any host works. Vercel is configured in `vercel.json`:
 pnpm --filter @openmath/web build   # outputs apps/web/dist
 ```
 
-First load is about 125 kB gzipped. The recognition model is a separate
+First load is about 136 kB gzipped. The recognition model is a separate
 download, fetched only when someone actually scans, and cached afterwards.
 
 ## Contributing

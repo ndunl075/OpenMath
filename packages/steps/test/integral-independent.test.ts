@@ -1,0 +1,62 @@
+import { describe, expect, it } from "vitest";
+import { diff, evaluateNumeric, parseLatex, sym } from "@openmath/math-core";
+import { trySolve } from "@openmath/steps";
+
+/**
+ * Independent check: differentiate the produced antiderivative and compare it
+ * to the integrand at sampled points. Does not use the solver's own verifier.
+ */
+const INDEFINITE = [
+  "\\int x^{2} \\, dx", "\\int \\sin(x) \\, dx", "\\int e^{x} \\, dx",
+  "\\int \\frac{1}{x} \\, dx", "\\int 2x(x^{2}+1)^{3} \\, dx",
+  "\\int x e^{x} \\, dx", "\\int \\ln(x) \\, dx", "\\int x\\cos(x) \\, dx",
+  "\\int \\frac{1}{x^{2}+1} \\, dx", "\\int (2x+1)^{5} \\, dx",
+  "\\int \\sin(3x) \\, dx", "\\int x^{2}e^{x} \\, dx",
+];
+
+describe("every antiderivative differentiates back to its integrand", () => {
+  for (const problem of INDEFINITE) {
+    it(problem, () => {
+      const r = trySolve(problem);
+      if (!r.ok) throw new Error(`${problem}: ${r.message}`);
+      const integrand = parseLatex(problem.replace(/\\int\s*/, "").replace(/\s*\\,\s*dx/, ""));
+      // Strip the constant of integration before differentiating.
+      const answer = parseLatex(r.solution.answer.replace(/\s*\+\s*C$/, ""));
+      const back = diff(answer, sym("x"));
+      let compared = 0;
+      for (const x of [0.43, 1.17, 2.28, -0.61, 3.05]) {
+        const a = evaluateNumeric(back, { x });
+        const b = evaluateNumeric(integrand, { x });
+        if (!Number.isFinite(a) || !Number.isFinite(b)) continue;
+        compared++;
+        expect(Math.abs(a - b), `at x=${x}: got ${a}, integrand ${b} (${r.solution.answer})`)
+          .toBeLessThan(1e-4 * Math.max(1, Math.abs(b)));
+      }
+      expect(compared, "had comparable points").toBeGreaterThan(2);
+    });
+  }
+});
+
+describe("definite integrals, against values worked by hand", () => {
+  const CASES: Array<[string, number]> = [
+    ["\\int_{0}^{1} x^{2} \\, dx", 1 / 3],
+    ["\\int_{0}^{2} x \\, dx", 2],
+    ["\\int_{1}^{2} \\frac{1}{x} \\, dx", Math.LN2],
+    ["\\int_{0}^{1} e^{x} \\, dx", Math.E - 1],
+    ["\\int_{0}^{\\pi} \\sin(x) \\, dx", 2],
+  ];
+  for (const [problem, want] of CASES) {
+    it(`${problem} = ${want.toFixed(4)}`, () => {
+      const r = trySolve(problem);
+      if (!r.ok) throw new Error(`${problem}: ${r.message}`);
+      const got = evaluateNumeric(parseLatex(r.solution.answer));
+      expect(Math.abs(got - want), `got ${r.solution.answer} = ${got}`).toBeLessThan(1e-6);
+    });
+  }
+});
+
+describe("declines rather than inventing an antiderivative", () => {
+  for (const problem of ["\\int e^{x^{2}} \\, dx", "\\int \\frac{1}{\\ln(x)} \\, dx"]) {
+    it(`refuses ${problem}`, () => expect(trySolve(problem).ok).toBe(false));
+  }
+});
