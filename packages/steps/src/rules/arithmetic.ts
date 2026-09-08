@@ -1,5 +1,5 @@
 import {
-  add, evaluateExact, type MathNode, mul, num, Rational,
+  add, evaluateExact, type MathNode, mul, num, Rational, toLatex,
 } from "@openmath/math-core";
 import type { Rule } from "../types.js";
 
@@ -230,6 +230,52 @@ export const evaluateAbsoluteValue: Rule = {
   },
 };
 
+/**
+ * Is this expression positive whatever its variables do?
+ *
+ * Conservative on purpose: it only says yes where the sign is structural. Used
+ * to drop absolute-value bars that an antiderivative put there for safety —
+ * the integral of 1/x is ln|x|, so evaluating it between 1 and e produced
+ * ln|e|, which is 1 but does not say so.
+ */
+function knownPositive(n: MathNode): boolean {
+  switch (n.type) {
+    case "num":
+      return !n.value.isNegative() && !n.value.isZero();
+    case "sym":
+      return n.name === "e" || n.name === "pi";
+    case "fn":
+      return n.name === "exp" || n.name === "cosh";
+    case "pow":
+      return knownPositive(n.base);
+    case "mul":
+      return n.args.every(knownPositive);
+    case "add":
+      return n.args.every(knownPositive);
+    case "div":
+      return knownPositive(n.num) && knownPositive(n.den);
+    default:
+      return false;
+  }
+}
+
+/** |e| -> e, for anything whose sign is not in doubt. */
+export const absoluteValueOfPositive: Rule = {
+  id: "ABS_OF_POSITIVE",
+  apply(n) {
+    if (n.type !== "fn" || n.name !== "abs") return null;
+    const arg = n.args[0];
+    if (!arg || !knownPositive(arg)) return null;
+    // A plain number is EVALUATE_ABS's, which words it better.
+    if (arg.type === "num") return null;
+    return {
+      node: arg,
+      changes: [{ kind: "replace", fromIds: [n.id], toIds: [arg.id] }],
+      vars: { value: toLatex(arg) },
+    };
+  },
+};
+
 export const arithmeticRules: Rule[] = [
   addNumbers,
   multiplyNumbers,
@@ -238,4 +284,5 @@ export const arithmeticRules: Rule[] = [
   evaluateRoot,
   simplifyRadical,
   evaluateAbsoluteValue,
+  absoluteValueOfPositive,
 ];

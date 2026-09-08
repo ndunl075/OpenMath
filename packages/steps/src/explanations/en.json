@@ -594,5 +594,37 @@
   "LIMIT_BOUNDED_OVER_UNBOUNDED": {
     "title": "The bottom runs away, so the fraction goes to zero",
     "text": "{bottom} grows without any ceiling while the top stays put, so the fraction is a fixed amount shared among ever more, and it thins away to nothing."
+  },
+  "INT_TAN": {
+    "title": "Integrate the tangent",
+    "text": "Tangent is sine over cosine, and the top is exactly what the bottom differentiates to apart from a sign, so the integral is minus the log of the cosine."
+  },
+  "INT_COT": {
+    "title": "Integrate the cotangent",
+    "text": "Cotangent is cosine over sine, and the top is what the bottom differentiates to, so the integral is the log of the sine."
+  },
+  "INT_SIN_SQUARED": {
+    "title": "Use the half-angle identity on the square",
+    "text": "A squared sine has no antiderivative in the table, but sin squared equals one minus cos of twice the angle, over two — and that is a sum of things which do."
+  },
+  "INT_COS_SQUARED": {
+    "title": "Use the half-angle identity on the square",
+    "text": "A squared cosine has no antiderivative in the table, but cos squared equals one plus cos of twice the angle, over two — and that is a sum of things which do."
+  },
+  "INT_SIN_ODD": {
+    "title": "Split off one sine and convert the rest",
+    "text": "An odd power leaves a single sine over once the rest is paired up, and the pairs become cosines through the Pythagorean identity, which sets up a substitution."
+  },
+  "INT_COS_ODD": {
+    "title": "Split off one cosine and convert the rest",
+    "text": "An odd power leaves a single cosine over once the rest is paired up, and the pairs become sines through the Pythagorean identity, which sets up a substitution."
+  },
+  "INT_ARCTAN_SCALED": {
+    "title": "A scaled inverse tangent",
+    "text": "This is the inverse tangent form with {a} in place of one, so the answer carries a factor of one over {a} both inside and out."
+  },
+  "ABS_OF_POSITIVE": {
+    "title": "Drop the absolute value",
+    "text": "{value} is positive wherever it is defined, so the bars around it change nothing and can come off."
   }
 }

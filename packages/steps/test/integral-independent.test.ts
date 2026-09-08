@@ -12,6 +12,16 @@ const INDEFINITE = [
   "\\int x e^{x} \\, dx", "\\int \\ln(x) \\, dx", "\\int x\\cos(x) \\, dx",
   "\\int \\frac{1}{x^{2}+1} \\, dx", "\\int (2x+1)^{5} \\, dx",
   "\\int \\sin(3x) \\, dx", "\\int x^{2}e^{x} \\, dx",
+  // The Calc 2 trig family.
+  "\\int \\tan(x) \\, dx", "\\int \\cot(x) \\, dx",
+  "\\int \\sin(x)^{2} \\, dx", "\\int \\cos(x)^{2} \\, dx",
+  "\\int \\sin(2x)^{2} \\, dx",
+  "\\int \\sin(x)^{3} \\, dx", "\\int \\cos(x)^{3} \\, dx",
+  "\\int \\sin(x)^{5} \\, dx",
+  // Inverse tangent away from a = 1.
+  "\\int \\frac{1}{x^{2}+4} \\, dx", "\\int \\frac{1}{x^{2}+9} \\, dx",
+  // Fractional powers.
+  "\\int x^{\\frac{1}{2}} \\, dx", "\\int x^{-2} \\, dx",
 ];
 
 describe("every antiderivative differentiates back to its integrand", () => {
@@ -44,6 +54,12 @@ describe("definite integrals, against values worked by hand", () => {
     ["\\int_{1}^{2} \\frac{1}{x} \\, dx", Math.LN2],
     ["\\int_{0}^{1} e^{x} \\, dx", Math.E - 1],
     ["\\int_{0}^{\\pi} \\sin(x) \\, dx", 2],
+    // Half of pi: the average of sin^2 over a full arch is 1/2.
+    ["\\int_{0}^{\\pi} \\sin(x)^{2} \\, dx", Math.PI / 2],
+    ["\\int_{0}^{\\pi} \\cos(x)^{2} \\, dx", Math.PI / 2],
+    // ln(e) is 1, and the answer should say so rather than leaving ln|e|.
+    ["\\int_{1}^{e} \\frac{1}{x} \\, dx", 1],
+    ["\\int_{0}^{1} \\frac{1}{x^{2}+1} \\, dx", Math.PI / 4],
   ];
   for (const [problem, want] of CASES) {
     it(`${problem} = ${want.toFixed(4)}`, () => {

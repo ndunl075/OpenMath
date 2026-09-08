@@ -305,6 +305,128 @@ export const intArcsin = tableRule(
   (v) => fn("arcsin", [sym(v)]),
 );
 
+// ------------------------------------------------------------- the trig family
+
+/** The argument of a trig call, when the call is of the given function. */
+function trigArg(n: MathNode, name: string): MathNode | null {
+  if (n.type !== "fn" || n.name !== name || n.args.length !== 1) return null;
+  return n.args[0]!;
+}
+
+/** `f(u)^k` for a named trig function, returning the argument and the power. */
+function trigPower(n: MathNode, name: string): { arg: MathNode; power: number } | null {
+  if (n.type === "pow" && n.exp.type === "num" && n.exp.value.isInteger()) {
+    const arg = trigArg(n.base, name);
+    if (arg) return { arg, power: Number(n.exp.value.toNumber()) };
+    return null;
+  }
+  const arg = trigArg(n, name);
+  return arg ? { arg, power: 1 } : null;
+}
+
+export const intTan = tableRule(
+  "INT_TAN",
+  (body, v) => isCall(body, "tan", v),
+  (v) => neg(fn("ln", [fn("abs", [fn("cos", [sym(v)])])])),
+);
+
+export const intCot = tableRule(
+  "INT_COT",
+  (body, v) => isCall(body, "cot", v),
+  (v) => fn("ln", [fn("abs", [fn("sin", [sym(v)])])]),
+);
+
+/**
+ * sin^2 u -> (1 - cos 2u)/2, and cos^2 u -> (1 + cos 2u)/2.
+ *
+ * A rewrite rather than a table entry, because the identity *is* the lesson.
+ * Once the square is gone the existing sum, constant-multiple and cosine rules
+ * finish the job on their own, and the working reads the way it is taught.
+ */
+function powerReduction(id: string, name: "sin" | "cos"): Rule {
+  return integralRule(id, ({ body, variable: v, node }) => {
+    const found = trigPower(body, name);
+    if (!found || found.power !== 2) return null;
+    const doubled = mul([num(Rational.of(2)), cloneFresh(found.arg)]);
+    const cos2u = fn("cos", [doubled]);
+    const inner = name === "sin"
+      ? add([num(Rational.ONE), neg(cos2u)])
+      : add([num(Rational.ONE), cos2u]);
+    const out = integral(div(inner, num(Rational.of(2))), sym(v));
+    return {
+      node: out,
+      changes: [{ kind: "replace", fromIds: [node.id], toIds: [out.id] }],
+      vars: { variable: v, argument: toLatex(found.arg) },
+    };
+  });
+}
+
+export const intSinSquared = powerReduction("INT_SIN_SQUARED", "sin");
+export const intCosSquared = powerReduction("INT_COS_SQUARED", "cos");
+
+/**
+ * An odd power of sine or cosine: peel one factor off and turn the rest into
+ * the other function, which leaves something u-substitution can take.
+ *
+ *   sin^3 u -> sin u (1 - cos^2 u)
+ *   cos^5 u -> cos u (1 - sin^2 u)^2
+ *
+ * Only fires on an odd power of three or more; the power-reduction rules above
+ * own the even ones, and a bare first power is already in the table.
+ */
+function oddPower(id: string, name: "sin" | "cos"): Rule {
+  const other = name === "sin" ? "cos" : "sin";
+  return integralRule(id, ({ body, variable: v, node }) => {
+    const found = trigPower(body, name);
+    if (!found || found.power < 3 || found.power % 2 === 0) return null;
+    const half = (found.power - 1) / 2;
+    const pythag = add([
+      num(Rational.ONE),
+      neg(pow(fn(other, [cloneFresh(found.arg)]), num(Rational.of(2)))),
+    ]);
+    const rest = half === 1 ? pythag : pow(pythag, num(Rational.of(half)));
+    const out = integral(mul([fn(name, [cloneFresh(found.arg)]), rest]), sym(v));
+    return {
+      node: out,
+      changes: [{ kind: "replace", fromIds: [node.id], toIds: [out.id] }],
+      vars: { variable: v, power: String(found.power), other },
+    };
+  });
+}
+
+export const intSinOdd = oddPower("INT_SIN_ODD", "sin");
+export const intCosOdd = oddPower("INT_COS_ODD", "cos");
+
+/**
+ * 1/(x^2 + a^2) -> (1/a) arctan(x/a), and 1/sqrt(a^2 - x^2) -> arcsin(x/a).
+ *
+ * The table entries above only match a = 1, so the integral of 1/(x^2+4) was
+ * refused while 1/(x^2+1) was answered.
+ */
+export const intArctanScaled = integralRule(
+  "INT_ARCTAN_SCALED",
+  ({ body, variable: v, node }) => {
+    if (body.type !== "div" || !isOne(body.num)) return null;
+    const p = toPolynomial(body.den, v);
+    if (!p || degree(p) !== 2) return null;
+    if (!coeff(p, 2).equals(Rational.ONE) || !coeff(p, 1).isZero()) return null;
+    const c = coeff(p, 0);
+    if (c.isNegative() || c.isZero() || c.equals(Rational.ONE)) return null;
+    const a = c.nthRoot(2n);
+    if (!a) return null;
+
+    const out = mul([
+      div(num(Rational.ONE), num(a)),
+      fn("arctan", [div(sym(v), num(a))]),
+    ]);
+    return {
+      node: out,
+      changes: [{ kind: "replace", fromIds: [node.id], toIds: [out.id] }],
+      vars: { variable: v, a: a.toLatex() },
+    };
+  },
+);
+
 // ------------------------------------------------------------ running the rules
 
 /**
@@ -827,8 +949,18 @@ export const integralRules: Rule[] = [
   intSin,
   intCos,
   intSecSquared,
+  intTan,
+  intCot,
   intArctan,
   intArcsin,
+  intArctanScaled,
+  // The rewrites come before the search. Reducing a square or peeling a factor
+  // off an odd power is cheap and leaves something the table can finish, where
+  // substitution and parts would otherwise flail at it.
+  intSinSquared,
+  intCosSquared,
+  intSinOdd,
+  intCosOdd,
   intSubstitution,
   intLongDivision,
   intPartialFractions,

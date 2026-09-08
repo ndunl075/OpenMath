@@ -50,6 +50,19 @@ function once(n: MathNode): MathNode {
     if (node.num.type === "num" && node.num.value.isNegative()) {
       return neg(div(num(node.num.value.neg()), node.den, node.id));
     }
+    // Same again when the sign is on the leading coefficient of a product, so
+    // an odd power of sine does not finish as "- (-2 cos^3 x)/3".
+    if (node.num.type === "mul") {
+      const factors = node.num.args;
+      const lead = factors[0];
+      if (lead && lead.type === "num" && lead.value.isNegative()) {
+        const flipped = mul(
+          [num(lead.value.neg(), lead.id), ...factors.slice(1)],
+          node.num.id,
+        );
+        return neg(div(flipped, node.den, node.id));
+      }
+    }
   }
 
   if (node.type === "add") {
