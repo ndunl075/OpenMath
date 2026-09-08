@@ -123,6 +123,9 @@ export function lex(input: string): Token[] {
       case "|": push("bar", "|", i); i++; continue;
       case "+": case "-": case "*": case "/": case "^": case "_": case "=":
       case "<": case ">":
+      // Lagrange's prime, as in f'(x). The OCR normalizer already folds the
+      // curly Unicode apostrophes onto this character.
+      case "'":
         push("op", c, i); i++; continue;
       default:
         throw new ParseError(`unexpected character ${JSON.stringify(c)}`, i);

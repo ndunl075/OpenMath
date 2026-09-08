@@ -1,8 +1,15 @@
-import { children, key, type MathNode } from "./ast.js";
+import { children, key, type MathNode, num } from "./ast.js";
 
 const GREEK = new Set([
   "alpha", "beta", "gamma", "delta", "epsilon", "theta", "lambda", "mu",
   "pi", "rho", "sigma", "tau", "phi", "omega",
+]);
+
+/** Function names LaTeX spells with a backslash. Anything else is a plain letter. */
+const LATEX_FUNCTIONS = new Set([
+  "sin", "cos", "tan", "sec", "csc", "cot",
+  "arcsin", "arccos", "arctan", "sinh", "cosh", "tanh",
+  "ln", "log", "exp",
 ]);
 
 export interface SerializeOptions {
@@ -35,6 +42,23 @@ function symbolToLatex(name: string): string {
   const sub = restParts.join("_");
   const base = GREEK.has(head) ? `\\${head}` : head;
   return sub ? `${base}_{${sub}}` : base;
+}
+
+/**
+ * The same product with its negative leading coefficient made positive, or null
+ * when the term does not have one. Node ids are carried over so a term that is
+ * only being reprinted with the minus sign in front of it is still the same term
+ * to the animation layer.
+ */
+function negatedTerm(n: MathNode): MathNode | null {
+  if (n.type !== "mul" || n.args.length < 2) return null;
+  const lead = n.args[0];
+  if (!lead || lead.type !== "num" || !lead.value.isNegative()) return null;
+  const positive = lead.value.neg();
+  const rest = n.args.slice(1);
+  return positive.isOne()
+    ? { ...n, args: rest }
+    : { ...n, args: [num(positive, lead.id), ...rest] };
 }
 
 /** Does this rendered fragment begin with something that would read as a digit? */
@@ -72,6 +96,7 @@ class Serializer {
       case "add": {
         let out = "";
         n.args.forEach((a, i) => {
+          const negated = i > 0 ? negatedTerm(a) : null;
           if (a.type === "neg") {
             const inner = this.render(a.arg);
             const needParens = prec(a.arg) < 1;
@@ -79,6 +104,12 @@ class Serializer {
             out += i === 0 ? `-${body}` : ` - ${body}`;
           } else if (a.type === "num" && a.value.isNegative() && i > 0) {
             out += ` - ${a.value.neg().toLatex()}`;
+          } else if (negated) {
+            // A term whose coefficient is negative, such as the -2x that comes
+            // out of collecting like terms, is written as a subtraction. Without
+            // this the sum reads "x^2 + -2x". Every id survives the flip, so the
+            // animation still matches the term across the step.
+            out += ` - ${this.wrap(negated, 1)}`;
           } else {
             out += i === 0 ? this.wrap(a, 1) : ` + ${this.wrap(a, 1)}`;
           }
@@ -128,8 +159,14 @@ class Serializer {
         if (n.name === "log" && a1) {
           return `\\log_{${this.render(a1)}}\\left(${this.render(a0!)}\\right)`;
         }
+        if (n.name === "diff" && a0 && a1) {
+          // The operand is always bracketed, so re-reading this cannot pick up
+          // a factor that comes after it as part of the derivative.
+          return `\\frac{d}{d${this.render(a1)}}\\left(${this.render(a0)}\\right)`;
+        }
         const args = n.args.map((a) => this.render(a)).join(", ");
-        return `\\${n.name}\\left(${args}\\right)`;
+        const head = LATEX_FUNCTIONS.has(n.name) ? `\\${n.name}` : n.name;
+        return `${head}\\left(${args}\\right)`;
       }
 
       case "rel": {

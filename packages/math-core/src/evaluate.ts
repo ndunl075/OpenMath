@@ -3,7 +3,62 @@ import { Rational } from "./rational.js";
 
 export type Env = Record<string, number>;
 
-const CONSTANTS: Env = { pi: Math.PI };
+const CONSTANTS: Env = { pi: Math.PI, e: Math.E };
+
+/**
+ * Step size for the numeric derivative, scaled by the size of the point. Paired
+ * with the five-point formula below it keeps the relative error near 1e-12,
+ * comfortably inside the verifier's 1e-7 tolerance even for a function as stiff
+ * as tan close to a pole.
+ */
+const DERIVATIVE_STEP = 1e-4;
+
+/** How far halving the step may move the answer before it stops being trusted. */
+const DERIVATIVE_CONVERGENCE = 1e-7;
+
+function fivePoint(f: (x: number) => number, at: number, h: number): number {
+  return (f(at - 2 * h) - 8 * f(at - h) + 8 * f(at + h) - f(at + 2 * h)) / (12 * h);
+}
+
+/**
+ * Five-point central difference, at two step sizes.
+ *
+ * A rule engine that gets the chain rule subtly wrong emits an expression that
+ * looks entirely plausible, so evaluating the derivative numerically is the only
+ * cheap check that catches it. The five-point form is used rather than the
+ * two-point one because its error falls off as h^4, which leaves the shared
+ * verification tolerance alone.
+ *
+ * Halving the step should then barely move the answer. Where it does, the
+ * function is too steep for any difference quotient to resolve — a sample point
+ * that lands a few hundredths away from a pole of tan is enough — and NaN is
+ * returned so the verifier skips that point rather than calling a correct
+ * derivative wrong.
+ */
+export function differentiateNumerically(
+  f: (x: number) => number,
+  at: number,
+  step = DERIVATIVE_STEP,
+): number {
+  const h = step * Math.max(1, Math.abs(at));
+  const coarse = fivePoint(f, at, h);
+  const fine = fivePoint(f, at, h / 2);
+  if (!Number.isFinite(coarse) || !Number.isFinite(fine)) return NaN;
+  const scale = Math.max(1, Math.abs(coarse), Math.abs(fine));
+  if (Math.abs(coarse - fine) > DERIVATIVE_CONVERGENCE * scale) return NaN;
+  return fine;
+}
+
+function evaluateDerivative(n: Extract<MathNode, { type: "fn" }>, env: Env): number {
+  const [body, variable] = n.args;
+  if (!body || !variable || variable.type !== "sym") return NaN;
+  const at = env[variable.name];
+  if (at === undefined || !Number.isFinite(at)) return NaN;
+  return differentiateNumerically(
+    (x) => evaluateNumeric(body, { ...env, [variable.name]: x }),
+    at,
+  );
+}
 
 /**
  * Floating point evaluation. Returns NaN when the expression is undefined at
@@ -37,6 +92,9 @@ export function evaluateNumeric(n: MathNode, env: Env = {}): number {
     case "neg":
       return -evaluateNumeric(n.arg, env);
     case "fn":
+      // A derivative cannot evaluate its argument first: it has to re-evaluate
+      // the body at shifted points, so it is handled before the generic path.
+      if (n.name === "diff") return evaluateDerivative(n, env);
       return evaluateFunction(n.name, n.args.map((a) => evaluateNumeric(a, env)));
     case "rel":
       return NaN;
