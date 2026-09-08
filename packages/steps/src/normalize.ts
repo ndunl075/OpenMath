@@ -1,0 +1,74 @@
+import {
+  add, children, type MathNode, mul, neg, num, Rational, withChildren,
+} from "@openmath/math-core";
+
+/**
+ * Silent structural tidying applied between visible steps: flattening nested
+ * sums and products, collapsing double negatives, and floating a minus sign to
+ * the front of a product. None of this is worth a step card, but without it the
+ * rules below would need to handle every equivalent shape.
+ *
+ * Node ids are preserved wherever a node survives, so the animation layer can
+ * still match terms across the step boundary.
+ */
+function once(n: MathNode): MathNode {
+  const kids = children(n).map(once);
+  let node = kids.length ? withChildren(n, kids) : n;
+
+  // -(-x) -> x
+  if (node.type === "neg" && node.arg.type === "neg") {
+    return node.arg.arg;
+  }
+  // -(number) -> negative number, keeping the outer id
+  if (node.type === "neg" && node.arg.type === "num") {
+    return num(node.arg.value.neg(), node.id);
+  }
+
+  if (node.type === "add") {
+    // flatten nested sums
+    if (node.args.some((a) => a.type === "add")) {
+      const args: MathNode[] = [];
+      for (const a of node.args) {
+        if (a.type === "add") args.push(...a.args);
+        else args.push(a);
+      }
+      node = add(args, node.id);
+    }
+    if (node.type === "add" && node.args.length === 1) return node.args[0]!;
+    if (node.type === "add" && node.args.length === 0) return num(Rational.ZERO, node.id);
+  }
+
+  if (node.type === "mul") {
+    if (node.args.some((a) => a.type === "mul")) {
+      const args: MathNode[] = [];
+      for (const a of node.args) {
+        if (a.type === "mul") args.push(...a.args);
+        else args.push(a);
+      }
+      node = mul(args, node.id);
+    }
+    if (node.type === "mul") {
+      // float minus signs out of the product
+      const negCount = node.args.filter((a) => a.type === "neg").length;
+      if (negCount > 0) {
+        const stripped = node.args.map((a) => (a.type === "neg" ? a.arg : a));
+        const body = mul(stripped, node.id);
+        return negCount % 2 === 1 ? neg(body) : body;
+      }
+      if (node.args.length === 1) return node.args[0]!;
+      if (node.args.length === 0) return num(Rational.ONE, node.id);
+    }
+  }
+
+  return node;
+}
+
+export function normalize(n: MathNode): MathNode {
+  let cur = n;
+  for (let i = 0; i < 50; i++) {
+    const next = once(cur);
+    if (next === cur) return next;
+    cur = next;
+  }
+  return cur;
+}
