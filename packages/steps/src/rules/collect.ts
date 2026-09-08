@@ -135,4 +135,8 @@ export const powerOfPower: Rule = {
   },
 };
 
-export const collectRules: Rule[] = [combineLikeTerms, collectLikeFactors, powerOfPower];
+/**
+ * Powers first: turning x*x into x^2 before collecting terms means the working
+ * reads x^2 + 3x + 2 rather than passing through xx + 3x + 2.
+ */
+export const collectRules: Rule[] = [collectLikeFactors, powerOfPower, combineLikeTerms];

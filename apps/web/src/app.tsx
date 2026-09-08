@@ -1,0 +1,187 @@
+import { useCallback, useEffect, useState } from "preact/hooks";
+import { trySolve } from "@openmath/steps";
+import { DEFAULT_PROVIDER_ID, detectOutOfScope, normalizeLatex } from "@openmath/ocr";
+import type { Rect } from "@openmath/ocr";
+import { HistoryPanel } from "./components/HistoryPanel.js";
+import { Icon } from "./components/Icon.js";
+import { MathInput } from "./components/MathInput.js";
+import { ResultSheet, type ResultOutcome, type SheetHeight } from "./components/ResultSheet.js";
+import { Scanner } from "./components/Scanner.js";
+import { useOcr } from "./hooks/useOcr.js";
+import { useReducedMotion } from "./hooks/useReducedMotion.js";
+import {
+  addHistory, clearHistory, type HistoryEntry, readHistory, readPreferences,
+  removeHistory, writePreferences,
+} from "./lib/storage.js";
+
+type Mode = "scan" | "input" | "history";
+
+let counter = 0;
+const nextId = () => `s${++counter}`;
+
+export function App() {
+  const [mode, setMode] = useState<Mode>("scan");
+  const [draft, setDraft] = useState("");
+  const [outcome, setOutcome] = useState<ResultOutcome | null>(null);
+  const [sheetHeight, setSheetHeight] = useState<SheetHeight>("peek");
+  const [history, setHistory] = useState<HistoryEntry[]>([]);
+  const [speed, setSpeed] = useState(1);
+
+  const reducedMotion = useReducedMotion();
+  const { status, recognize, reset, provider } = useOcr(DEFAULT_PROVIDER_ID);
+
+  useEffect(() => {
+    setHistory(readHistory());
+    setSpeed(readPreferences().speed);
+  }, []);
+
+  const changeSpeed = useCallback((next: number) => {
+    setSpeed(next);
+    writePreferences({ ...readPreferences(), speed: next });
+  }, []);
+
+  const solveLatex = useCallback((latex: string, raw?: string) => {
+    const trimmed = latex.trim();
+    if (!trimmed) return;
+
+    const scope = detectOutOfScope(trimmed);
+    if (scope) {
+      setOutcome({
+        id: nextId(),
+        latex: trimmed,
+        ...(raw ? { raw } : {}),
+        error: { reason: "unsupported", message: `${scope} are not supported yet.` },
+      });
+      setSheetHeight("peek");
+      return;
+    }
+
+    const result = trySolve(trimmed);
+    if (!result.ok) {
+      setOutcome({
+        id: nextId(),
+        latex: trimmed,
+        ...(raw ? { raw } : {}),
+        error: { reason: result.reason, message: result.message },
+      });
+      setSheetHeight("peek");
+      return;
+    }
+
+    setOutcome({
+      id: nextId(),
+      latex: trimmed,
+      ...(raw ? { raw } : {}),
+      solution: result.solution,
+    });
+    setSheetHeight("peek");
+    setHistory(
+      addHistory({
+        latex: trimmed,
+        answer: result.solution.answer,
+        kind: result.solution.kind,
+      }),
+    );
+  }, []);
+
+  const onCapture = useCallback(
+    async (source: HTMLCanvasElement | Blob, crop?: Rect) => {
+      const result = await recognize(source, crop);
+      if (!result) return;
+      const latex = normalizeLatex(result.latex);
+      setDraft(latex);
+      // Nothing usable came back: open the editor rather than an error card, so
+      // the next tap is a fix instead of a retry.
+      if (!latex.trim()) {
+        setMode("input");
+        return;
+      }
+      solveLatex(latex, result.raw);
+    },
+    [recognize, solveLatex],
+  );
+
+  const openEditor = useCallback(() => {
+    if (outcome) setDraft(outcome.latex);
+    setOutcome(null);
+    setMode("input");
+  }, [outcome]);
+
+  const dismissSheet = useCallback(() => {
+    setOutcome(null);
+    reset();
+  }, [reset]);
+
+  return (
+    <div class="app">
+      {mode === "history" ? (
+        <HistoryPanel
+          entries={history}
+          onOpen={(entry) => {
+            setMode("scan");
+            solveLatex(entry.latex);
+          }}
+          onRemove={(id) => setHistory(removeHistory(id))}
+          onClear={() => setHistory(clearHistory())}
+          onClose={() => setMode("scan")}
+        />
+      ) : mode === "input" ? (
+        <div class="panel">
+          <header class="panel__head">
+            <button
+              type="button"
+              class="icon-button icon-button--subtle"
+              onClick={() => setMode("scan")}
+              aria-label="Back to the camera"
+            >
+              <Icon name="camera" size={22} />
+            </button>
+            <h1>Type a problem</h1>
+            <button
+              type="button"
+              class="icon-button icon-button--subtle"
+              onClick={() => setMode("history")}
+              aria-label="History"
+            >
+              <Icon name="history" size={22} />
+            </button>
+          </header>
+          <MathInput
+            value={draft}
+            onChange={setDraft}
+            onSubmit={(value) => {
+              solveLatex(value);
+            }}
+            autoFocus
+          />
+        </div>
+      ) : (
+        <Scanner
+          active={mode === "scan" && !outcome}
+          status={status}
+          providerLabel={provider.label}
+          providerBytes={provider.approximateBytes}
+          onCapture={(source, crop) => void onCapture(source, crop)}
+          onTypeIn={() => setMode("input")}
+          onOpenHistory={() => setMode("history")}
+        />
+      )}
+
+      {outcome ? (
+        <>
+          <div class="sheet-scrim" onClick={dismissSheet} aria-hidden="true" />
+          <ResultSheet
+            outcome={outcome}
+            height={sheetHeight}
+            onHeightChange={setSheetHeight}
+            onDismiss={dismissSheet}
+            onEdit={openEditor}
+            speed={speed}
+            onSpeedChange={changeSpeed}
+            reducedMotion={reducedMotion}
+          />
+        </>
+      ) : null}
+    </div>
+  );
+}

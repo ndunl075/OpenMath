@@ -1,4 +1,4 @@
-import { children, type MathNode } from "./ast.js";
+import { children, key, type MathNode } from "./ast.js";
 
 const GREEK = new Set([
   "alpha", "beta", "gamma", "delta", "epsilon", "theta", "lambda", "mu",
@@ -96,7 +96,10 @@ class Serializer {
         let out = parts[0] ?? "";
         for (let i = 1; i < parts.length; i++) {
           const p = parts[i]!;
-          out += startsWithDigit(p) ? ` \\cdot ${p}` : ` ${p}`;
+          // A dot is needed before a digit, and between repeated factors, or
+          // x times x renders as "xx" and reads like one symbol.
+          const repeated = key(n.args[i]!) === key(n.args[i - 1]!);
+          out += startsWithDigit(p) || repeated ? ` \\cdot ${p}` : ` ${p}`;
         }
         return out;
       }

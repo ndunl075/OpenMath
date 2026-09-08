@@ -1,0 +1,27 @@
+{
+  "name": "@openmath/web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "AGPL-3.0-or-later",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "icons": "node tools/generate-icons.mjs"
+  },
+  "dependencies": {
+    "@openmath/math-core": "workspace:*",
+    "@openmath/ocr": "workspace:*",
+    "@openmath/step-motion": "workspace:*",
+    "@openmath/steps": "workspace:*",
+    "katex": "^0.16.11",
+    "preact": "^10.29.8"
+  },
+  "devDependencies": {
+    "@huggingface/transformers": "^4.2.0",
+    "@preact/preset-vite": "^2.10.2",
+    "sharp": "^0.34.5",
+    "vite": "^6.3.6"
+  }
+}
