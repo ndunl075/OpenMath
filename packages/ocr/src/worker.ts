@@ -2,7 +2,7 @@
  * Runs recognition off the main thread so the camera preview never stutters
  * while a model is loading or generating, per ARCHITECTURE section 3.
  */
-import { preprocess, type PreprocessOptions } from "./image.js";
+import { cropTo, preprocess, type PreprocessOptions } from "./image.js";
 import { getProvider } from "./providers/index.js";
 import type { LoadProgress, OcrResult, RasterImage } from "./types.js";
 
@@ -43,7 +43,14 @@ async function handle(request: WorkerRequest): Promise<void> {
       if (!provider.isLoaded()) {
         await provider.load((progress) => post({ type: "progress", requestId, progress }));
       }
-      const prepared = preprocess(request.image, request.options ?? {});
+      const options = request.options ?? {};
+      // A provider with its own pipeline gets the viewfinder crop and nothing
+      // else; see OcrProvider.ownsPreprocessing.
+      const prepared = provider.ownsPreprocessing
+        ? options.crop
+          ? cropTo(request.image, options.crop)
+          : request.image
+        : preprocess(request.image, options);
       const result = await provider.recognize(prepared);
       post({ type: "result", requestId, result, preprocessed: prepared });
       return;

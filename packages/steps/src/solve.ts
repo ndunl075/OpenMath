@@ -1,16 +1,17 @@
 import {
-  evaluateNumeric, type MathNode, num, parseLatex, Rational, rel, sym, symbols, toLatex,
+  asDiff, containsDiff, evaluateNumeric, firstDiff, freeSymbols, type MathNode, num,
+  parseLatex, Rational, rel, sym, symbols, toLatex,
 } from "@openmath/math-core";
 import { run } from "./engine.js";
 import { explain } from "./explain.js";
 import { chooseVariable } from "./rules/equation.js";
-import { allRules, expressionRules } from "./rules/index.js";
+import { allRules, differentiationRules, expressionRules } from "./rules/index.js";
 import { coeff, degree, relationDegree } from "./poly.js";
 import { polynomialOf, solveQuadratic } from "./quadratic.js";
 import { type Solution, type Step, UnsupportedProblemError } from "./types.js";
-import { checkSolution } from "./verify.js";
+import { checkSolution, verifyDerivative } from "./verify.js";
 
-export type ProblemKind = "simplify" | "evaluate" | "solve";
+export type ProblemKind = "simplify" | "evaluate" | "solve" | "differentiate";
 
 export interface Classification {
   kind: ProblemKind;
@@ -20,12 +21,19 @@ export interface Classification {
 
 /** Decide what kind of problem this is before trying to solve it. */
 export function classify(node: MathNode): Classification {
+  // A derivative anywhere makes this a differentiation problem, equals sign or
+  // not; `differentiate` is what refuses the equation form with a real reason.
+  if (containsDiff(node)) {
+    const top = firstDiff(node);
+    const d = top ? asDiff(top) : null;
+    return { kind: "differentiate", ...(d ? { variable: d.variable } : {}) };
+  }
   if (node.type === "rel") {
     const variable = chooseVariable(node);
     const deg = variable ? relationDegree(node, variable) ?? undefined : undefined;
     return { kind: "solve", ...(variable ? { variable } : {}), ...(deg !== undefined ? { degree: deg } : {}) };
   }
-  const vars = [...symbols(node)].filter((s) => s !== "pi");
+  const vars = [...freeSymbols(node)];
   return vars.length === 0 ? { kind: "evaluate" } : { kind: "simplify" };
 }
 
@@ -198,10 +206,69 @@ function solveEquation(node: MathNode): Solution {
   };
 }
 
+/**
+ * Differentiate.
+ *
+ * Two refusals matter more than anything the rules do. A second letter is
+ * ambiguous: in d/dx(a x^2), `a` reads as a constant, but in d/dx(y) written by
+ * a student doing implicit differentiation, `y` is a function of x, and the two
+ * readings give different answers. Guessing would produce a confidently wrong
+ * result, so the problem is declined instead. And any d/dv node still standing
+ * once the rules have run is a derivative this engine does not know; the answer
+ * would be partly unevaluated, which is worse than no answer at all.
+ */
+function differentiate(node: MathNode): Solution {
+  const problem = toLatex(node);
+  if (node.type === "rel") {
+    throw new UnsupportedProblemError(
+      "equations containing a derivative are not supported yet",
+    );
+  }
+
+  const top = firstDiff(node);
+  const d = top ? asDiff(top) : null;
+  if (!d) {
+    throw new UnsupportedProblemError("could not tell what to differentiate");
+  }
+  const variable = d.variable;
+
+  const others = [...freeSymbols(node)].filter((sm) => sm !== variable).sort();
+  const other = others[0];
+  if (other !== undefined) {
+    throw new UnsupportedProblemError(
+      `${other} could be a constant or a function of ${variable}, and implicit differentiation is not supported yet`,
+    );
+  }
+
+  const result = run(node, differentiationRules, { variable });
+
+  const leftover = firstDiff(result.node);
+  if (leftover) {
+    const inner = leftover.args[0];
+    throw new UnsupportedProblemError(
+      `the derivative of ${inner ? toLatex(inner) : "that"} is not supported yet`,
+    );
+  }
+
+  const answer = toLatex(result.node);
+  const numeric = verifyDerivative(node, result.node, variable);
+  return {
+    kind: "differentiate",
+    problem,
+    variable,
+    answer,
+    answers: [answer],
+    steps: result.steps,
+    verified: stepsVerified(result.steps) && numeric === "ok",
+    ...(result.incomplete ? { incomplete: true } : {}),
+  };
+}
+
 /** Solve or simplify an already-parsed expression. */
 export function solveNode(node: MathNode): Solution {
   const c = classify(node);
   if (c.kind === "solve") return solveEquation(node);
+  if (c.kind === "differentiate") return differentiate(node);
   return simplify(node, c.kind);
 }
 

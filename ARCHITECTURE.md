@@ -224,7 +224,7 @@ scripts/               bundle-size budget check
 ## 11. Build order
 
 1. **Photo corpus — NOT DONE, and it is the blocker.** 200 photos of real homework: printed textbook, worksheets, handwriting, bad lighting, each labelled with ground-truth LaTeX and expected answer. Needs a human with a phone. Step 2 depends entirely on it.
-2. **OCR bench — harness DONE (`packages/bench`), the run is NOT.** Texo vs TexTeller vs Pix2Text MFR on that corpus. The harness scores accuracy per category (answer match as the headline, plus exact match, character error rate and solvable rate), separates model load from per-image inference, and diffs a run against an earlier one. It runs in Node, so its latencies are desktop latencies: the in-browser measurement on a mid-range Android and an older iPhone, and confirming the model repo ids actually serve transformers.js-compatible ONNX, still need doing on device.
+2. **OCR bench — harness DONE (`packages/bench`), the run is NOT.** Texo vs TexTeller vs Pix2Text MFR on that corpus. The harness scores accuracy per category (answer match as the headline, plus exact match, character error rate and solvable rate), separates model load from per-image inference, and diffs a run against an earlier one. It runs in Node, so its latencies are desktop latencies: the in-browser measurement on a mid-range Android and an older iPhone, still needs doing on device. The Texo repo id, dtype, download size and preprocessing have since been confirmed against the model's own shipped browser app and corrected; the other two providers have not been checked that way.
 3. ~~Vertical slice~~ **DONE**: photo → LaTeX → rule engine → KaTeX, on a phone-sized viewport.
 4. ~~Product~~ **DONE**: every screen in §6.0, own design system (§6.2), PWA, offline, report flow.
 5. **v1 launch** — blocked only on steps 1 and 2. The solver covers arithmetic, exact fractions, roots, expanding, like terms, linear equations, inequalities and quadratics, verified against 77 corpus problems, three of which must be refused rather than answered.
@@ -243,7 +243,7 @@ Word problems (reading comprehension is an LLM-shaped problem; revisit only by r
 | 20–40 MB first download on cellular | Show size, download once, cache forever, int8 default |
 | iOS Safari WASM memory | Worker + int8 model; avoid loading two models at once |
 | Texo / HF hosting terms change | `OcrProvider` swap + configurable weight host + GitHub Releases mirror |
-| Model repo ids or ONNX availability wrong | Unverified from the build environment; step 2 confirms it. The app falls back to the type-in path if a model fails to load |
+| Model repo ids or ONNX availability wrong | **This one was real.** The Texo entry pointed at a repository that does not exist and asked for a quantised export that is not published, so the default OCR could never have loaded. Corrected against the model's own shipped app. TexTeller and Pix2Text MFR remain unverified in exactly the same way, including their preprocessing, so bench them before trusting them |
 | mathsteps bugs (archived) | It's a seed, not a dependency; verification hides bad output; native engine replaces it |
 | Lookalike takedown (DMCA to Cloudflare/GitHub, no lawsuit needed) | Zero copied files: own icons, palette, copy, animations generated from our data (§6); never call it a clone |
 

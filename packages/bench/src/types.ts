@@ -1,4 +1,5 @@
 import type { Rect } from "@openmath/ocr";
+import type { SolutionKind } from "@openmath/steps";
 
 /**
  * Every shape the bench reads or writes. Kept in one file because results.json
@@ -56,7 +57,8 @@ export interface Reading {
   /** After normalizeLatex. */
   latex: string;
   solved: boolean;
-  kind?: "simplify" | "evaluate" | "solve";
+  /** Mirrors the solver rather than restating it, so a new problem kind does not break the bench. */
+  kind?: SolutionKind;
   variable?: string;
   /** The answer as the UI would render it. */
   answer?: string;

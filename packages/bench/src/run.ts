@@ -1,4 +1,4 @@
-import { preprocess } from "@openmath/ocr";
+import { cropTo, preprocess } from "@openmath/ocr";
 import type { OcrProvider, PreprocessOptions, RasterImage } from "@openmath/ocr";
 import { aggregate, aggregateByCategory, scoreItem } from "./score.js";
 import type { CorpusItem, ItemResult, ProviderRun } from "./types.js";
@@ -56,9 +56,15 @@ export async function runProvider(options: RunOptions): Promise<ProviderRun> {
     const image = await loadImage(item);
 
     const preprocessStarted = now();
-    const prepared = usePreprocess
-      ? preprocess(image, { ...(item.crop ? { crop: item.crop } : {}) } satisfies PreprocessOptions)
-      : image;
+    // Mirror the worker: a provider with its own pipeline gets the crop and
+    // nothing else, so a benched score reflects what the app actually sends.
+    const prepared = provider.ownsPreprocessing
+      ? item.crop
+        ? cropTo(image, item.crop)
+        : image
+      : usePreprocess
+        ? preprocess(image, { ...(item.crop ? { crop: item.crop } : {}) } satisfies PreprocessOptions)
+        : image;
     const preprocessMs = now() - preprocessStarted;
 
     let raw = "";

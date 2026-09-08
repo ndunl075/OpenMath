@@ -296,3 +296,66 @@ export function makeTerm(coeff: Rational, rest: MathNode[]): MathNode {
   if (coeff.equals(Rational.NEG_ONE)) return neg(body);
   return mul([num(coeff), body]);
 }
+
+// ------------------------------------------------------------------ constants
+
+/**
+ * Symbols that name a fixed number rather than a free variable. Anything here
+ * is excluded from `freeSymbols`, so the verifier samples around it instead of
+ * treating it as an unknown, and `evaluateNumeric` knows its value.
+ */
+const CONSTANT_SYMBOLS: ReadonlySet<string> = new Set(["pi", "e"]);
+
+export function isConstantSymbol(name: string): boolean {
+  return CONSTANT_SYMBOLS.has(name);
+}
+
+/** Symbols a value genuinely varies with, i.e. `symbols` minus the constants. */
+export function freeSymbols(n: MathNode): Set<string> {
+  const out = new Set<string>();
+  for (const s of symbols(n)) if (!isConstantSymbol(s)) out.add(s);
+  return out;
+}
+
+// ----------------------------------------------------------------- derivatives
+
+export type FnNode = Extract<MathNode, { type: "fn" }>;
+
+/** The variable a derivative is taken with respect to when nothing names one. */
+export const DEFAULT_DERIVATIVE_VARIABLE = "x";
+
+/**
+ * d/dv(expr), written as an ordinary `fn` node so every traversal, serializer
+ * and id-keyed animation already in place keeps working unchanged. The rules in
+ * `packages/steps/src/rules/derivative.ts` are what give it meaning; until they
+ * have fired the node is opaque, which is exactly what lets the solver notice a
+ * derivative it cannot do and decline instead of half-answering.
+ */
+export const diff = (expr: MathNode, variable: MathNode, id = freshId()): MathNode =>
+  fn("diff", [expr, variable], id);
+
+/** Read a node as a derivative, or null when it is not one. */
+export function asDiff(
+  n: MathNode,
+): { node: FnNode; body: MathNode; variable: string } | null {
+  if (n.type !== "fn" || n.name !== "diff") return null;
+  const [body, v] = n.args;
+  if (!body || !v || v.type !== "sym") return null;
+  return { node: n, body, variable: v.name };
+}
+
+export function containsDiff(n: MathNode): boolean {
+  let found = false;
+  walk(n, (x) => {
+    if (x.type === "fn" && x.name === "diff") found = true;
+  });
+  return found;
+}
+
+/** The outermost derivative in `n`. `walk` is pre-order, so this is the top one. */
+export function firstDiff(n: MathNode): FnNode | null {
+  const path = findPath(n, (x) => x.type === "fn" && x.name === "diff");
+  if (!path) return null;
+  const node = nodeAt(n, path);
+  return node && node.type === "fn" ? node : null;
+}

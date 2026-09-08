@@ -1,7 +1,8 @@
 import { lex, ParseError, type Token } from "./lexer.js";
 import { Rational } from "./rational.js";
 import {
-  add, div, fn, type MathNode, mul, neg, num, pow, rel, type Relation, sym,
+  add, DEFAULT_DERIVATIVE_VARIABLE, diff, div, fn, isConstantSymbol, type MathNode,
+  mul, neg, num, pow, rel, type Relation, sym, symbols,
 } from "./ast.js";
 
 export { ParseError };
@@ -24,6 +25,8 @@ class Parser {
   private i = 0;
   /** Depth of enclosing |...| so a closing bar is not read as a new factor. */
   private barDepth = 0;
+  /** Depth of enclosing exponents, so a prime is never read as belonging to one. */
+  private exponentDepth = 0;
 
   constructor(src: string) {
     this.t = lex(src);
@@ -146,12 +149,55 @@ class Parser {
   }
 
   private parsePower(): MathNode {
-    const base = this.parseAtom();
+    let node = this.parseAtom();
     if (this.at("op", "^")) {
       this.next();
-      return pow(base, this.parseFactor());
+      this.exponentDepth++;
+      try {
+        node = pow(node, this.parseFactor());
+      } finally {
+        this.exponentDepth--;
+      }
     }
-    return base;
+    // The prime is read after the exponent, so (x^2+1)^3' is the derivative of
+    // the cube rather than a derivative of the exponent 3, which would quietly
+    // turn the whole expression into 1.
+    if (this.exponentDepth === 0 && this.at("op", "'")) {
+      let order = 0;
+      while (this.eat("op", "'")) order++;
+      node = this.applyPrimes(node, order);
+    }
+    return node;
+  }
+
+  /**
+   * Lagrange notation. `f'(x)` is one unit: the bracket names the variable, not
+   * a factor to multiply by, so it is consumed here rather than left for
+   * implicit multiplication. `(x^2+3x)'` and `y''` come through the same path.
+   */
+  private applyPrimes(base: MathNode, order: number): MathNode {
+    let variable: string | null = null;
+    if (base.type === "sym" && this.at("lparen")) {
+      // f'(x): the bracket names the variable. f itself has no definition here,
+      // so this becomes d/dx(f), which the solver declines with a real reason
+      // rather than silently answering zero.
+      const arg = this.parseGroup2();
+      variable = arg.type === "sym" ? arg.name : this.inferVariable(arg);
+    }
+    const v = variable ?? this.inferVariable(base);
+    let out = base;
+    for (let k = 0; k < order; k++) out = diff(out, sym(v));
+    return out;
+  }
+
+  /**
+   * Which variable a prime means. `(t^2+1)'` is unambiguous; a bare `y'` is the
+   * Leibniz situation, where y is a function of the usual independent variable.
+   */
+  private inferVariable(n: MathNode): string {
+    if (n.type === "sym") return DEFAULT_DERIVATIVE_VARIABLE;
+    const free = [...symbols(n)].filter((s) => !isConstantSymbol(s));
+    return free.length === 1 ? free[0]! : DEFAULT_DERIVATIVE_VARIABLE;
   }
 
   /** A braced group, or a single atom when the author omitted braces. */
@@ -248,6 +294,8 @@ class Parser {
     this.next();
 
     if (name === "frac" || name === "dfrac" || name === "tfrac") {
+      const operator = this.tryDifferentialOperator();
+      if (operator) return this.parseDerivative(operator);
       const n = this.parseGroup();
       const d = this.parseGroup();
       return div(n, d);
@@ -283,6 +331,68 @@ class Parser {
     if (GREEK.has(name)) return sym(name);
 
     throw new ParseError(`unsupported command \\${name}`, tk.pos);
+  }
+
+  /**
+   * Read `{d}` or `{dy}` at token offset `k`, the two halves of a Leibniz
+   * derivative. Returns the name after the d (empty for a bare `{d}`) and the
+   * offset just past the closing brace.
+   *
+   * This is a token lookahead rather than a rewrite of the input text: by the
+   * time \frac has been consumed the shape is only three or four tokens, and
+   * matching them directly keeps `\frac{d}{dx}` from ever being built as a
+   * fraction and then guessed back into a derivative.
+   */
+  private readDifferentialGroup(k: number): { name: string; next: number } | null {
+    if (this.t[k]?.kind !== "lbrace") return null;
+    let j = k + 1;
+    const head = this.t[j];
+    if (!head || head.kind !== "ident" || head.value !== "d") return null;
+    j++;
+    let name = "";
+    const tail = this.t[j];
+    if (tail && (tail.kind === "ident" || (tail.kind === "command" && GREEK.has(tail.value)))) {
+      name = tail.value;
+      j++;
+    }
+    if (this.t[j]?.kind !== "rbrace") return null;
+    return { name, next: j + 1 };
+  }
+
+  /**
+   * `\frac{d}{dx}` and `\frac{dy}{dx}`, consumed only on a full match so a
+   * genuine fraction of two variables called d and x still parses as division.
+   */
+  private tryDifferentialOperator(): { variable: string; target: string } | null {
+    const top = this.readDifferentialGroup(this.i);
+    if (!top) return null;
+    const bottom = this.readDifferentialGroup(top.next);
+    if (!bottom || bottom.name === "") return null;
+    this.i = bottom.next;
+    return { variable: bottom.name, target: top.name };
+  }
+
+  private parseDerivative(op: { variable: string; target: string }): MathNode {
+    // \frac{dy}{dx}: y is defined elsewhere, if at all. Parsing it as d/dx(y)
+    // keeps it in one piece so the solver can decline it with a real reason
+    // instead of the parser guessing what y stands for.
+    if (op.target !== "") return diff(sym(op.target), sym(op.variable));
+    return diff(this.parseDerivativeOperand(), sym(op.variable));
+  }
+
+  /**
+   * What the operator applies to.
+   *
+   * A bracket closes the operand, so `\frac{d}{dx}(x)(y)` is the derivative of
+   * x multiplied by y, not the derivative of xy; that keeps a serialized product
+   * rule step reading back as the same expression. An exponent on the bracket
+   * still belongs to the operand though — `\frac{d}{dx}(x^2+1)^3` is the
+   * derivative of the cube — which is why this takes a whole factor rather than
+   * just the group. Without brackets the operand runs on the way `\sin 2x` does.
+   */
+  private parseDerivativeOperand(): MathNode {
+    if (this.at("lparen") || this.at("lbrace")) return this.parseFactor();
+    return this.parseImplicitRun();
   }
 
   /** Parenthesised or braced group, used for `\sin(x)`. */

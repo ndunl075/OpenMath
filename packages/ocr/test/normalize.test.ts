@@ -102,4 +102,12 @@ describe("detectOutOfScope", () => {
     expect(detectOutOfScope("\\frac{x+1}{2}")).toBeNull();
     expect(detectOutOfScope("\\sqrt{x}")).toBeNull();
   });
+
+  it("lets derivatives reach the solver now that it can take them", () => {
+    expect(detectOutOfScope("\\frac{d}{dx}(x^2+3x)")).toBeNull();
+    expect(detectOutOfScope("\\frac{dy}{dx}")).toBeNull();
+    expect(detectOutOfScope("f'(x)")).toBeNull();
+    // Integrals are still the solver's business to refuse, not ours to answer.
+    expect(detectOutOfScope("\\int \\frac{d}{dx} x")).toBe("integrals");
+  });
 });

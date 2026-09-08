@@ -11,7 +11,7 @@ describe("corpus", () => {
 
       if (p.unsupported) {
         expect(outcome.ok, `expected ${p.latex} to be rejected`).toBe(false);
-        if (!outcome.ok) expect(outcome.reason).toBe("unsupported");
+        if (!outcome.ok) expect(outcome.reason).toBe(p.declineReason ?? "unsupported");
         return;
       }
 

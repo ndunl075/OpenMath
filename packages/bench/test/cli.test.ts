@@ -85,7 +85,7 @@ describe("when the weights will not load", () => {
     const message = describeLoadFailure("texo", new ModelLoadError("texo", thrown));
 
     expect(message).toContain("Texo");
-    expect(message).toContain("alephpi/Texo");
+    expect(message).toContain("alephpi/FormulaNet");
     expect(message).toContain("getaddrinfo ENOTFOUND huggingface.co");
     expect(message).toContain("Nothing was scored for this provider.");
   });
