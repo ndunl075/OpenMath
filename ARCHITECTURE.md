@@ -12,7 +12,8 @@ Free, open-source, camera-to-steps math solver. Runs 100% in the browser. No bac
 | Solver | Own TypeScript rule engine, seeded from google/mathsteps, every step verified by a CAS | No maintained off-the-shelf step engine exists; the step engine *is* the product |
 | Calculus | v2 derivatives in TS; v3 integrals via lazy-loaded SymPy (Pyodide) | Keeps v1 small; SymPy is the only free step-capable integrator |
 | Hosting | Cloudflare Pages (app) + Hugging Face Hub (weights) | Both free, CDN-backed, CORS-enabled |
-| UI | Copy Photomath's *flow*, not its brand | Google owns Photomath; trade dress + asset copyright risk |
+| UI | Copy Photomath's *flow* (screens, gestures, the idea of animated steps); build every asset ourselves | Flow is functional and free; files, artwork, and authored animations are Google's |
+| Step animations | Generated programmatically from our own step data (§6.1), not hand-authored | Scales with the rule engine; cannot reproduce anyone's assets by construction |
 | License | See §9 — Texo is AGPL-3.0, which forces a choice | Decide before first release |
 | v1 scope | Algebra only (simplify, solve linear/quadratic, factor, fractions, exponents) | Ship a measured 80%+ on a real corpus, then widen |
 
@@ -92,7 +93,13 @@ type Step = {
   before: string;        // LaTeX
   after: string;         // LaTeX
   explanation: string;   // from explanations/<locale>.json, templated
+  changes: Change[];     // what moved/merged/vanished; drives highlighting + animation (§6.1)
   substeps?: Step[];
+};
+type Change = {
+  kind: "move" | "combine" | "cancel" | "add" | "replace" | "apply-both-sides";
+  from: Path[];          // MathJSON paths in `before`
+  to: Path[];            // MathJSON paths in `after`
 };
 interface StepEngine {
   canSolve(p: Problem): boolean;
@@ -110,18 +117,62 @@ interface StepEngine {
 
 **Roadmap**: derivatives in TS (power/product/quotient/chain rules are a clean rule set, ~1–2 weeks). Integrals via Pyodide + SymPy `integral_steps`, loaded only when an `\int` is classified.
 
-## 6. UI
+## 6. UI: copy the flow, own every asset
 
-Copy the interaction model, which is functional and not protectable:
+**The rule.** Interaction model, screen order, layout proportions, gestures, and the *concept* of animated step-by-step solving are functional ideas. Nobody owns them, and we use them freely. What we never copy is a file or a piece of artwork: name, logo, icons, illustrations, the palette as a set, microcopy, and Photomath's authored tutorial animations. Everything below is built from scratch with our own assets. The step animations are generated from our own step data (§6.1), so they cannot reproduce anyone's files by construction. Don't describe the app as a "clone" in launch content; describe what it does.
 
-1. **Scan**: full-screen camera, draggable/resizable viewfinder, one big capture button, gallery upload, flashlight.
-2. **Confirm**: recognized expression in a MathLive field (editable), "Solve" button.
-3. **Result**: bottom sheet with the answer, then a "Show steps" expander.
-4. **Steps**: one card per step, before → after, changed sub-expression highlighted, tap for the explanation; nested cards for substeps.
-5. **Unsupported**: "Can't solve this type yet" + what *is* supported + "Report" (opens a prefilled GitHub issue with the LaTeX; the user attaches the photo manually — zero infra).
-6. **History**: local only (IndexedDB), clearable.
+### 6.0 Screens and gestures (the flow we copy)
 
-Do **not** copy: name, logo, red palette, icon set, illustrations, animations, microcopy. Build your own identity; the launch content needs to be visually distinguishable anyway.
+1. **Scan** — full-bleed live camera. Viewfinder box with rounded corners and corner handles: drag to move, pinch or drag handles to resize; everything outside the box is dimmed. Bottom bar: gallery (left), large capture button (center), flash toggle (right). Top bar: history, keyboard-entry, help. Tap capture → frame freezes → scan-line sweeps the box (~600 ms) → result sheet slides up. Optional: auto-scan when the box has been still for 1 s.
+2. **Confirm** — top of the result sheet shows the recognized expression rendered large, with an edit pencil. Tap → MathLive editor with math keyboard. Fix, then "Solve". Low OCR confidence opens the editor automatically.
+3. **Result sheet** — bottom sheet at ~45 % height with a drag handle. Answer rendered large. Primary button: "Show solving steps". Drag up → sheet expands to full height (steps view). Drag down → dismiss back to live camera. Sheet uses a spring, not a linear ease.
+4. **Steps** — vertical list of step cards. Card = plain-English rule label ("Combine like terms"), `before` → `after` math, changed sub-expression highlighted. Tap a card → expands to show the explanation text and substeps. Each card has ▶ to animate that step (§6.1). Header has "Play all" with speed control. Method switcher tabs (e.g. factor vs quadratic formula) when the engine has more than one method (v2).
+5. **Unsupported** — "Can't solve this type yet" + list of what *is* supported + "Report" (prefilled GitHub issue with the LaTeX; the user attaches the photo manually — zero infra).
+6. **Type-in** — same MathLive editor, entered from the scan screen's keyboard icon. Solves the "no camera / laptop" case and doubles as a calculator.
+7. **History** — local only (IndexedDB), newest first, tap to reopen, swipe to delete, one-tap clear all.
+
+Transitions: camera → sheet (sheet spring + camera dim), card expand (height + fade), step highlight (pulse), steps autoplay (§6.1). Every animation respects `prefers-reduced-motion` (instant states, highlight only).
+
+### 6.1 Step animations (the feature Photomath paywalls)
+
+Each step *animates the transformation* instead of showing two static lines: terms slide across the equals sign, like terms converge and merge, canceled factors strike through and fade, a distributed factor fans out to each term, a substituted value drops into place. Photomath hand-authors these per problem type. We generate them from step data, which is cheaper, scales with every new rule, and is provably ours.
+
+**Data.** Every `Step` carries `changes: Change[]` (§5). The rule that made the step knows exactly what it did, so it emits the change list; nothing is inferred by screen-diffing. v1 (vendored mathsteps): derive changes from mathsteps' `changeGroup` node marks plus `ruleId` → supports highlight, move, combine, cancel for most algebra rules. v1.5 (native rules): every rule emits exact `from`/`to` paths.
+
+**Pipeline** (`packages/step-motion`, MIT, framework-free):
+
+```
+Step {before, after, changes}
+  └─ path-match MathJSON nodes before ↔ after
+      └─ timeline spec  [{ targetPath, op: move|fade-out|fade-in|pulse|strike, t0, dur }]
+          └─ renderer (apps/web): KaTeX with `trust` + \htmlId{} on addressed sub-expressions
+              └─ FLIP: measure spans in `before` and `after` renders, animate via Web Animations API
+```
+
+Rendering detail: wrap every addressable sub-expression in `\htmlId{p-<path>}{...}` when serializing MathJSON → LaTeX, so each MathJSON node maps to a DOM span. Render `before` and `after` off-screen, measure both, then FLIP-animate matched spans, fade out removed ones, fade in added ones. MathLive's per-atom DOM is the alternative if KaTeX's `trust` mode gets awkward.
+
+**Choreography per rule family** (one entry each in `choreography.ts`; adding a rule means adding a line here):
+
+| `Change.kind` / rule family | Motion |
+|---|---|
+| `move` (term across `=`) | Slide across the equals sign; sign flips with a brief pulse on arrival |
+| `combine` (like terms, fractions with common denominator) | Sources converge to the destination position and merge into the result |
+| `cancel` (common factors, additive inverses) | Strike-through, then fade out; remaining terms close the gap |
+| `apply-both-sides` (÷, ×, ±, √ on both sides) | The operation appears under both sides simultaneously, then simplifies |
+| `replace` (distribute, expand, evaluate arithmetic) | Source pulses, arrows fan out to each destination term, destinations fade in |
+| `add` (introduce a term, e.g. complete the square) | Fade in with a pulse |
+
+**Controls**: play one step, play all (sequential, 0.5×–2× speed), scrub, pause. Reduced motion → highlight-only mode. Every animation is derived from a step that passed CAS verification (§5), so an animation can never show a transformation the engine didn't verify.
+
+**Design references** for the motion language (study, never copy assets): Graspable Math, Algebra Touch, Mathigon Polypad.
+
+### 6.2 Design system (ours)
+
+- **Icons**: Lucide (ISC) or Phosphor (MIT). Covers camera, flash, image, keyboard, history, chevron, play, pencil. Never hand-trace a competitor's glyph.
+- **Palette**: our own tokens. One accent color in our own shade (not Photomath's red as a set), neutral grays, semantic success/warn/error. Light + dark. Keep the OKLCH values in `tokens.css`.
+- **Type**: system font stack for UI; KaTeX fonts for math. No licensed fonts.
+- **Motion tokens**: durations 150 / 250 / 400 ms; standard, emphasized, and spring easings; all animation reads from these.
+- **Layout**: mobile-first at 360 px, safe-area insets, sheet heights as viewport fractions, 44 px minimum tap targets.
 
 ## 7. Hosting and delivery
 
@@ -151,6 +202,7 @@ apps/web/              PWA (Vite + TS; reuse Texo-web's Nuxt inference code only
 packages/ocr/          OcrProvider interface, preprocess, providers/texo, providers/pix2text
 packages/math-parse/   LaTeX normalizer, compute-engine wrapper, classifier
 packages/steps/        step engine, rules/, explanations/, verify/
+packages/step-motion/  MIT: MathJSON before/after diff → animation timeline spec; choreography table (§6.1)
 packages/corpus/       real problem photos + LaTeX + expected answer/steps; bench + test runners
 tools/models/          Python: export + int8-quantize ONNX, push to HF Hub
 ```
@@ -160,9 +212,9 @@ tools/models/          Python: export + int8-quantize ONNX, push to HF Hub
 1. **Corpus first** (before any code): 200 photos of real homework — printed textbook, worksheets, handwriting, bad lighting — each labeled with ground-truth LaTeX and expected answer. This decides everything downstream.
 2. **OCR bench**: Texo vs Pix2Text MFR on the corpus, in-browser on a mid-range Android and an older iPhone. Record accuracy, load time, latency. Pick the license path (§9).
 3. **Vertical slice**: photo → LaTeX → mathsteps → KaTeX, ugly UI, on a phone. Measure corpus solve coverage.
-4. **Product**: scan/confirm/result/steps screens, PWA, offline, report flow.
-5. **v1 launch**: algebra at ≥80% corpus coverage, with the unsupported-state honest about limits.
-6. **v2**: derivatives (TS). **v3**: integrals (Pyodide + SymPy). **v4**: native MathJSON rule engine replaces mathsteps.
+4. **Product**: scan/confirm/result/steps screens (§6.0), own icons + palette + motion tokens (§6.2), PWA, offline, report flow.
+5. **v1 launch**: algebra at ≥80% corpus coverage, highlighted steps plus move/combine/cancel animations (§6.1), unsupported-state honest about limits.
+6. **v1.5**: full per-rule choreography, play-all with speed control, method switcher. **v2**: derivatives (TS). **v3**: integrals (Pyodide + SymPy). **v4**: native MathJSON rule engine replaces mathsteps.
 
 ## 12. Non-goals (v1)
 
@@ -178,6 +230,7 @@ Word problems (reading comprehension is an LLM-shaped problem; revisit only by r
 | iOS Safari WASM memory | Worker + int8 model; avoid loading two models at once |
 | Texo / HF hosting terms change | `OcrProvider` swap + configurable weight host + GitHub Releases mirror |
 | mathsteps bugs (archived) | It's a seed, not a dependency; verification hides bad output; native engine replaces it |
+| Lookalike takedown (DMCA to Cloudflare/GitHub, no lawsuit needed) | Zero copied files: own icons, palette, copy, animations generated from our data (§6); never call it a clone |
 
 ## 14. Market check (verified Sep 2026)
 
