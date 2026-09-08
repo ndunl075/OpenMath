@@ -17,6 +17,9 @@
       "path": "./packages/ocr"
     },
     {
+      "path": "./packages/bench"
+    },
+    {
       "path": "./apps/web"
     }
   ]

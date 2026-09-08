@@ -6,6 +6,7 @@
   "scripts": {
     "build": "pnpm -r --filter=./packages/* build && pnpm --filter=@openmath/web build",
     "test": "vitest run",
+    "bench": "node packages/bench/bin/bench.mjs",
     "typecheck": "tsc -b --force",
     "dev": "pnpm --filter=@openmath/web dev"
   },
