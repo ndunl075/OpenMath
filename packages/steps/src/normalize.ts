@@ -1,5 +1,5 @@
 import {
-  add, children, div, type MathNode, mul, neg, num, Rational, withChildren,
+  add, children, div, type MathNode, mul, neg, num, pow, Rational, withChildren,
 } from "@openmath/math-core";
 
 /**
@@ -27,6 +27,19 @@ function once(n: MathNode): MathNode {
   // -(number) -> negative number, keeping the outer id
   if (node.type === "neg" && node.arg.type === "num") {
     return num(node.arg.value.neg(), node.id);
+  }
+
+  // x^{1/3}: the exponent parses as a division, and both the power rule and the
+  // integral power rule want a single number there, so they were declining a
+  // fractional exponent outright. Folded only in exponent position — folding
+  // 8/2 into 4 everywhere would delete the "simplify the fraction" step that
+  // solving 2x = 8 is supposed to show.
+  if (
+    node.type === "pow" && node.exp.type === "div" &&
+    node.exp.num.type === "num" && node.exp.den.type === "num" &&
+    !node.exp.den.value.isZero()
+  ) {
+    return pow(node.base, num(node.exp.num.value.div(node.exp.den.value), node.exp.id), node.id);
   }
 
   if (node.type === "div") {

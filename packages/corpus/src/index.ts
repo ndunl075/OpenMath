@@ -296,7 +296,10 @@ export const problems: CorpusProblem[] = [
   { latex: "\\frac{dy}{dx}", kind: "differentiate", unsupported: true, tags: ["derivative", "implicit"] },
   { latex: "\\frac{d}{dx}(y^{2})", kind: "differentiate", unsupported: true, tags: ["derivative", "implicit"] },
   { latex: "f'(x)", kind: "differentiate", unsupported: true, tags: ["derivative", "prime", "undefined-function"] },
-  { latex: "\\frac{d}{dx}\\arctan(x)", kind: "differentiate", unsupported: true, tags: ["derivative", "no-rule"] },
+  { latex: "\\frac{d}{dx}\\arctan(x)", kind: "differentiate", answer: "\\frac{1}{1 + x^{2}}", tags: ["derivative", "inverse-trig"] },
+  { latex: "\\frac{d}{dx}\\arcsin(x)", kind: "differentiate", answer: "\\frac{1}{\\sqrt{1 - x^{2}}}", tags: ["derivative", "inverse-trig"] },
+  { latex: "\\frac{d}{dx}\\sec(x)", kind: "differentiate", answer: "\\sec\\left(x\\right) \\tan\\left(x\\right)", tags: ["derivative", "trig"] },
+  { latex: "\\frac{d}{dx}(x^{\\frac{1}{3}})", kind: "differentiate", answer: "\\frac{1}{3} x^{-\\frac{2}{3}}", tags: ["derivative", "fractional-power"] },
   { latex: "\\frac{d}{dx}\\left|x\\right|", kind: "differentiate", unsupported: true, tags: ["derivative", "no-rule"] },
   { latex: "\\frac{d}{dx}(x^{2})=2x", kind: "differentiate", unsupported: true, tags: ["derivative", "equation"] },
 

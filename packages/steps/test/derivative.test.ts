@@ -188,10 +188,9 @@ describe("refusals", () => {
   });
 
   it("declines rather than leaving a derivative in the answer", () => {
-    expect(declineOf("\\frac{d}{dx}\\arctan(x)")).toContain("not supported yet");
     expect(declineOf("\\frac{d}{dx}\\left|x\\right|")).toContain("not supported yet");
     // The part it can do is not reported as if it were the whole answer.
-    expect(declineOf("\\frac{d}{dx}(x^{2}+\\arcsin(x))")).toContain("not supported yet");
+    expect(declineOf("\\frac{d}{dx}(x^{2}+\\left|x\\right|)")).toContain("not supported yet");
   });
 
   it("declines an equation containing a derivative", () => {

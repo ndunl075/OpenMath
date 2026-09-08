@@ -10,7 +10,14 @@ const REL_TOLERANCE = 1e-7;
 
 /** Deterministic sample points, so a test that passes today passes tomorrow. */
 function samplePoints(count: number): number[] {
-  const fixed = [0.5, 1.5, -2.25, 3.125, -0.75, 7.5, -4.5, 2.375, 11.25, -9.125];
+  // The tail of small values matters: arcsin, arccos and anything else defined
+  // only on (-1, 1) is undefined at almost every point above, and a check that
+  // cannot gather enough usable samples reports "unknown", which reads to the
+  // UI as unverified and hides a correct answer's working.
+  const fixed = [
+    0.5, 1.5, -2.25, 3.125, -0.75, 7.5, -4.5, 2.375, 11.25, -9.125,
+    0.25, -0.375, 0.125, -0.625, 0.875, -0.125,
+  ];
   const out: number[] = [];
   let seed = 20260908;
   for (let i = 0; i < count; i++) {
