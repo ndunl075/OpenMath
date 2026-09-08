@@ -1,0 +1,242 @@
+[
+  {
+    "input": "",
+    "output": ""
+  },
+  {
+    "input": "   ",
+    "output": ""
+  },
+  {
+    "input": "x",
+    "output": "x"
+  },
+  {
+    "input": "$$ x^2 + 3x - 4 = 0 $$",
+    "output": "x^{2} + 3x - 4 = 0"
+  },
+  {
+    "input": "$x+1$",
+    "output": "x + 1"
+  },
+  {
+    "input": "\\( a - b \\)",
+    "output": "a - b"
+  },
+  {
+    "input": "\\[ a - b \\]",
+    "output": "a - b"
+  },
+  {
+    "input": "\\left( x + 1 \\right) \\left( x - 2 \\right)",
+    "output": "( x + 1 ) ( x - 2 )"
+  },
+  {
+    "input": "\\left\\{ x \\right\\}",
+    "output": "\\{x \\}"
+  },
+  {
+    "input": "\\left. \\frac{a}{b} \\right.",
+    "output": "\\frac{a}{b}"
+  },
+  {
+    "input": "\\frac12 + \\frac{3}4",
+    "output": "\\frac{1}{2} + \\frac{3}{4}"
+  },
+  {
+    "input": "\\frac\\alpha2",
+    "output": "\\frac{\\alpha}{2}"
+  },
+  {
+    "input": "\\frac { 1 } { 2 } + \\sqrt { 9 }",
+    "output": "\\frac{1}{2} + \\sqrt {9}"
+  },
+  {
+    "input": "\\dfrac{1}{2} - \\tfrac{3}{4}",
+    "output": "\\dfrac{1}{2} - \\tfrac{3}{4}"
+  },
+  {
+    "input": "\\binom{n}{2}",
+    "output": "\\binom{n}{2}"
+  },
+  {
+    "input": "3 × 4 ÷ 2",
+    "output": "3 \\times 4 \\div 2"
+  },
+  {
+    "input": "a · b − c",
+    "output": "a \\cdot b - c"
+  },
+  {
+    "input": "x² + y³",
+    "output": "x^{2} + y^{3}"
+  },
+  {
+    "input": "x⁻¹",
+    "output": "x^{-1}"
+  },
+  {
+    "input": "2 ≤ x ≥ 1 ≠ 0",
+    "output": "2 \\le x \\ge 1 \\neq 0"
+  },
+  {
+    "input": "√{4} + ∛{8}",
+    "output": "\\sqrt{4} + \\sqrt[3]{8}"
+  },
+  {
+    "input": "½ + ¼ + ⅛",
+    "output": "\\frac{1}{2} + \\frac{1}{4} + \\frac{1}{8}"
+  },
+  {
+    "input": "α + β + π",
+    "output": "\\alpha + \\beta + \\pi"
+  },
+  {
+    "input": "∞",
+    "output": "\\infty"
+  },
+  {
+    "input": "5 ± 3",
+    "output": "5 \\pm 3"
+  },
+  {
+    "input": "a b",
+    "output": "a b"
+  },
+  {
+    "input": "\\alpha + \\beta",
+    "output": "\\alpha + \\beta"
+  },
+  {
+    "input": "\\displaystyle \\frac{a}{b} \\, + \\; c",
+    "output": "\\frac{a}{b} + c"
+  },
+  {
+    "input": "\\quad x \\qquad y",
+    "output": "x y"
+  },
+  {
+    "input": "\\bigl( x \\bigr)",
+    "output": "( x )"
+  },
+  {
+    "input": "a \\! b \\: c \\> d",
+    "output": "a b c d"
+  },
+  {
+    "input": "50\\%",
+    "output": "50"
+  },
+  {
+    "input": "a ~ b",
+    "output": "a b"
+  },
+  {
+    "input": "\\mathrm{d}x + \\text{hello}",
+    "output": "dx + hello"
+  },
+  {
+    "input": "\\operatorname{sin}(x)",
+    "output": "sin(x)"
+  },
+  {
+    "input": "\\mathbf{\\mathit{x}}",
+    "output": "x"
+  },
+  {
+    "input": "\\textrm{ab}\\mbox{cd}",
+    "output": "abcd"
+  },
+  {
+    "input": "x^2 = 4.",
+    "output": "x^{2} = 4"
+  },
+  {
+    "input": "y = 3;",
+    "output": "y = 3"
+  },
+  {
+    "input": "{ x + 1 ) }",
+    "output": "{x + 1 )}"
+  },
+  {
+    "input": "{{x}",
+    "output": "{{x}}"
+  },
+  {
+    "input": "x}}",
+    "output": "x"
+  },
+  {
+    "input": "\\{x\\}",
+    "output": "\\{x\\}"
+  },
+  {
+    "input": "x^{10} + x^2",
+    "output": "x^{10} + x^{2}"
+  },
+  {
+    "input": "x^a b",
+    "output": "x^{a} b"
+  },
+  {
+    "input": "x_1 + x_{12}",
+    "output": "x_1 + x_{12}"
+  },
+  {
+    "input": "-\\frac{b}{2a}",
+    "output": "- \\frac{b}{2a}"
+  },
+  {
+    "input": "\\sqrt[3]{x}",
+    "output": "\\sqrt[3]{x}"
+  },
+  {
+    "input": "2\\pi r",
+    "output": "2\\pi r"
+  },
+  {
+    "input": "\\log \\frac{a}{b}",
+    "output": "\\log \\frac{a}{b}"
+  },
+  {
+    "input": "\\sin x + \\cos x",
+    "output": "\\sin x + \\cos x"
+  },
+  {
+    "input": "\\begin{matrix} a \\\\ b \\end{matrix}",
+    "output": "\\begin{matrix} a \\ b \\end{matrix}"
+  },
+  {
+    "input": "\\int_0^1 x dx",
+    "output": "\\int_0^{1} x dx"
+  },
+  {
+    "input": "\\sum_{i=1}^{n} i",
+    "output": "\\sum_{i = 1}^{n} i"
+  },
+  {
+    "input": "\\lim_{x \\to 0} x",
+    "output": "\\lim_{x \\to 0} x"
+  },
+  {
+    "input": "x^{ - 2 }",
+    "output": "x^{-2}"
+  },
+  {
+    "input": "{ -3 }",
+    "output": "{-3}"
+  },
+  {
+    "input": "a<=b",
+    "output": "a < = b"
+  },
+  {
+    "input": "3x^{2}-2x+1=0",
+    "output": "3x^{2} - 2x + 1 = 0"
+  },
+  {
+    "input": "\\frac{\\frac{1}{2}}{3}",
+    "output": "\\frac{\\frac{1}{2}}{3}"
+  }
+]

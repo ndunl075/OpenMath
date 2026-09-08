@@ -56,6 +56,10 @@ problems, calculus, systems of equations, matrices, and trigonometric equations.
 `packages/steps` is the interesting one and the part worth forking. It has no
 dependency on the app, the camera, or any model.
 
+Outside the pnpm workspace, `tools/finetune/` is a Python setup for fine-tuning
+the recognition model on handwritten datasets, kept against the contingency in
+[Known gaps](#known-gaps). It has never been run, and its README says so up top.
+
 ## Running it
 
 ```bash

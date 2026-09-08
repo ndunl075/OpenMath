@@ -1,0 +1,110 @@
+# Fine-tune Texo on handwriting, on one consumer GPU.
+#
+# This is a Hydra config for Texo's own trainer, not a config for anything in
+# this repository. train.py copies it into <texo-root>/config/ and then runs
+# Texo's src/train.py with it, so nothing of Texo's is vendored here.
+#
+# Every group in `defaults` is a file in Texo's config/ directory. The bases
+# chosen here are the *transfer* variants, because those are the 20M-parameter
+# model with the 687-token tokenizer -- the one that gets exported to ONNX and
+# the one the app downloads. The `-distill` (50k-vocab) variants are a different
+# model and would not drop into the app.
+#
+# Field names were read from Texo at commit-time HEAD:
+#   config/model/formulanet-S-distill-transfer.yaml
+#   config/training/finetune_distill_transfer.yaml
+#   config/trainer/default.yaml
+#   config/data/UniMER-1M.yaml
+# If Texo has since renamed anything, Hydra fails loudly with the key it could
+# not merge, which is the good failure mode.
+
+defaults:
+  - global
+  - hydra: default
+  - model: formulanet-S-distill-transfer
+  - data: UniMER-1M
+  - training: finetune_distill_transfer
+  - trainer: default
+  - _self_
+
+seed: 42
+
+model:
+  # Released checkpoint to start from. Obtained with, in the Texo checkout:
+  #   python scripts/python/hf_hub.py pull --with_useful_ckpts
+  # This exact path is what Texo's own transfer config uses.
+  pretrained: ./model/checkpoints/formulanet_distill_best_transfer.pt
+  encoder:
+    # The encoder is where handwriting robustness lives, so it has to train.
+    # Freezing it (freeze: true) halves the memory and is the fallback if 12 GB
+    # is not enough, at the cost of most of the point of doing this.
+    freeze: false
+
+data:
+  # train.py overrides all three from --dataset. Left as the upstream defaults
+  # so that running this config by hand without train.py fails on a missing
+  # directory rather than silently training on UniMER again.
+  train_dataset_path: ./data/dataset/openmath/train
+  eval_dataset_path: ./data/dataset/openmath/val
+  test_dataset_paths: ./data/dataset/openmath/test
+
+  # build_dataset.py already drops out-of-vocabulary rows. Leaving Texo's own
+  # filter on is a cheap second opinion, paid once at startup.
+  filter_train: true
+
+  # 8 x 4 accumulation = an effective batch of 32. Texo trained at 64 on a 40 GB
+  # card; 8 is what fits in 12 GB at 384x384 with bf16. See the README table.
+  train_batch_size: 8
+  val_batch_size: 8
+  num_workers: 8
+  # null keeps Texo's plain shuffled DataLoader. "sorted" enables their
+  # length-bucketing sampler, which is faster but correlates batch content with
+  # label length; only worth trying once a baseline run exists.
+  sampling_strategy: null
+
+training:
+  optimizer:
+    # Texo's own fine-tuning LR. Higher than this on 230k handwriting samples
+    # is how you forget printed formulas.
+    lr: 1.0e-5
+    betas: [0.9, 0.999]
+    weight_decay: 0.05
+  lr_scheduler:
+    min_lr: 1.0e-7
+    # train.py recomputes num_training_steps from the real dataset size. If it
+    # is left too large the LR never decays; too small and it sits at min_lr for
+    # most of training. Neither is visible in the loss until it is too late.
+    num_training_steps: 40000
+    num_warmup_steps: 500
+  resume_from_ckpt: null
+
+trainer:
+  accelerator: gpu
+  devices: 1
+  num_nodes: 1
+  # bf16 needs Ampere or newer (RTX 30xx/40xx/50xx, A-series). On Turing (2080,
+  # T4) or older use 16-mixed instead.
+  precision: bf16-mixed
+  max_epochs: 3
+  accumulate_grad_batches: 4
+  gradient_clip_val: 1.0
+  log_every_n_steps: 50
+  # Validation greedy-decodes, so it is not cheap. Every 2000 steps at an
+  # effective batch of 32 is roughly six times per epoch on MathWriting.
+  val_check_interval: 2000
+  profiler: null
+
+  # Replacing the list wholesale: Hydra replaces lists rather than merging them,
+  # so every callback that should survive has to be repeated here. Upstream
+  # keeps 20 checkpoints; 3 is enough for a fine-tune and saves ~1.5 GB.
+  callbacks:
+    - _target_: lightning.pytorch.callbacks.ModelCheckpoint
+      filename: "{step}-{val_loss:.4e}-{BLEU:.4f}-{edit_distance:.4f}"
+      save_top_k: 3
+      save_last: true
+      monitor: "BLEU"
+      mode: "max"
+    - _target_: lightning.pytorch.callbacks.LearningRateMonitor
+      logging_interval: "step"
+    - _target_: lightning.pytorch.callbacks.RichModelSummary
+      max_depth: 2

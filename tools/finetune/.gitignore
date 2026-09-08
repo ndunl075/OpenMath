@@ -1,0 +1,16 @@
+# Datasets, checkpoints and exports. None of this belongs in git, and the
+# MathWriting content in particular is CC BY-NC-SA while this repository is MIT.
+data/
+build/
+outputs/
+*.tgz
+*.ckpt
+*.pt
+*.onnx
+*.onnx_data
+*.safetensors
+
+__pycache__/
+*.pyc
+.venv/
+venv/
