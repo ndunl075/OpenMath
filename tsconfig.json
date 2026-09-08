@@ -12,6 +12,9 @@
     },
     {
       "path": "./packages/step-motion"
+    },
+    {
+      "path": "./packages/ocr"
     }
   ]
 }
