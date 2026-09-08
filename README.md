@@ -6,7 +6,7 @@ step, not just the answer.
 Everything runs in your browser. No account, no ads, no subscription, no server.
 Your photos never leave your device.
 
-**Status:** v1 in development. Algebra through quadratics works end to end.
+**Status:** v1 in development. Algebra through quadratics and derivatives works end to end.
 Recognition is wired but has not yet been benchmarked on real photos, see
 [Known gaps](#known-gaps).
 
@@ -37,10 +37,13 @@ hidden rather than displayed, and the app says so.
 
 Arithmetic and exact fractions, powers and roots, expanding brackets,
 collecting like terms, algebraic fractions, linear equations and inequalities,
-and quadratics by factoring or the formula with exact radical roots.
+quadratics by factoring or the formula with exact radical roots, and
+derivatives in a single variable including the product, quotient and chain
+rules.
 
 Out of scope for v1, and refused clearly rather than answered wrongly: word
-problems, calculus, systems of equations, matrices, and trigonometric equations.
+problems, integrals, systems of equations, matrices, trigonometric equations,
+implicit differentiation, and percentages.
 
 ## Repository layout
 
