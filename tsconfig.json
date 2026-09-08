@@ -9,6 +9,9 @@
     },
     {
       "path": "./packages/corpus"
+    },
+    {
+      "path": "./packages/step-motion"
     }
   ]
 }

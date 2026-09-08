@@ -19,6 +19,15 @@ importers:
 
   packages/math-core: {}
 
+  packages/step-motion:
+    dependencies:
+      '@openmath/math-core':
+        specifier: workspace:*
+        version: link:../math-core
+      '@openmath/steps':
+        specifier: workspace:*
+        version: link:../steps
+
   packages/steps:
     dependencies:
       '@openmath/math-core':
