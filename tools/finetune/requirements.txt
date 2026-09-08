@@ -1,0 +1,19 @@
+# Data preparation only: prepare_*.py and build_dataset.py.
+#
+# Training and ONNX export run inside Texo's own environment (`uv sync` in a
+# Texo checkout), not this one. Texo pins torch, transformers and optimum
+# together for reasons documented in its src/task.py, and a second opinion about
+# those versions is not something this repository should have. See
+# requirements-export.txt for the two packages Texo does not already install.
+#
+# datasets is pinned to Texo's version deliberately: build_dataset.py writes
+# with save_to_disk and Texo reads with load_from_disk, so a format difference
+# between the two would surface as a confusing load error at the start of a
+# training run.
+#
+# NOT RESOLVED: no `pip install -r` of this exact set has been run. The versions
+# are the ones Texo pins (datasets, Pillow) plus a numpy compatible with them.
+
+datasets==4.0.0
+Pillow==11.1.0
+numpy==2.2.6

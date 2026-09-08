@@ -1,0 +1,15 @@
+# Install these *into the Texo virtualenv*, on top of `uv sync`.
+#
+# Texo's pyproject already brings torch==2.7.0, transformers==4.40.0,
+# onnxruntime-gpu and optimum-onnx[onnxruntime]. What it does not bring is the
+# `onnx` package itself (needed to load and quantise graphs) and CPU
+# onnxruntime, which is what verify_onnx.py should compare against because CPU
+# int8 is what the browser runs.
+#
+# NOT RESOLVED: this was never installed. If onnxruntime conflicts with Texo's
+# onnxruntime-gpu, prefer keeping the GPU build and drop the CPU pin -- the
+# comparison still works, just on a different kernel than the browser uses,
+# which is worth knowing when reading the numbers.
+
+onnx==1.17.0
+onnxruntime==1.20.1
