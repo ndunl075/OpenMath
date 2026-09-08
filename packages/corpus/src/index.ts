@@ -8,7 +8,7 @@
  */
 export interface CorpusProblem {
   latex: string;
-  kind: "simplify" | "evaluate" | "solve" | "differentiate";
+  kind: "simplify" | "evaluate" | "solve" | "differentiate" | "factor";
   /** Exact expected answer LaTeX. */
   answer?: string;
   /** Numeric value of each solution, checked by substitution. */
@@ -124,8 +124,106 @@ export const problems: CorpusProblem[] = [
   // ---- literal equations
   { latex: "2x+y=5", kind: "solve", answer: "x = \\frac{5 - y}{2}", tags: ["literal", "two-variable"] },
 
+  // ---- factoring: the answer is a product, so these run the factoring rules
+  // rather than the simplifying ones. See isFactoringProblem in solve.ts.
+  { latex: "2x^{2}+4x", kind: "factor", answer: "2 x \\left(x + 2\\right)", tags: ["factor", "common-factor"] },
+  { latex: "2x+4", kind: "factor", answer: "2 \\left(x + 2\\right)", tags: ["factor", "common-factor"] },
+  { latex: "x^{3}-x", kind: "factor", answer: "x \\left(x - 1\\right) \\left(x + 1\\right)", tags: ["factor", "common-factor"] },
+  { latex: "x^{2}-9", kind: "factor", answer: "\\left(x - 3\\right) \\left(x + 3\\right)", tags: ["factor", "difference-of-squares"] },
+  { latex: "4x^{2}-9", kind: "factor", answer: "\\left(2 x - 3\\right) \\left(2 x + 3\\right)", tags: ["factor", "difference-of-squares"] },
+  { latex: "3x^{2}-12", kind: "factor", answer: "3 \\left(x - 2\\right) \\left(x + 2\\right)", tags: ["factor", "common-factor", "difference-of-squares"] },
+  { latex: "x^{4}-16", kind: "factor", answer: "\\left(x - 2\\right) \\left(x + 2\\right) \\left(x^{2} + 4\\right)", tags: ["factor", "difference-of-squares", "repeated"] },
+  { latex: "x^{2}+5x+6", kind: "factor", answer: "\\left(x + 2\\right) \\left(x + 3\\right)", tags: ["factor", "trinomial"] },
+  { latex: "x^{2}-5x+6", kind: "factor", answer: "\\left(x - 2\\right) \\left(x - 3\\right)", tags: ["factor", "trinomial"] },
+  { latex: "x^{2}-2x+1", kind: "factor", answer: "\\left(x - 1\\right)^{2}", tags: ["factor", "trinomial", "square"] },
+  { latex: "2x^{2}+5x+3", kind: "factor", answer: "\\left(x + 1\\right) \\left(2 x + 3\\right)", tags: ["factor", "trinomial", "leading-coefficient"] },
+  { latex: "6x^{2}-x-2", kind: "factor", answer: "\\left(2 x + 1\\right) \\left(3 x - 2\\right)", tags: ["factor", "trinomial", "leading-coefficient"] },
+  { latex: "-x^{2}+5x-6", kind: "factor", answer: "-\\left(x - 2\\right) \\left(x - 3\\right)", tags: ["factor", "trinomial", "signs"] },
+  { latex: "x^{3}-8", kind: "factor", answer: "\\left(x - 2\\right) \\left(x^{2} + 2 x + 4\\right)", tags: ["factor", "cubes"] },
+  { latex: "x^{3}+27", kind: "factor", answer: "\\left(x + 3\\right) \\left(x^{2} - 3 x + 9\\right)", tags: ["factor", "cubes"] },
+  { latex: "x^{3}+3x^{2}-4x-12", kind: "factor", answer: "\\left(x + 3\\right) \\left(x - 2\\right) \\left(x + 2\\right)", tags: ["factor", "grouping"] },
+  { latex: "x^{3}-6x^{2}+11x-6", kind: "factor", answer: "\\left(x - 1\\right) \\left(x - 2\\right) \\left(x - 3\\right)", tags: ["factor", "cubic"] },
+  { latex: "8x^{3}+27", kind: "factor", answer: "\\left(2 x + 3\\right) \\left(4 x^{2} - 6 x + 9\\right)", tags: ["factor", "cubes"] },
+  // Two letters: the common factor and the named patterns do not need to know
+  // which one is "the" variable.
+  { latex: "x^{2}y+xy", kind: "factor", answer: "x y \\left(x + 1\\right)", tags: ["factor", "common-factor", "two-variable"] },
+  { latex: "a^{2}-b^{2}", kind: "factor", answer: "\\left(a - b\\right) \\left(a + b\\right)", tags: ["factor", "difference-of-squares", "two-variable"] },
+  { latex: "4x^{2}-9y^{2}", kind: "factor", answer: "\\left(2 x - 3 y\\right) \\left(2 x + 3 y\\right)", tags: ["factor", "difference-of-squares", "two-variable"] },
+  { latex: "x^{3}-y^{3}", kind: "factor", answer: "\\left(x - y\\right) \\left(x^{2} + x y + y^{2}\\right)", tags: ["factor", "cubes", "two-variable"] },
+  // Irreducible over the rationals: the honest answer is the expression itself.
+  { latex: "x^{2}+1", kind: "simplify", answer: "x^{2} + 1", tags: ["factor", "irreducible"] },
+  { latex: "x^{2}+x+1", kind: "simplify", answer: "x^{2} + x + 1", tags: ["factor", "irreducible"] },
+  // x^2 - 2 = (x - sqrt 2)(x + sqrt 2) only if irrational factors are allowed,
+  // and they are not what "factorise" asks for at this level.
+  { latex: "x^{2}-2", kind: "simplify", answer: "x^{2} - 2", tags: ["factor", "irreducible"] },
+
+  // ---- higher-degree equations, by the rational root theorem
+  { latex: "x^{3}-x=0", kind: "solve", roots: [-1, 0, 1], tags: ["cubic", "common-factor"] },
+  { latex: "x^{3}=27", kind: "solve", answer: "x = 3", roots: [3], tags: ["cubic", "rational-root"] },
+  { latex: "x^{3}-8=0", kind: "solve", answer: "x = 2", roots: [2], tags: ["cubic", "rational-root"] },
+  { latex: "x^{4}=16", kind: "solve", roots: [-2, 2], tags: ["quartic", "rational-root"] },
+  { latex: "x^{3}-6x^{2}+11x-6=0", kind: "solve", roots: [1, 2, 3], tags: ["cubic", "rational-root"] },
+  { latex: "2x^{3}-3x^{2}-3x+2=0", kind: "solve", roots: [-1, 0.5, 2], tags: ["cubic", "rational-root", "fraction"] },
+  { latex: "x^{4}-5x^{2}+4=0", kind: "solve", roots: [-2, -1, 1, 2], tags: ["quartic", "rational-root"] },
+  // No rational root, so no answer a student could write by hand. Declined
+  // rather than approximated: x = 1.2599... cannot be checked by substitution.
+  { latex: "x^{3}-2=0", kind: "solve", unsupported: true, tags: ["cubic", "irrational"] },
+  { latex: "x^{3}+x+1=0", kind: "solve", unsupported: true, tags: ["cubic", "irrational"] },
+
+  // ---- radical equations, including the extraneous roots squaring invents
+  { latex: "\\sqrt{x}=3", kind: "solve", answer: "x = 9", roots: [9], tags: ["radical"] },
+  { latex: "\\sqrt{x+1}=4", kind: "solve", answer: "x = 15", roots: [15], tags: ["radical"] },
+  { latex: "\\sqrt{x}+2=5", kind: "solve", answer: "x = 9", roots: [9], tags: ["radical", "isolate"] },
+  { latex: "2\\sqrt{x}=6", kind: "solve", answer: "x = 9", roots: [9], tags: ["radical", "isolate"] },
+  { latex: "\\sqrt[3]{x}=2", kind: "solve", answer: "x = 8", roots: [8], tags: ["radical", "cube-root"] },
+  // x = -1 solves 2x + 3 = x^2 but not the original: sqrt is never negative.
+  { latex: "\\sqrt{2x+3}=x", kind: "solve", answer: "x = 3", roots: [3], tags: ["radical", "extraneous"] },
+  { latex: "\\sqrt{x-1}=x-3", kind: "solve", answer: "x = 5", roots: [5], tags: ["radical", "extraneous"] },
+  // Squaring gives x = 4, and sqrt(4) = 2, not -2. Every candidate is extraneous.
+  { latex: "\\sqrt{x}=-2", kind: "solve", answer: "\\text{no solution}", roots: [], tags: ["radical", "extraneous", "no-solution"] },
+
+  // ---- exponential equations
+  { latex: "2^{x}=8", kind: "solve", answer: "x = 3", roots: [3], tags: ["exponential", "same-base"] },
+  { latex: "3^{x}=81", kind: "solve", answer: "x = 4", roots: [4], tags: ["exponential", "same-base"] },
+  { latex: "2^{x+1}=8", kind: "solve", answer: "x = 2", roots: [2], tags: ["exponential", "same-base"] },
+  { latex: "e^{x}=5", kind: "solve", answer: "x = \\ln\\left(5\\right)", roots: [Math.log(5)], tags: ["exponential", "natural-log"] },
+  { latex: "e^{2x}=5", kind: "solve", answer: "x = \\frac{\\ln\\left(5\\right)}{2}", roots: [Math.log(5) / 2], tags: ["exponential", "natural-log"] },
+  { latex: "2^{x}=10", kind: "solve", answer: "x = \\log_{2}\\left(10\\right)", roots: [Math.log(10) / Math.log(2)], tags: ["exponential", "log-base"] },
+  // An exponential is positive whatever the exponent, so there is nothing to find.
+  { latex: "2^{x}=-4", kind: "solve", answer: "\\text{no solution}", roots: [], tags: ["exponential", "no-solution"] },
+
+  // ---- logarithmic equations, and the domain they carry with them
+  { latex: "\\log_2(x)=3", kind: "solve", answer: "x = 8", roots: [8], tags: ["logarithm"] },
+  { latex: "\\ln(x)=2", kind: "solve", answer: "x = e^{2}", roots: [Math.E ** 2], tags: ["logarithm", "natural-log"] },
+  { latex: "\\ln(x)=0", kind: "solve", answer: "x = 1", roots: [1], tags: ["logarithm", "natural-log"] },
+  { latex: "\\log_3(x)=-2", kind: "solve", answer: "x = \\frac{1}{9}", roots: [1 / 9], tags: ["logarithm", "negative-exponent"] },
+  { latex: "2\\ln(x)=6", kind: "solve", answer: "x = e^{3}", roots: [Math.E ** 3], tags: ["logarithm", "coefficient"] },
+  { latex: "\\log(x)-\\log(2)=1", kind: "solve", answer: "x = 20", roots: [20], tags: ["logarithm", "quotient-law"] },
+  // x = -2 satisfies x(x - 3) = 10 but log(-2) does not exist, so it is rejected.
+  { latex: "\\log(x)+\\log(x-3)=1", kind: "solve", answer: "x = 5", roots: [5], tags: ["logarithm", "product-law", "domain"] },
+  { latex: "\\log(x+2)+\\log(x+5)=1", kind: "solve", answer: "x = 0", roots: [0], tags: ["logarithm", "product-law", "domain"] },
+
+  // ---- absolute value
+  { latex: "\\left|x\\right|=3", kind: "solve", answer: "x = -3 \\quad \\text{or} \\quad x = 3", roots: [-3, 3], tags: ["absolute-value"] },
+  { latex: "\\left|x-2\\right|=5", kind: "solve", answer: "x = -3 \\quad \\text{or} \\quad x = 7", roots: [-3, 7], tags: ["absolute-value"] },
+  { latex: "\\left|x\\right|=-2", kind: "solve", answer: "\\text{no solution}", roots: [], tags: ["absolute-value", "no-solution"] },
+  { latex: "\\left|x\\right|<3", kind: "solve", answer: "-3 < x < 3", tags: ["absolute-value", "inequality", "interval"] },
+  { latex: "\\left|x\\right|>3", kind: "solve", answer: "x < -3 \\quad \\text{or} \\quad x > 3", tags: ["absolute-value", "inequality", "union"] },
+  { latex: "\\left|x-2\\right|<5", kind: "solve", answer: "-3 < x < 7", tags: ["absolute-value", "inequality", "interval"] },
+  { latex: "\\left|2x+1\\right|\\le7", kind: "solve", answer: "-4 \\le x \\le 3", tags: ["absolute-value", "inequality", "interval"] },
+
+  // ---- quadratic inequalities
+  { latex: "x^{2}>4", kind: "solve", answer: "x < -2 \\quad \\text{or} \\quad x > 2", tags: ["inequality", "quadratic", "union"] },
+  { latex: "x^{2}<4", kind: "solve", answer: "-2 < x < 2", tags: ["inequality", "quadratic", "interval"] },
+  { latex: "x^{2}\\le9", kind: "solve", answer: "-3 \\le x \\le 3", tags: ["inequality", "quadratic", "interval"] },
+  { latex: "x^{2}-5x+6>0", kind: "solve", answer: "x < 2 \\quad \\text{or} \\quad x > 3", tags: ["inequality", "quadratic", "union"] },
+  { latex: "x^{2}-5x+6<0", kind: "solve", answer: "2 < x < 3", tags: ["inequality", "quadratic", "interval"] },
+  { latex: "x^{2}>2", kind: "solve", answer: "x < -\\sqrt{2} \\quad \\text{or} \\quad x > \\sqrt{2}", tags: ["inequality", "quadratic", "irrational"] },
+  { latex: "-x^{2}+4>0", kind: "solve", answer: "-2 < x < 2", tags: ["inequality", "quadratic", "flip"] },
+  { latex: "x^{2}+1>0", kind: "solve", answer: "\\text{every value of } x", tags: ["inequality", "quadratic", "always-true"] },
+  { latex: "x^{2}+1<0", kind: "solve", answer: "\\text{no solution}", tags: ["inequality", "quadratic", "no-solution"] },
+
   // ---- out of scope, must fail cleanly rather than answer wrongly
-  { latex: "x^{3}-8=0", kind: "solve", unsupported: true, tags: ["cubic"] },
   { latex: "\\sin(x)=1", kind: "solve", unsupported: true, tags: ["trig"] },
   { latex: "\\frac{1}{x}=2", kind: "solve", unsupported: true, tags: ["rational"] },
 

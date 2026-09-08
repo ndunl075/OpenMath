@@ -21,6 +21,11 @@ describe("scan to steps", () => {
     { raw: "$\\frac{d}{dx}(x^{2} + 3x)$", answer: "2 x + 3" },
     { raw: "\\frac{d}{dx}\\sin(2x)", answer: "2 \\cos\\left(2 x\\right)" },
     { raw: "\\left(x^{2}+1\\right)^{3}\u2019", answer: "6 \\left(x^{2} + 1\\right)^{2} x" },
+    { raw: "x² − 9", answer: "\\left(x - 3\\right) \\left(x + 3\\right)" },
+    { raw: "√(2x+3) = x", answer: "x = 3" },
+    { raw: "$\\log_2(x) = 3$", answer: "x = 8" },
+    { raw: "|x| > 3", answer: "x < -3 \\quad \\text{or} \\quad x > 3" },
+    { raw: "x³ − 6x² + 11x − 6 = 0", answer: "x = 1 \\quad \\text{or} \\quad x = 2 \\quad \\text{or} \\quad x = 3" },
   ];
 
   for (const scan of scans) {

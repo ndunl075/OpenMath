@@ -36,14 +36,32 @@ hidden rather than displayed, and the app says so.
 ## What it handles today
 
 Arithmetic and exact fractions, powers and roots, expanding brackets,
-collecting like terms, algebraic fractions, linear equations and inequalities,
-quadratics by factoring or the formula with exact radical roots, and
-derivatives in a single variable including the product, quotient and chain
-rules.
+collecting like terms, algebraic fractions, and derivatives in a single
+variable including the product, quotient and chain rules.
+
+**Factorising** an expression, not only solving an equation: common factors,
+the difference of two squares, sums and differences of cubes, trinomials with
+or without a leading coefficient, and four terms by grouping. Whether an
+expression is multiplied out or factored is decided by how it is written — a
+product is expanded, a polynomial already written term by term is factored — so
+the two directions never fight each other.
+
+**Equations**: linear; quadratic by factoring or by the formula, with exact
+radical roots; cubics and quartics by the rational root theorem and synthetic
+division; radical equations, where every candidate is substituted back into the
+original and the extraneous ones are struck out in a step of their own; and
+exponential and logarithmic equations, including the domain check that rejects
+a root which would take the logarithm of something not positive.
+
+**Inequalities**: linear, absolute value and quadratic. The answer is a range,
+or a union of two, written the way a textbook writes it: `-3 < x < 3`, or
+`x < -2` or `x > 2`.
 
 Out of scope for v1, and refused clearly rather than answered wrongly: word
 problems, integrals, systems of equations, matrices, trigonometric equations,
-implicit differentiation, and percentages.
+implicit differentiation, and percentages. A polynomial of degree three or more
+with no rational root is declined as well, rather than approximated: a decimal
+is not an answer a student can check by substituting it back.
 
 ## Repository layout
 
@@ -69,7 +87,7 @@ the recognition model on handwritten datasets, kept against the contingency in
 ```bash
 pnpm install
 pnpm dev        # http://localhost:5173
-pnpm test       # 240 tests
+pnpm test       # 467 tests
 pnpm typecheck
 ```
 

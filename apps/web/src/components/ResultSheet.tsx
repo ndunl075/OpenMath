@@ -106,9 +106,11 @@ export function ResultSheet({
             </h2>
             <p>{outcome.error.message}</p>
             <p class="result__scope">
-              Right now OpenMath handles arithmetic, fractions, roots, expanding and
-              simplifying, linear equations and inequalities, quadratics, and
-              derivatives in a single variable.
+              Right now OpenMath handles arithmetic, fractions, roots, expanding,
+              simplifying and factorising, linear and quadratic equations,
+              polynomial equations of higher degree with a rational root, radical,
+              exponential and logarithmic equations, linear, absolute value and
+              quadratic inequalities, and derivatives in a single variable.
             </p>
             <div class="result__actions">
               <button type="button" class="button button--primary" onClick={onEdit}>
@@ -133,10 +135,14 @@ export function ResultSheet({
         ) : solution ? (
           <div class="result">
             <p class="result__label">
-              {solution.answers.length > 1 ? "Solutions" : "Answer"}
+              {solution.intervals
+                ? solution.intervals.length > 1 ? "Solution set" : "Solution"
+                : solution.answers.length > 1 ? "Solutions" : "Answer"}
             </p>
-            {/* Two roots stack rather than running off the edge of a phone. */}
-            {solution.answers.length > 1 ? (
+            {/* Two roots stack rather than running off the edge of a phone. A
+                range stays on one line: its halves are one statement, not two
+                separate answers. */}
+            {solution.answers.length > 1 && !solution.intervals ? (
               <ul class="result__answers">
                 {solution.answers.map((answer) => (
                   <li key={answer}>

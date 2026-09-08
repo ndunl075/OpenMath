@@ -2,9 +2,9 @@ import {
   add, evaluateNumeric, fn, type MathNode, mul, neg, num, pow, Rational, rel, sym, toLatex,
 } from "@openmath/math-core";
 import { coeff, degree, type Poly, subPoly, toPolynomial } from "./poly.js";
-import { explain } from "./explain.js";
 import { run } from "./engine.js";
 import { expressionRules } from "./rules/index.js";
+import { displayStep } from "./step.js";
 import type { Step } from "./types.js";
 
 export interface QuadraticResult {
@@ -17,26 +17,6 @@ export interface QuadraticResult {
 /** Wrap a negative number in brackets so a substituted formula reads correctly. */
 function bracketed(r: Rational): string {
   return r.isNegative() ? `\\left(${r.toLatex()}\\right)` : r.toLatex();
-}
-
-function displayStep(
-  ruleId: string,
-  before: string,
-  after: string,
-  beforeNode: MathNode,
-  vars: Record<string, string> = {},
-): Step {
-  const wording = explain(ruleId, vars);
-  return {
-    ruleId,
-    title: wording.title,
-    explanation: wording.text,
-    before,
-    after,
-    beforeNode,
-    display: true,
-    changes: [],
-  };
 }
 
 /** Run the expression rules over a node and return only its simplified form. */

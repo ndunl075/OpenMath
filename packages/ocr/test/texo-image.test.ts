@@ -94,6 +94,9 @@ describe("toModelTensor", () => {
     expect(tensor.data).toHaveLength(MODEL_INPUT_SIZE * MODEL_INPUT_SIZE);
   });
 
+  // Every pixel of the model's square is asserted individually, which is a
+  // few seconds of expect() calls, and can overrun the default timeout when the
+  // rest of the suite is running alongside it.
   it("normalises to the distribution the model was trained on", () => {
     const white = (255 / 255 - UNIMERNET_MEAN) / UNIMERNET_STD;
     const black = (0 - UNIMERNET_MEAN) / UNIMERNET_STD;
@@ -106,7 +109,7 @@ describe("toModelTensor", () => {
     let lowest = Infinity;
     for (const v of tensor.data) if (v < lowest) lowest = v;
     expect(lowest).toBeCloseTo(black, 5);
-  });
+  }, 20_000);
 
   it("treats a transparent background as paper, not as ink", () => {
     const transparent = createImage(8, 8, 0);
