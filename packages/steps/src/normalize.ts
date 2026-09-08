@@ -56,6 +56,16 @@ function once(n: MathNode): MathNode {
       }
     }
 
+    if (node.type === "mul" && node.args.length > 1) {
+      // A leading -1 is a minus sign, not a factor: without this a root prints
+      // as "-1 \\sqrt{2}" instead of "-\\sqrt{2}".
+      const [first, ...others] = node.args;
+      if (first && first.type === "num" && first.value.equals(Rational.NEG_ONE)) {
+        const body = others.length === 1 ? others[0]! : mul(others, node.id);
+        return neg(body);
+      }
+    }
+
     if (node.type === "mul") {
       // float minus signs out of the product
       const negCount = node.args.filter((a) => a.type === "neg").length;

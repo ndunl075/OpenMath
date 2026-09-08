@@ -106,7 +106,6 @@ function stripNoise(s: string, notes: string[]): string {
   out = out.replace(/\\right\s*\./g, "");
   out = out.replace(/\\left(?![a-zA-Z])/g, "");
   out = out.replace(/\\right(?![a-zA-Z])/g, "");
-  out = out.replace(/\\%/g, "");
   if (out !== before) notes.push("removed layout commands");
   return out;
 }
@@ -277,6 +276,9 @@ const OUT_OF_SCOPE = [
   { pattern: /\\lim/, label: "limits" },
   { pattern: /\\infty/, label: "infinity" },
   { pattern: /\\pm|\\mp/, label: "plus-or-minus" },
+  // Deleting the sign would silently turn "20\\%" into "20", which is a
+  // different problem with a different answer.
+  { pattern: /\\%|%/, label: "percentages" },
 ];
 
 export function detectOutOfScope(latex: string): string | null {
