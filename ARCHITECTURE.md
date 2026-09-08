@@ -215,6 +215,7 @@ packages/ocr/          OcrProvider interface, pure image pipeline, LaTeX normali
 packages/steps/        rule engine, rules/, explanations/, poly, quadratic, verify
 packages/step-motion/  Change[] → timeline spec, choreography table (§6.1), FLIP DOM player
 packages/corpus/       77 text problems with hand-written answers; the CI gate
+packages/bench/        OCR accuracy harness: corpus format, metrics, runner, baseline diffs
 scripts/               bundle-size budget check
 ```
 
@@ -223,7 +224,7 @@ scripts/               bundle-size budget check
 ## 11. Build order
 
 1. **Photo corpus — NOT DONE, and it is the blocker.** 200 photos of real homework: printed textbook, worksheets, handwriting, bad lighting, each labelled with ground-truth LaTeX and expected answer. Needs a human with a phone. Step 2 depends entirely on it.
-2. **OCR bench — NOT DONE.** Texo vs TexTeller vs Pix2Text MFR on that corpus, in-browser on a mid-range Android and an older iPhone. Record accuracy (handwriting especially), load time, latency. Confirm the model repo ids actually serve transformers.js-compatible ONNX.
+2. **OCR bench — harness DONE (`packages/bench`), the run is NOT.** Texo vs TexTeller vs Pix2Text MFR on that corpus. The harness scores accuracy per category (answer match as the headline, plus exact match, character error rate and solvable rate), separates model load from per-image inference, and diffs a run against an earlier one. It runs in Node, so its latencies are desktop latencies: the in-browser measurement on a mid-range Android and an older iPhone, and confirming the model repo ids actually serve transformers.js-compatible ONNX, still need doing on device.
 3. ~~Vertical slice~~ **DONE**: photo → LaTeX → rule engine → KaTeX, on a phone-sized viewport.
 4. ~~Product~~ **DONE**: every screen in §6.0, own design system (§6.2), PWA, offline, report flow.
 5. **v1 launch** — blocked only on steps 1 and 2. The solver covers arithmetic, exact fractions, roots, expanding, like terms, linear equations, inequalities and quadratics, verified against 77 corpus problems, three of which must be refused rather than answered.
