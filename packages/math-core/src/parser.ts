@@ -343,41 +343,82 @@ class Parser {
    * matching them directly keeps `\frac{d}{dx}` from ever being built as a
    * fraction and then guessed back into a derivative.
    */
-  private readDifferentialGroup(k: number): { name: string; next: number } | null {
+  private readDifferentialGroup(k: number): { name: string; order: number; next: number } | null {
     if (this.t[k]?.kind !== "lbrace") return null;
     let j = k + 1;
     const head = this.t[j];
     if (!head || head.kind !== "ident" || head.value !== "d") return null;
     j++;
+
+    // The order sits after the d on top and after the variable underneath:
+    // \frac{d^{2}}{dx^{2}}. Without this the whole thing parses as a fraction
+    // of a variable called d and answers something that is not a derivative.
+    let order = 1;
+    const topOrder = this.readOrderSuffix(j);
+    if (topOrder) {
+      order = topOrder.order;
+      j = topOrder.next;
+    }
+
     let name = "";
     const tail = this.t[j];
     if (tail && (tail.kind === "ident" || (tail.kind === "command" && GREEK.has(tail.value)))) {
       name = tail.value;
       j++;
+      const bottomOrder = this.readOrderSuffix(j);
+      if (bottomOrder) {
+        if (topOrder) return null;
+        order = bottomOrder.order;
+        j = bottomOrder.next;
+      }
     }
     if (this.t[j]?.kind !== "rbrace") return null;
-    return { name, next: j + 1 };
+    return { name, order, next: j + 1 };
+  }
+
+  /** An exponent read as a derivative order: a small positive integer. */
+  private readOrderSuffix(k: number): { order: number; next: number } | null {
+    const caret = this.t[k];
+    if (!caret || caret.kind !== "op" || caret.value !== "^") return null;
+    let j = k + 1;
+    const braced = this.t[j]?.kind === "lbrace";
+    if (braced) j++;
+    const digits = this.t[j];
+    if (!digits || digits.kind !== "number" || !/^[0-9]+$/.test(digits.value)) return null;
+    const order = Number(digits.value);
+    if (!Number.isInteger(order) || order < 1 || order > 8) return null;
+    j++;
+    if (braced) {
+      if (this.t[j]?.kind !== "rbrace") return null;
+      j++;
+    }
+    return { order, next: j };
   }
 
   /**
    * `\frac{d}{dx}` and `\frac{dy}{dx}`, consumed only on a full match so a
    * genuine fraction of two variables called d and x still parses as division.
    */
-  private tryDifferentialOperator(): { variable: string; target: string } | null {
+  private tryDifferentialOperator(): { variable: string; target: string; order: number } | null {
     const top = this.readDifferentialGroup(this.i);
     if (!top) return null;
     const bottom = this.readDifferentialGroup(top.next);
     if (!bottom || bottom.name === "") return null;
+    // d^2/dx^2 is a second derivative; d^2/dx^3 is not anything, so leave it a
+    // fraction rather than inventing an order.
+    if (top.order !== bottom.order) return null;
     this.i = bottom.next;
-    return { variable: bottom.name, target: top.name };
+    return { variable: bottom.name, target: top.name, order: top.order };
   }
 
-  private parseDerivative(op: { variable: string; target: string }): MathNode {
+  private parseDerivative(op: { variable: string; target: string; order: number }): MathNode {
     // \frac{dy}{dx}: y is defined elsewhere, if at all. Parsing it as d/dx(y)
     // keeps it in one piece so the solver can decline it with a real reason
     // instead of the parser guessing what y stands for.
-    if (op.target !== "") return diff(sym(op.target), sym(op.variable));
-    return diff(this.parseDerivativeOperand(), sym(op.variable));
+    const base = op.target !== "" ? sym(op.target) : this.parseDerivativeOperand();
+    let out = base;
+    for (let k = 0; k < op.order; k++) out = diff(out, sym(op.variable));
+    return out;
   }
 
   /**

@@ -117,6 +117,8 @@ export const evaluatePower: Rule = {
     if (n.type !== "pow" || n.base.type !== "num" || n.exp.type !== "num") return null;
     const e = n.exp.value;
     if (!e.isInteger()) return null;
+    // 0^0 is undefined; powInt would answer 1.
+    if (n.base.value.isZero() && e.isZero()) return null;
     const mag = e.n < 0n ? -e.n : e.n;
     if (mag > MAX_POWER_EXPONENT) return null;
     const result = n.base.value.powInt(e.n);

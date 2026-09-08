@@ -171,6 +171,24 @@ export function collectIds(n: MathNode): NodeId[] {
   return out;
 }
 
+/**
+ * Does this expression divide by a literal zero anywhere?
+ *
+ * Checked on the way in and on the way out: `1/(x-x)` only becomes `1/0` after
+ * the terms cancel, and returning that as an answer would present an undefined
+ * expression as though it were one.
+ */
+export function hasDivisionByZero(n: MathNode): boolean {
+  let found = false;
+  walk(n, (x) => {
+    if (x.type === "div" && isZero(x.den)) found = true;
+    if (x.type === "pow" && isZero(x.base) && x.exp.type === "num" && x.exp.value.isNegative()) {
+      found = true;
+    }
+  });
+  return found;
+}
+
 export function symbols(n: MathNode): Set<string> {
   const out = new Set<string>();
   walk(n, (x) => {

@@ -172,7 +172,7 @@ export const problems: CorpusProblem[] = [
   { latex: "\\frac{d}{dx}\\frac{\\sin(x)}{x}", kind: "differentiate", answer: "\\frac{\\cos\\left(x\\right) x - \\sin\\left(x\\right)}{x^{2}}", tags: ["derivative", "quotient"] },
   { latex: "\\frac{d}{dx}\\frac{\\sin(2x)}{x}", kind: "differentiate", answer: "\\frac{2 \\cos\\left(2 x\\right) x - \\sin\\left(2 x\\right)}{x^{2}}", tags: ["derivative", "quotient", "chain"] },
   { latex: "\\frac{d}{dx}\\frac{x}{x+1}", kind: "differentiate", answer: "\\frac{1}{\\left(x + 1\\right)^{2}}", tags: ["derivative", "quotient"] },
-  { latex: "\\frac{d}{dx}\\frac{1}{x}", kind: "differentiate", answer: "\\frac{-1}{x^{2}}", tags: ["derivative", "quotient", "reciprocal"] },
+  { latex: "\\frac{d}{dx}\\frac{1}{x}", kind: "differentiate", answer: "-\\frac{1}{x^{2}}", tags: ["derivative", "quotient", "reciprocal"] },
   { latex: "\\frac{d}{dx}\\frac{x^{2}}{3}", kind: "differentiate", answer: "\\frac{2 x}{3}", tags: ["derivative", "constant-multiple"] },
 
   // ---- derivatives: prime notation
