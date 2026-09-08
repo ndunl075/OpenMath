@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { problems } from "@openmath/corpus";
 import { evaluateNumeric, parseLatex } from "@openmath/math-core";
 import { trySolve } from "@openmath/steps";
-import { verifyEquivalent } from "@openmath/steps";
+import { verifyEquivalent, verifyLimit } from "@openmath/steps";
 
 describe("corpus", () => {
   for (const p of problems) {
@@ -27,10 +27,21 @@ describe("corpus", () => {
       }
 
       // Independent check: a simplification must not change the value.
-      if (p.kind !== "solve" && p.answer) {
+      if (p.kind !== "solve" && p.kind !== "limit" && p.answer) {
         expect(
           verifyEquivalent(parseLatex(p.latex), parseLatex(p.answer)),
           "answer is equivalent to the problem",
+        ).toBe("ok");
+      }
+
+      // Independent check for a limit. Sampling for equality is the wrong
+      // question here — the expression equals its limit at no point at all —
+      // so the original is walked in towards the point instead and compared
+      // with the hand-written answer.
+      if (p.kind === "limit" && p.answer && !p.answer.startsWith("\\text")) {
+        expect(
+          verifyLimit(parseLatex(p.latex), parseLatex(p.answer)),
+          "the expression really approaches the answer",
         ).toBe("ok");
       }
 

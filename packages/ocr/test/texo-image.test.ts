@@ -98,13 +98,18 @@ describe("toModelTensor", () => {
     const white = (255 / 255 - UNIMERNET_MEAN) / UNIMERNET_STD;
     const black = (0 - UNIMERNET_MEAN) / UNIMERNET_STD;
     const tensor = toModelTensor(page());
-    for (const v of tensor.data) {
-      expect(v).toBeGreaterThanOrEqual(black - 1e-6);
-      expect(v).toBeLessThanOrEqual(white + 1e-6);
-    }
-    // The padding is level 0, so the lowest value must actually occur.
+    // Scanned for the extremes rather than asserted per pixel: the same claim
+    // about all 384 x 384 of them, without a hundred and fifty thousand
+    // assertions to build and tear down.
     let lowest = Infinity;
-    for (const v of tensor.data) if (v < lowest) lowest = v;
+    let highest = -Infinity;
+    for (const v of tensor.data) {
+      if (v < lowest) lowest = v;
+      if (v > highest) highest = v;
+    }
+    expect(lowest).toBeGreaterThanOrEqual(black - 1e-6);
+    expect(highest).toBeLessThanOrEqual(white + 1e-6);
+    // The padding is level 0, so the lowest value must actually occur.
     expect(lowest).toBeCloseTo(black, 5);
   });
 

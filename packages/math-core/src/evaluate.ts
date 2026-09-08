@@ -1,9 +1,9 @@
-import { type MathNode } from "./ast.js";
+import { asLimit, INFINITY, type LimitSide, type MathNode } from "./ast.js";
 import { Rational } from "./rational.js";
 
 export type Env = Record<string, number>;
 
-const CONSTANTS: Env = { pi: Math.PI, e: Math.E };
+const CONSTANTS: Env = { pi: Math.PI, e: Math.E, [INFINITY]: Infinity };
 
 /**
  * Step size for the numeric derivative, scaled by the size of the point. Paired
@@ -61,6 +61,102 @@ function evaluateDerivative(n: Extract<MathNode, { type: "fn" }>, env: Env): num
 }
 
 /**
+ * How close to the point the samples get.
+ *
+ * They stop at a thousandth of a millionth, deliberately. A limit like
+ * (x^2 - 4)/(x - 2) is computed as a difference of two nearly equal numbers, and
+ * every decimal place closer to the point throws away another digit of the
+ * answer; at 1e-15 the subtraction has cancelled away everything and the "limit"
+ * that comes back is rounding noise. Five decades of approach with an
+ * extrapolation on the end is far more accurate than one reckless step.
+ */
+const LIMIT_OFFSETS = [1e-1, 1e-2, 1e-3, 1e-4, 1e-5, 1e-6];
+
+/** The matching ladder for a limit at infinity: how far out the samples go. */
+const LIMIT_MAGNITUDES = [1e1, 1e2, 1e3, 1e4, 1e5, 1e6];
+
+/** Relative agreement required between the two sides of a two-sided limit. */
+const LIMIT_AGREEMENT = 1e-6;
+
+/**
+ * Where a sequence of samples is heading, or NaN when it is not heading
+ * anywhere.
+ *
+ * The last three consecutive usable samples are extrapolated with Aitken's
+ * delta-squared, which is exact for the geometric convergence this sampling
+ * ladder produces: values approaching 4 as 4.002, 4.0002, 4.00002 land on 4
+ * rather than on 4.00002. Three guards keep it from inventing an answer — the
+ * gaps have to be shrinking, the extrapolation may not fly further than the last
+ * gap it is correcting, and a sequence that never settles comes back NaN so the
+ * caller reports nothing rather than something plausible.
+ */
+export function sequenceLimit(values: readonly number[]): number {
+  const usable: number[] = [];
+  for (let i = values.length - 1; i >= 0; i--) {
+    const v = values[i]!;
+    if (!Number.isFinite(v)) break;
+    usable.unshift(v);
+  }
+  if (usable.length < 3) return NaN;
+  const [a, b, c] = usable.slice(-3) as [number, number, number];
+  const scale = Math.max(1, Math.abs(c));
+  const first = b - a;
+  const second = c - b;
+  if (Math.abs(second) <= 1e-12 * scale) return c;
+  if (Math.abs(second) >= Math.abs(first)) return NaN; // diverging or oscillating
+  const denominator = second - first;
+  if (denominator === 0) return c;
+  const extrapolated = c - (second * second) / denominator;
+  if (!Number.isFinite(extrapolated)) return NaN;
+  if (Math.abs(extrapolated - c) > 10 * Math.abs(second)) return NaN;
+  return extrapolated;
+}
+
+/**
+ * The limit of `f` as its argument approaches `at`, found by sampling.
+ *
+ * This is a measurement, not a proof: it can be fooled by a function that only
+ * misbehaves closer to the point than the samples reach. What it does reliably
+ * catch is a rule that produced the wrong value, which is what the verifier
+ * needs it for.
+ */
+export function limitNumerically(
+  f: (x: number) => number,
+  at: number,
+  side: LimitSide = "both",
+): number {
+  if (Number.isNaN(at)) return NaN;
+  if (at === Infinity || at === -Infinity) {
+    const sign = at > 0 ? 1 : -1;
+    return sequenceLimit(LIMIT_MAGNITUDES.map((t) => f(sign * t)));
+  }
+  const step = Math.max(1, Math.abs(at));
+  const from = (direction: 1 | -1) =>
+    sequenceLimit(LIMIT_OFFSETS.map((h) => f(at + direction * h * step)));
+  if (side === "right") return from(1);
+  if (side === "left") return from(-1);
+  const right = from(1);
+  const left = from(-1);
+  if (!Number.isFinite(right) || !Number.isFinite(left)) return NaN;
+  const scale = Math.max(1, Math.abs(left), Math.abs(right));
+  // The two sides disagreeing is not a value; it is the absence of one.
+  if (Math.abs(left - right) > LIMIT_AGREEMENT * scale) return NaN;
+  return (left + right) / 2;
+}
+
+function evaluateLimitNode(n: Extract<MathNode, { type: "fn" }>, env: Env): number {
+  const l = asLimit(n);
+  if (!l) return NaN;
+  const at = evaluateNumeric(l.point, env);
+  // The limit variable is bound here, so any outer value for it is shadowed.
+  return limitNumerically(
+    (x) => evaluateNumeric(l.body, { ...env, [l.variable]: x }),
+    at,
+    l.side,
+  );
+}
+
+/**
  * Floating point evaluation. Returns NaN when the expression is undefined at
  * this point (division by zero, sqrt of a negative, unknown symbol). The step
  * verifier treats NaN on both sides as "no information" rather than a mismatch.
@@ -95,6 +191,8 @@ export function evaluateNumeric(n: MathNode, env: Env = {}): number {
       // A derivative cannot evaluate its argument first: it has to re-evaluate
       // the body at shifted points, so it is handled before the generic path.
       if (n.name === "diff") return evaluateDerivative(n, env);
+      // Nor can a limit: the body is evaluated near the point, never at it.
+      if (n.name === "lim") return evaluateLimitNode(n, env);
       return evaluateFunction(n.name, n.args.map((a) => evaluateNumeric(a, env)));
     case "rel":
       return NaN;

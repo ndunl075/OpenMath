@@ -1,10 +1,10 @@
 import {
-  children, type MathNode, type Path, replaceAt, toLatex,
+  children, containsLimit, type MathNode, type Path, replaceAt, toLatex,
 } from "@openmath/math-core";
 import { normalize } from "./normalize.js";
 import { explain } from "./explain.js";
 import type { Rule, RuleContext, RuleResult, Step } from "./types.js";
-import { verifyEquationEquivalent, verifyEquivalent } from "./verify.js";
+import { verifyEquationEquivalent, verifyEquivalent, verifyLimitEquivalent } from "./verify.js";
 
 interface Application {
   path: Path;
@@ -103,7 +103,9 @@ export function run(
         const verdict =
           current.type === "rel" && found.next.type === "rel"
             ? verifyEquationEquivalent(current, found.next)
-            : verifyEquivalent(current, found.next);
+            : containsLimit(current) || containsLimit(found.next)
+              ? verifyLimitEquivalent(current, found.next)
+              : verifyEquivalent(current, found.next);
         if (verdict !== "ok") step.unverified = true;
       }
 

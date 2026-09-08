@@ -39,6 +39,12 @@ export interface Step {
 export interface RuleContext {
   /** The variable an equation is being solved for. */
   variable?: string;
+  /**
+   * How many times l'Hopital's rule has been used, and how many times it may be.
+   * Shared and mutable, because a limit that never resolves would otherwise
+   * differentiate forever; spending the budget makes it decline instead.
+   */
+  lhopital?: { used: number; max: number };
 }
 
 export interface RuleResult {
@@ -56,7 +62,7 @@ export interface Rule {
   apply(n: MathNode, ctx: RuleContext): RuleResult | null;
 }
 
-export type SolutionKind = "simplify" | "solve" | "evaluate" | "differentiate";
+export type SolutionKind = "simplify" | "solve" | "evaluate" | "differentiate" | "limit";
 
 export interface Solution {
   kind: SolutionKind;

@@ -318,11 +318,43 @@ export function makeTerm(coeff: Rational, rest: MathNode[]): MathNode {
 // ------------------------------------------------------------------ constants
 
 /**
+ * Infinity, spelled as a symbol.
+ *
+ * It is not a number, so it cannot live in `num`, whose payload is an exact
+ * Rational. It is not a variable either: nothing may be substituted for it. A
+ * reserved constant symbol is the honest middle. The lexer only ever produces
+ * single-letter identifiers, so no expression a student writes can collide with
+ * this name; the only way to get one is `\\infty`.
+ *
+ * `evaluateNumeric` gives it the IEEE infinity, which is what makes a limit at
+ * infinity evaluable and every other use of it non-finite, and therefore skipped
+ * by the verifier rather than silently treated as a number. `evaluateExact`
+ * returns null for it, as it does for any symbol, so nothing exact is ever
+ * derived from it.
+ */
+export const INFINITY = "infinity";
+
+export function isInfinity(n: MathNode): boolean {
+  if (n.type === "sym") return n.name === INFINITY;
+  if (n.type === "neg") return isInfinity(n.arg);
+  return false;
+}
+
+/** Does infinity appear anywhere in here? */
+export function containsInfinity(n: MathNode): boolean {
+  let found = false;
+  walk(n, (x) => {
+    if (x.type === "sym" && x.name === INFINITY) found = true;
+  });
+  return found;
+}
+
+/**
  * Symbols that name a fixed number rather than a free variable. Anything here
  * is excluded from `freeSymbols`, so the verifier samples around it instead of
  * treating it as an unknown, and `evaluateNumeric` knows its value.
  */
-const CONSTANT_SYMBOLS: ReadonlySet<string> = new Set(["pi", "e"]);
+const CONSTANT_SYMBOLS: ReadonlySet<string> = new Set(["pi", "e", INFINITY]);
 
 export function isConstantSymbol(name: string): boolean {
   return CONSTANT_SYMBOLS.has(name);
@@ -376,4 +408,107 @@ export function firstDiff(n: MathNode): FnNode | null {
   if (!path) return null;
   const node = nodeAt(n, path);
   return node && node.type === "fn" ? node : null;
+}
+
+// -------------------------------------------------------------- substitution
+
+/**
+ * Replace every free occurrence of `name` with `value`.
+ *
+ * Free is meant literally: `d/dx` and `lim` both bind their variable, so
+ * substituting x = 0 into `d/dx(f)` would produce `d/d0(f)`, which is not
+ * mathematics. Inside such a node the name is left alone.
+ *
+ * The replacement is cloned at each site so the two copies do not share ids,
+ * which would make the animation layer try to move one node to two places.
+ * Nodes the substitution does not touch keep their ids, so a term that merely
+ * survives the step is still recognised as the same term.
+ */
+export function substitute(n: MathNode, name: string, value: MathNode): MathNode {
+  if (n.type === "sym") return n.name === name ? cloneFresh(value) : n;
+  if (n.type === "fn" && (n.name === "diff" || n.name === "lim")) {
+    const bound = n.args[1];
+    if (bound && bound.type === "sym" && bound.name === name) return n;
+  }
+  const kids = children(n);
+  if (kids.length === 0) return n;
+  return withChildren(n, kids.map((c) => substitute(c, name, value)));
+}
+
+// -------------------------------------------------------------------- limits
+
+export type LimitSide = "both" | "left" | "right";
+
+/**
+ * Which side the variable approaches from, stored as a plain number.
+ *
+ * A marker *symbol* would be picked up by `symbols` and read as a free variable
+ * by the verifier and by `chooseVariable`; a number cannot be mistaken for one,
+ * and `asLimit` is the only thing that ever looks at it, so nothing downstream
+ * deals in the raw code.
+ */
+const SIDE_CODE: Record<LimitSide, number> = { both: 0, left: -1, right: 1 };
+
+/**
+ * lim of `body` as `variable` approaches `point`, written as an ordinary `fn`
+ * node for the same reason `diff` is: every traversal, serializer and id-keyed
+ * animation already in place keeps working. Until the rules in
+ * `packages/steps/src/rules/limit.ts` have fired the node is opaque, which is
+ * what lets the solver notice a limit it cannot take and decline instead of
+ * returning half an answer.
+ */
+export const limit = (
+  body: MathNode,
+  variable: MathNode,
+  point: MathNode,
+  side: LimitSide = "both",
+  id = freshId(),
+): MathNode => fn("lim", [body, variable, point, num(Rational.of(SIDE_CODE[side]))], id);
+
+export interface LimitParts {
+  node: FnNode;
+  body: MathNode;
+  variable: string;
+  point: MathNode;
+  side: LimitSide;
+}
+
+/** Read a node as a limit, or null when it is not one. */
+export function asLimit(n: MathNode): LimitParts | null {
+  if (n.type !== "fn" || n.name !== "lim" || n.args.length !== 4) return null;
+  const [body, v, point, code] = n.args;
+  if (!body || !v || !point || !code) return null;
+  if (v.type !== "sym" || code.type !== "num") return null;
+  const c = code.value.toNumber();
+  const side: LimitSide = c < 0 ? "left" : c > 0 ? "right" : "both";
+  return { node: n, body, variable: v.name, point, side };
+}
+
+export function containsLimit(n: MathNode): boolean {
+  let found = false;
+  walk(n, (x) => {
+    if (x.type === "fn" && x.name === "lim") found = true;
+  });
+  return found;
+}
+
+export function countLimits(n: MathNode): number {
+  let count = 0;
+  walk(n, (x) => {
+    if (x.type === "fn" && x.name === "lim") count++;
+  });
+  return count;
+}
+
+/** The outermost limit in `n`. `walk` is pre-order, so this is the top one. */
+export function firstLimit(n: MathNode): FnNode | null {
+  const path = findPath(n, (x) => x.type === "fn" && x.name === "lim");
+  if (!path) return null;
+  const node = nodeAt(n, path);
+  return node && node.type === "fn" ? node : null;
+}
+
+/** The same limit over a different body, keeping the variable, point and side. */
+export function withLimitBody(l: LimitParts, body: MathNode): MathNode {
+  return { ...l.node, args: [body, l.node.args[1]!, l.node.args[2]!, l.node.args[3]!] };
 }

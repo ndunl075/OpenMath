@@ -6,6 +6,9 @@ import { distribute, distributeNegative, distributeRules } from "./distribute.js
 import { equationRules } from "./equation.js";
 import { fractionRules } from "./fractions.js";
 import { identityRules } from "./identities.js";
+import { limitTransformRules } from "./limit.js";
+import { logRules } from "./logs.js";
+import { trigRules } from "./trig.js";
 
 export * from "./arithmetic.js";
 export * from "./collect.js";
@@ -14,16 +17,28 @@ export * from "./distribute.js";
 export * from "./equation.js";
 export * from "./fractions.js";
 export * from "./identities.js";
+export * from "./limit.js";
+export * from "./logs.js";
+export * from "./trig.js";
+
+/**
+ * Exact values sit between folding numbers and collecting terms: a sine of a
+ * named angle or a logarithm with a whole-number answer *is* a number, and every
+ * rule after this point works better once it has been written as one.
+ */
+export const exactValueRules: Rule[] = [...trigRules, ...logRules];
 
 /**
  * Priority order. The engine takes the first rule that applies anywhere, so
- * this list is the curriculum: fold numbers, tidy identities, cancel, collect,
- * expand, then handle fractions. Equation moves come last so both sides are
- * fully simplified before anything crosses the equals sign.
+ * this list is the curriculum: fold numbers, tidy identities, read off exact
+ * values, cancel, collect, expand, then handle fractions. Equation moves come
+ * last so both sides are fully simplified before anything crosses the equals
+ * sign.
  */
 export const expressionRules: Rule[] = [
   ...identityRules,
   ...arithmeticRules,
+  ...exactValueRules,
   ...collectRules,
   ...fractionRules,
   ...distributeRules,
@@ -45,10 +60,23 @@ export const differentiationRules: Rule[] = [
   ...derivativeRules,
   ...identityRules,
   ...arithmeticRules,
+  ...exactValueRules,
   ...collectRules,
   ...fractionRules,
   distributeNegative,
   distribute,
 ];
 
-export const allRules: Rule[] = [...differentiationRules, ...equationRules];
+/**
+ * The limit rules come last, after everything that can simplify the body has
+ * had its turn. That ordering is what makes factoring read properly: once
+ * LIMIT_FACTOR has written the common factor into both halves of the fraction,
+ * the ordinary cancelling rule is the next thing to fire, and only then is the
+ * limit simple enough to substitute into.
+ *
+ * The derivative rules are in here because l'Hopital's rule leaves unevaluated
+ * derivatives behind for them to take, one visible step at a time.
+ */
+export const limitRules: Rule[] = [...differentiationRules, ...limitTransformRules];
+
+export const allRules: Rule[] = [...limitRules, ...equationRules];

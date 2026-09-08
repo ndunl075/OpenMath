@@ -26,6 +26,7 @@ const UNICODE: Array<[RegExp, string]> = [
   [/≠/g, "\\neq "],
   [/±/g, "\\pm "],
   [/∞/g, "\\infty "],
+  [/[→⟶⇒]/g, "\\to "],
   [/[‘’ʼ]/g, "'"],
   [/[“”]/g, '"'],
   [/ /g, " "],
@@ -266,15 +267,15 @@ export function normalizeLatex(raw: string): string {
 /**
  * Structures the solver has no rules for. Detecting them here turns a confusing
  * parse error into an honest "not supported yet" message. Derivatives came off
- * this list once the rules in @openmath/steps could take them; the solver still
- * declines the ones it cannot do, with a reason naming the expression.
+ * this list once the rules in @openmath/steps could take them, and limits
+ * followed, taking infinity with them: it is the point half of them approach.
+ * The solver still declines the ones it cannot do, with a reason naming the
+ * expression, which is a better message than this one could be.
  */
 const OUT_OF_SCOPE = [
   { pattern: /\\begin\s*\{/, label: "matrices and aligned environments" },
   { pattern: /\\int|\\oint/, label: "integrals" },
   { pattern: /\\sum|\\prod/, label: "sums and products" },
-  { pattern: /\\lim/, label: "limits" },
-  { pattern: /\\infty/, label: "infinity" },
   { pattern: /\\pm|\\mp/, label: "plus-or-minus" },
   // Deleting the sign would silently turn "20\\%" into "20", which is a
   // different problem with a different answer.

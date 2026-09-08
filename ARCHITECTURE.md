@@ -49,7 +49,7 @@ Zero network calls after first load except fetching the app shell and model weig
 | OCR runtime | transformers.js (or onnxruntime-web) | Apache-2.0 | — | WASM now, WebGPU when stable; run in a Worker |
 | Parser / CAS | `packages/math-core` (ours) | MIT | small | Exact BigInt rationals, AST with stable node ids, LaTeX parser and serializer, numeric and exact evaluators. No runtime dependencies |
 | Math input | Plain field + KaTeX preview + custom keypad | MIT | — | MathLive dropped: a full math editor is a large dependency for something mostly used to fix two characters after a scan |
-| Step engine | `packages/steps` (ours) | MIT | small | 30 rules, explanations, CAS verification. Coverage informed by [google/mathsteps](https://github.com/google/mathsteps) (Apache-2.0, archived Aug 2024); no code used |
+| Step engine | `packages/steps` (ours) | MIT | small | 56 rules, explanations, CAS verification. Coverage informed by [google/mathsteps](https://github.com/google/mathsteps) (Apache-2.0, archived Aug 2024); no code used |
 | Render | KaTeX | MIT | — | Step cards; faster than MathJax |
 | Calculus (v3) | SymPy via Pyodide | BSD / MPL | ~15–20 MB lazy | `sympy.integrals.manualintegrate.integral_steps` + SymPy Gamma's step renderers |
 | Hosting | Vercel | free | — | Static output, so Cloudflare Pages and GitHub Pages work with no code change |
@@ -58,7 +58,7 @@ Zero network calls after first load except fetching the app shell and model weig
 
 Explicitly **not** used: any LLM API, Cloud Run, Cloudflare Workers, HF Spaces, OpenCV.js, MathLive, mathjs, compute-engine, and pix2tex/LaTeX-OCR (100 K rendered-only training set, weak on handwriting, >100 MB ONNX).
 
-Measured first load: **125 kB gzipped** (KaTeX 76, app 33, CSS 12, worker 5). Enforced in CI by `scripts/check-bundle-size.mjs` against a 200 kB budget. The OCR model is a separate deferred download and is excluded from that budget.
+Measured first load: **136 kB gzipped** (KaTeX 76, app 44, CSS 12, worker 5). Enforced in CI by `scripts/check-bundle-size.mjs` against a 200 kB budget. The OCR model is a separate deferred download and is excluded from that budget.
 
 ## 3. OCR
 
@@ -227,7 +227,7 @@ scripts/               bundle-size budget check
 2. **OCR bench — harness DONE (`packages/bench`), the run is NOT.** Texo vs TexTeller vs Pix2Text MFR on that corpus. The harness scores accuracy per category (answer match as the headline, plus exact match, character error rate and solvable rate), separates model load from per-image inference, and diffs a run against an earlier one. It runs in Node, so its latencies are desktop latencies: the in-browser measurement on a mid-range Android and an older iPhone, still needs doing on device. The Texo repo id, dtype, download size and preprocessing have since been confirmed against the model's own shipped browser app and corrected; the other two providers have not been checked that way.
 3. ~~Vertical slice~~ **DONE**: photo → LaTeX → rule engine → KaTeX, on a phone-sized viewport.
 4. ~~Product~~ **DONE**: every screen in §6.0, own design system (§6.2), PWA, offline, report flow.
-5. **v1 launch** — blocked only on steps 1 and 2. The solver covers arithmetic, exact fractions, roots, expanding, like terms, linear equations, inequalities and quadratics, verified against 77 corpus problems, three of which must be refused rather than answered.
+5. **v1 launch** — blocked only on steps 1 and 2. The solver covers arithmetic, exact fractions, roots, expanding, like terms, linear equations, inequalities, quadratics, derivatives, exact trigonometric and logarithmic values, and limits, verified against 197 corpus problems, twenty-one of which must be refused rather than answered.
 6. **v1.5**: method switcher, more rule coverage from contributors. **v2**: derivatives (TS). **v3**: integrals (Pyodide + SymPy). The native rule engine that was **v4** landed first, in v1.
 
 ## 12. Non-goals (v1)

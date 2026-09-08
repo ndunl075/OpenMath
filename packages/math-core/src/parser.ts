@@ -1,8 +1,9 @@
 import { lex, ParseError, type Token } from "./lexer.js";
 import { Rational } from "./rational.js";
 import {
-  add, DEFAULT_DERIVATIVE_VARIABLE, diff, div, fn, isConstantSymbol, type MathNode,
-  mul, neg, num, pow, rel, type Relation, sym, symbols,
+  add, DEFAULT_DERIVATIVE_VARIABLE, diff, div, fn, INFINITY, isConstantSymbol,
+  limit, type LimitSide, type MathNode, mul, neg, num, pow, rel, type Relation,
+  sym, symbols,
 } from "./ast.js";
 
 export { ParseError };
@@ -20,6 +21,9 @@ const GREEK = new Set([
 
 const RELATIONS: Relation[] = ["=", "<", ">", "<=", ">="];
 
+/** Every spelling of the arrow in a limit subscript. */
+const ARROWS = new Set(["to", "rightarrow", "longrightarrow", "rarr", "Rightarrow"]);
+
 class Parser {
   private readonly t: Token[];
   private i = 0;
@@ -28,8 +32,13 @@ class Parser {
   /** Depth of enclosing exponents, so a prime is never read as belonging to one. */
   private exponentDepth = 0;
 
-  constructor(src: string) {
-    this.t = lex(src);
+  /**
+   * Tokens rather than text is how a sub-expression is parsed in isolation: the
+   * approach point of a limit is a slice of the token stream, and re-lexing a
+   * reconstructed string would lose the source positions error messages use.
+   */
+  constructor(src: string | Token[]) {
+    this.t = typeof src === "string" ? lex(src) : src;
   }
 
   private peek(): Token {
@@ -316,6 +325,10 @@ class Parser {
       throw new ParseError("\\pm is not supported yet", tk.pos);
     }
 
+    if (name === "infty" || name === "infin") return sym(INFINITY);
+
+    if (name === "lim") return this.parseLimit(tk);
+
     if (FUNCTIONS.has(name)) {
       let base: MathNode | null = null;
       if (this.at("op", "_")) {
@@ -432,6 +445,92 @@ class Parser {
    * just the group. Without brackets the operand runs on the way `\sin 2x` does.
    */
   private parseDerivativeOperand(): MathNode {
+    if (this.at("lparen") || this.at("lbrace")) return this.parseFactor();
+    return this.parseImplicitRun();
+  }
+
+  /**
+   * `\lim_{x \to 0}`, `\lim_{x \to \infty}` and the one-sided `\lim_{x \to 0^+}`.
+   *
+   * The side marker is found and removed before the point is parsed, because
+   * `0^+` is not an exponent and reading it as one turns a perfectly good
+   * one-sided limit into a syntax error.
+   */
+  private parseLimit(tk: Token): MathNode {
+    if (!this.eat("op", "_")) {
+      throw new ParseError("\\lim needs a subscript saying what approaches what", tk.pos);
+    }
+    this.expect("lbrace");
+
+    const vt = this.peek();
+    const named =
+      vt.kind === "ident" || (vt.kind === "command" && GREEK.has(vt.value));
+    if (!named) throw new ParseError("expected a variable in the limit", vt.pos);
+    this.next();
+    const variable = vt.value;
+
+    const arrow = this.peek();
+    if (arrow.kind !== "command" || !ARROWS.has(arrow.value)) {
+      throw new ParseError("expected \\to in the limit", arrow.pos);
+    }
+    this.next();
+
+    const end = this.findGroupEnd(tk.pos);
+    const { side, stop } = this.readLimitSide(end);
+    if (stop <= this.i) {
+      throw new ParseError("the limit does not say what the variable approaches", this.peek().pos);
+    }
+    const point = this.parseSlice(this.i, stop);
+    this.i = end + 1;
+
+    return limit(this.parseLimitBody(), sym(variable), point, side);
+  }
+
+  /** Index of the closing brace matching the group already opened. */
+  private findGroupEnd(pos: number): number {
+    let depth = 0;
+    for (let j = this.i; j < this.t.length; j++) {
+      const k = this.t[j]!.kind;
+      if (k === "lbrace") depth++;
+      else if (k === "rbrace") {
+        if (depth === 0) return j;
+        depth--;
+      } else if (k === "eof") break;
+    }
+    throw new ParseError("unclosed limit subscript", pos);
+  }
+
+  /** Read a trailing `^+`, `^-`, `^{+}` or `^{-}` as the side approached from. */
+  private readLimitSide(end: number): { side: LimitSide; stop: number } {
+    const isOp = (j: number, v: string) => {
+      const t = this.t[j];
+      return !!t && t.kind === "op" && t.value === v;
+    };
+    const sideOf = (v: string): LimitSide => (v === "+" ? "right" : "left");
+    for (const v of ["+", "-"]) {
+      if (isOp(end - 1, v) && isOp(end - 2, "^")) return { side: sideOf(v), stop: end - 2 };
+      if (
+        this.t[end - 1]?.kind === "rbrace" && isOp(end - 2, v) &&
+        this.t[end - 3]?.kind === "lbrace" && isOp(end - 4, "^")
+      ) {
+        return { side: sideOf(v), stop: end - 4 };
+      }
+    }
+    return { side: "both", stop: end };
+  }
+
+  /** Parse tokens [from, to) on their own, so a sub-expression stands alone. */
+  private parseSlice(from: number, to: number): MathNode {
+    const eof: Token = { kind: "eof", value: "", pos: this.t[to]?.pos ?? 0 };
+    return new Parser([...this.t.slice(from, to), eof]).parse();
+  }
+
+  /**
+   * What the limit is taken of. A bracket closes the operand exactly as it does
+   * for `\frac{d}{dx}`, so a serialized limit reads back as the same expression
+   * and nothing after the bracket is swallowed into the body.
+   */
+  private parseLimitBody(): MathNode {
     if (this.at("lparen") || this.at("lbrace")) return this.parseFactor();
     return this.parseImplicitRun();
   }

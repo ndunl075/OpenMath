@@ -148,3 +148,65 @@ export function verifyDerivative(
   }
   return compared >= 3 ? "ok" : "unknown";
 }
+
+/**
+ * How far apart two limits may be and still count as the same.
+ *
+ * Looser than the tolerance for an identity, and deliberately so: a limit is not
+ * evaluated, it is *measured*, by walking in towards the point and extrapolating.
+ * A slowly settling limit such as ln(x)/x carries a residue of a few parts in a
+ * million after extrapolation, while a rule that got the limit wrong misses by a
+ * whole number. This tolerance sits comfortably between the two.
+ */
+const LIMIT_TOLERANCE = 1e-4;
+
+function closeLimit(a: number, b: number): boolean {
+  const scale = Math.max(1, Math.abs(a), Math.abs(b));
+  return Math.abs(a - b) <= LIMIT_TOLERANCE * scale;
+}
+
+/**
+ * Do these two expressions, one or both of them a limit, come out the same?
+ *
+ * Used instead of `verifyEquivalent` for a step that rewrites a limit. Sampling
+ * for equality is the wrong question there: `\frac{\sin x}{x}` and 1 are equal
+ * at no point whatsoever, only in the limit, so what is compared is where each
+ * side is heading rather than what each side is.
+ */
+export function verifyLimitEquivalent(a: MathNode, b: MathNode, samples = 4): Verdict {
+  const vars = [...new Set([...freeSymbols(a), ...freeSymbols(b)])];
+  const envs = vars.length === 0 ? [{}] : environments(vars, samples);
+  let compared = 0;
+  for (const env of envs) {
+    const va = evaluateNumeric(a, env);
+    const vb = evaluateNumeric(b, env);
+    if (!Number.isFinite(va) || !Number.isFinite(vb)) continue;
+    compared++;
+    if (!closeLimit(va, vb)) return "mismatch";
+  }
+  return compared === 0 ? "unknown" : "ok";
+}
+
+/**
+ * Does the original expression really approach the claimed answer?
+ *
+ * A limit is not an algebraic identity, so `verifyEquivalent` has nothing to
+ * sample. This evaluates the *problem*, `lim` node and all, which
+ * `evaluateNumeric` does by walking the expression in towards the point and
+ * extrapolating, and compares that with the answer the rules produced.
+ *
+ * What it cannot catch: a function that only misbehaves closer to the point than
+ * the samples reach, a divergence too slow to show over five decades of
+ * approach, and a limit whose true value differs from the claimed one by less
+ * than the tolerance. The first two come back "unknown", so the failure mode is
+ * a correct limit reported as unchecked rather than a wrong one reported as
+ * checked.
+ */
+export function verifyLimit(problem: MathNode, answer: MathNode): Verdict {
+  if (freeSymbols(answer).size > 0) return "unknown";
+  const claimed = evaluateNumeric(answer);
+  if (!Number.isFinite(claimed)) return "unknown";
+  const observed = evaluateNumeric(problem);
+  if (!Number.isFinite(observed)) return "unknown";
+  return closeLimit(observed, claimed) ? "ok" : "mismatch";
+}
