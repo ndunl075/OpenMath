@@ -1,20 +1,25 @@
 import { normalizeWithReport } from "../normalize.js";
+import { MODEL_INPUT_SIZE, toModelTensor } from "../texo-image.js";
 import type { LoadProgress, OcrProvider, OcrResult, RasterImage } from "../types.js";
 import { OcrUnavailableError } from "../types.js";
-import { toCanvas } from "../canvas.js";
 
 export interface TransformersProviderConfig {
   id: string;
   label: string;
   license: string;
-  /** Repository id on the model host, e.g. "onnx-community/TexTeller-ONNX". */
+  /** Repository id on the model host, e.g. "alephpi/FormulaNet". */
   modelId: string;
   approximateBytes: number;
   handwriting: "good" | "fair" | "unknown";
-  /** Quantisation. q8 keeps the download small enough for a phone. */
+  /**
+   * Weight precision. The published FormulaNet repo has no quantised export, so
+   * asking for q8 makes the runtime request a file that does not exist.
+   */
   dtype?: "q8" | "int8" | "fp16" | "fp32";
   device?: "wasm" | "webgpu" | "auto";
   maxNewTokens?: number;
+  /** Model input square. */
+  inputSize?: number;
   /**
    * Where weights are fetched from. Configurable so a host change is a one-line
    * fix, per the provider-agnostic requirement in ARCHITECTURE section 13.
@@ -23,42 +28,33 @@ export interface TransformersProviderConfig {
   remotePathTemplate?: string;
 }
 
-type Pipeline = (input: unknown, options?: Record<string, unknown>) => Promise<unknown>;
-
-function readGeneratedText(output: unknown): string {
-  if (typeof output === "string") return output;
-  if (Array.isArray(output)) {
-    for (const item of output) {
-      const text = readGeneratedText(item);
-      if (text) return text;
-    }
-    return "";
-  }
-  if (output && typeof output === "object") {
-    const record = output as Record<string, unknown>;
-    for (const key of ["generated_text", "text", "label"]) {
-      const value = record[key];
-      if (typeof value === "string") return value;
-      if (Array.isArray(value)) {
-        const nested = readGeneratedText(value);
-        if (nested) return nested;
-      }
-    }
-  }
-  return "";
+interface LoadedModel {
+  model: { generate(input: Record<string, unknown>): Promise<unknown> };
+  tokenizer: { batch_decode(ids: unknown, options?: Record<string, unknown>): string[] };
+  Tensor: new (type: string, data: Float32Array, dims: number[]) => unknown;
+  cat: (tensors: unknown[], dim: number) => unknown;
 }
 
 /**
- * A provider backed by transformers.js. The library is imported dynamically so
- * it lands in its own chunk and is fetched only when someone actually scans,
- * which keeps the first paint small for people who only ever type.
+ * A provider backed by transformers.js.
+ *
+ * Uses the model and tokenizer classes directly rather than the `image-to-text`
+ * pipeline. The pipeline cannot load this model: its encoder is a custom
+ * architecture with no registered image processor and the repository publishes
+ * no preprocessor config, which is exactly why the reference browser app
+ * hand-rolls the same two calls. Building the tensor ourselves also means the
+ * provider needs no canvas, so it behaves identically in a worker, on the main
+ * thread, and in Node under the bench.
+ *
+ * The library is imported dynamically so it lands in its own chunk and is
+ * fetched only when someone actually scans.
  */
 export function createTransformersProvider(config: TransformersProviderConfig): OcrProvider {
-  let pipe: Pipeline | null = null;
+  let loaded: LoadedModel | null = null;
   let loading: Promise<void> | null = null;
 
   const load = async (onProgress?: (p: LoadProgress) => void): Promise<void> => {
-    if (pipe) return;
+    if (loaded) return;
     if (loading) return loading;
 
     loading = (async () => {
@@ -81,36 +77,46 @@ export function createTransformersProvider(config: TransformersProviderConfig): 
         if (config.remotePathTemplate) env.remotePathTemplate = config.remotePathTemplate;
       }
 
-      const pipeline = lib.pipeline as
-        | ((task: string, model: string, options?: Record<string, unknown>) => Promise<Pipeline>)
+      const VisionEncoderDecoderModel = lib.VisionEncoderDecoderModel as
+        | { from_pretrained(id: string, options?: Record<string, unknown>): Promise<LoadedModel["model"]> }
         | undefined;
-      if (!pipeline) {
-        throw new OcrUnavailableError("The recognition library is missing its pipeline API.");
+      const PreTrainedTokenizer = lib.PreTrainedTokenizer as
+        | { from_pretrained(id: string, options?: Record<string, unknown>): Promise<LoadedModel["tokenizer"]> }
+        | undefined;
+      const Tensor = lib.Tensor as LoadedModel["Tensor"] | undefined;
+      const cat = lib.cat as LoadedModel["cat"] | undefined;
+
+      if (!VisionEncoderDecoderModel || !PreTrainedTokenizer || !Tensor || !cat) {
+        throw new OcrUnavailableError(
+          "The recognition library is missing the APIs this model needs.",
+        );
       }
 
       onProgress?.({ fraction: null, loadedBytes: 0, totalBytes: null, status: "downloading" });
 
       try {
-        pipe = await pipeline("image-to-text", config.modelId, {
-          dtype: config.dtype ?? "q8",
-          device: config.device ?? "wasm",
+        const model = await VisionEncoderDecoderModel.from_pretrained(config.modelId, {
+          dtype: config.dtype ?? "fp32",
+          ...(config.device ? { device: config.device } : {}),
           progress_callback: (raw: unknown) => {
             const p = (raw ?? {}) as Record<string, unknown>;
-            const loaded = typeof p.loaded === "number" ? p.loaded : 0;
+            const bytes = typeof p.loaded === "number" ? p.loaded : 0;
             const total = typeof p.total === "number" ? p.total : null;
-            const status = p.status === "ready" || p.status === "done" ? "initialising" : "downloading";
             onProgress?.({
-              fraction: total ? Math.min(1, loaded / total) : null,
-              loadedBytes: loaded,
+              fraction: total ? Math.min(1, bytes / total) : null,
+              loadedBytes: bytes,
               totalBytes: total,
               ...(typeof p.file === "string" ? { file: p.file } : {}),
-              status,
+              status: p.status === "ready" || p.status === "done" ? "initialising" : "downloading",
             });
           },
         });
+        const tokenizer = await PreTrainedTokenizer.from_pretrained(config.modelId);
+        loaded = { model, tokenizer, Tensor, cat };
       } catch (cause) {
+        const detail = cause instanceof Error ? ` (${cause.message})` : "";
         throw new OcrUnavailableError(
-          `Could not load the ${config.label} model. Check your connection, or type the problem in instead.`,
+          `Could not load the ${config.label} model from ${config.modelId}${detail}. Check your connection, or type the problem in instead.`,
           cause,
         );
       }
@@ -131,20 +137,35 @@ export function createTransformersProvider(config: TransformersProviderConfig): 
     license: config.license,
     approximateBytes: config.approximateBytes,
     handwriting: config.handwriting,
+    // The model's own chain runs inside recognize(); the generic one would
+    // fight it, most visibly by inverting a second time.
+    ownsPreprocessing: true,
     load,
-    isLoaded: () => pipe !== null,
+    isLoaded: () => loaded !== null,
     async recognize(image: RasterImage): Promise<OcrResult> {
-      if (!pipe) await load();
-      if (!pipe) throw new OcrUnavailableError("The recognition model is not loaded.");
+      if (!loaded) await load();
+      const active = loaded;
+      if (!active) throw new OcrUnavailableError("The recognition model is not loaded.");
+
       const started = Date.now();
-      const canvas = toCanvas(image);
-      const output = await pipe(canvas, { max_new_tokens: config.maxNewTokens ?? 512 });
-      const raw = readGeneratedText(output);
+      const size = config.inputSize ?? MODEL_INPUT_SIZE;
+      const { data } = toModelTensor(image, size);
+      const single = new active.Tensor("float32", data, [1, 1, size, size]);
+      // The encoder wants three channels; the model is greyscale, so the one
+      // channel is repeated rather than carrying colour that was never there.
+      const pixel_values = active.cat([single, single, single], 1);
+
+      const output = await active.model.generate({
+        inputs: pixel_values,
+        max_new_tokens: config.maxNewTokens ?? 512,
+      });
+      const decoded = active.tokenizer.batch_decode(output, { skip_special_tokens: true });
+      const raw = decoded[0] ?? "";
       const { latex } = normalizeWithReport(raw);
       return { latex, raw, ms: Date.now() - started };
     },
     dispose() {
-      pipe = null;
+      loaded = null;
     },
   };
 }

@@ -17,10 +17,16 @@ export const PROVIDER_CONFIGS: Record<string, TransformersProviderConfig> = {
     id: "texo",
     label: "Texo",
     license: "AGPL-3.0",
-    modelId: "alephpi/Texo",
-    approximateBytes: 22 * 1024 * 1024,
+    // The Hub id is FormulaNet; "Texo" is the project and product name and has
+    // no repository of its own. Confirmed against the reference browser app's
+    // constants and the training repo's own push script.
+    modelId: "alephpi/FormulaNet",
+    // Encoder 51.7 MB + decoder 24.7 MB. The repository publishes no quantised
+    // export, so this is the real download and dtype must stay fp32.
+    approximateBytes: 76 * 1024 * 1024,
     handwriting: "good",
-    dtype: "q8",
+    dtype: "fp32",
+    inputSize: 384,
     maxNewTokens: 512,
   },
   texteller: {
@@ -45,11 +51,6 @@ export const PROVIDER_CONFIGS: Record<string, TransformersProviderConfig> = {
   },
 };
 
-/**
- * Texo has the best published handwriting score of the three, which is the
- * subset students actually photograph. Switching to `pix2text-mfr` is the
- * all-permissive path if AGPL turns out to be unacceptable.
- */
 export const DEFAULT_PROVIDER_ID = "texo";
 
 const cache = new Map<string, OcrProvider>();

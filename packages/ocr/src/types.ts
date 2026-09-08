@@ -45,6 +45,13 @@ export interface OcrProvider {
   /** Rough download size in bytes, shown before the first scan. */
   readonly approximateBytes: number;
   readonly handwriting: "good" | "fair" | "unknown";
+  /**
+   * True when the provider applies the model's own image pipeline inside
+   * recognize(). Callers must then hand it the cropped image untouched: running
+   * the generic `preprocess` first makes two chains decide independently
+   * whether to invert, and two inversions cancel.
+   */
+  readonly ownsPreprocessing: boolean;
   load(onProgress?: (p: LoadProgress) => void): Promise<void>;
   isLoaded(): boolean;
   recognize(image: RasterImage): Promise<OcrResult>;

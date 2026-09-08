@@ -3,7 +3,6 @@ import { createTransformersProvider, DEFAULT_PROVIDER_ID, PROVIDER_CONFIGS } fro
 import { auditCorpus } from "./audit.js";
 import { CorpusError, loadCorpus } from "./corpus.js";
 import { decodeImage } from "./decode.js";
-import { installNodeCanvas } from "./node-canvas.js";
 import { diffResults, formatDiff, formatResults } from "./report.js";
 import { ModelLoadError, runProvider } from "./run.js";
 import { CATEGORIES } from "./types.js";
@@ -258,7 +257,6 @@ export async function main(argv: readonly string[]): Promise<number> {
     return 0;
   }
 
-  installNodeCanvas();
 
   const runs: ProviderRun[] = [];
   const failures: ProviderFailure[] = [];

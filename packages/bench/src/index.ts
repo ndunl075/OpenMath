@@ -7,5 +7,4 @@ export * from "./corpus.js";
 export * from "./run.js";
 export * from "./report.js";
 export * from "./decode.js";
-export * from "./node-canvas.js";
 export * from "./cli.js";

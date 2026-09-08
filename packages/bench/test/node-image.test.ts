@@ -3,11 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import sharp from "sharp";
 import { describe, expect, it } from "vitest";
-import { toCanvas } from "@openmath/ocr";
-import { decodeImage, installNodeCanvas } from "@openmath/bench";
-
-/** Optional: the bench runs without it, but if it is here, check the real seam. */
-const transformers = await import("@huggingface/transformers").catch(() => null);
+import { decodeImage } from "@openmath/bench";
 
 async function writeImage(name: string, image: sharp.Sharp): Promise<string> {
   const dir = await mkdtemp(join(tmpdir(), "openmath-bench-"));
@@ -45,50 +41,5 @@ describe("decoding a photo for the pipeline", () => {
 
     expect(image.width).toBe(4);
     expect(image.height).toBe(6);
-  });
-});
-
-describe("the Node canvas shim", () => {
-  it("lets packages/ocr build a canvas outside a browser", () => {
-    installNodeCanvas();
-    const canvas = toCanvas({
-      width: 2,
-      height: 1,
-      data: new Uint8ClampedArray(new ArrayBuffer(8)).fill(200),
-    });
-    expect(canvas.width).toBe(2);
-    expect(canvas.height).toBe(1);
-  });
-
-  it("hands the model an image transformers.js can read in Node", async () => {
-    installNodeCanvas();
-    const pixels = new Uint8ClampedArray(new ArrayBuffer(8 * 4 * 4));
-    pixels.fill(200);
-    const canvas = toCanvas({ width: 8, height: 4, data: pixels });
-
-    // The seam: transformers.js refuses a canvas in Node but decodes a Blob,
-    // so the shim canvas has to be one.
-    expect(canvas).toBeInstanceOf(Blob);
-    const decoded = await sharp(await (canvas as unknown as Blob).arrayBuffer()).metadata();
-    expect(decoded.width).toBe(8);
-    expect(decoded.height).toBe(4);
-    expect(decoded.format).toBe("png");
-  });
-});
-
-describe.skipIf(!transformers)("against the real transformers.js", () => {
-  it("accepts the shim canvas as model input", async () => {
-    installNodeCanvas();
-    const pixels = new Uint8ClampedArray(new ArrayBuffer(8 * 4 * 4));
-    pixels.fill(200);
-
-    // Exactly what createTransformersProvider passes to the pipeline.
-    const image = await transformers!.RawImage.read(
-      toCanvas({ width: 8, height: 4, data: pixels }) as never,
-    );
-
-    expect(image.width).toBe(8);
-    expect(image.height).toBe(4);
-    expect(image.data[0]).toBe(200);
   });
 });
