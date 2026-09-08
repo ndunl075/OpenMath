@@ -1,5 +1,5 @@
 import {
-  evaluateNumeric, type Env, type MathNode, symbols,
+  evaluateNumeric, type Env, freeSymbols, type MathNode,
 } from "@openmath/math-core";
 
 export type Verdict = "ok" | "unknown" | "mismatch";
@@ -48,7 +48,7 @@ function close(a: number, b: number): boolean {
  * zero, say) and the caller should not claim the step was checked.
  */
 export function verifyEquivalent(a: MathNode, b: MathNode, samples = 12): Verdict {
-  const vars = [...new Set([...symbols(a), ...symbols(b)])].filter((s) => s !== "pi");
+  const vars = [...new Set([...freeSymbols(a), ...freeSymbols(b)])];
   const envs = vars.length === 0 ? [{}] : environments(vars, samples);
   let compared = 0;
   for (const env of envs) {
@@ -83,7 +83,7 @@ export function verifyEquationEquivalent(
     type: "add", id: -3,
     args: [after.lhs, { type: "neg", id: -4, arg: after.rhs }],
   };
-  const vars = [...new Set([...symbols(before), ...symbols(after)])].filter((s) => s !== "pi");
+  const vars = [...new Set([...freeSymbols(before), ...freeSymbols(after)])];
   const envs = vars.length === 0 ? [{}] : environments(vars, samples);
 
   let ratio: number | null = null;
@@ -117,4 +117,34 @@ export function checkSolution(equation: MathNode, variable: string, value: numbe
   const r = evaluateNumeric(equation.rhs, env);
   if (!Number.isFinite(l) || !Number.isFinite(r)) return "unknown";
   return close(l, r) ? "ok" : "mismatch";
+}
+
+/**
+ * Does `answer` really give the derivative that `problem` asks for?
+ *
+ * `problem` still contains the unevaluated d/dv nodes, and `evaluateNumeric`
+ * works those out as a five-point central difference, so this compares the true
+ * slope with the claimed one at each sample point. It is the check that catches
+ * a chain rule applied to the wrong layer, or an inner derivative dropped
+ * altogether: both produce an expression that reads perfectly well and is simply
+ * a different function. A few usable points are required before the answer
+ * counts as checked, so one that is undefined everywhere we looked comes back
+ * "unknown" rather than passing by default.
+ */
+export function verifyDerivative(
+  problem: MathNode,
+  answer: MathNode,
+  variable: string,
+  samples = 16,
+): Verdict {
+  const envs = environments([variable], samples);
+  let compared = 0;
+  for (const env of envs) {
+    const slope = evaluateNumeric(problem, env);
+    const claimed = evaluateNumeric(answer, env);
+    if (!Number.isFinite(slope) || !Number.isFinite(claimed)) continue;
+    compared++;
+    if (!close(slope, claimed)) return "mismatch";
+  }
+  return compared >= 3 ? "ok" : "unknown";
 }

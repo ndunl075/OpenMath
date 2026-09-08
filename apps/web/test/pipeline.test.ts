@@ -18,6 +18,9 @@ describe("scan to steps", () => {
     { raw: "\\left(x+1\\right)\\left(x+2\\right)", answer: "x^{2} + 3 x + 2" },
     { raw: "2 × 3 + 4", answer: "10" },
     { raw: "√12", answer: "2 \\sqrt{3}" },
+    { raw: "$\\frac{d}{dx}(x^{2} + 3x)$", answer: "2 x + 3" },
+    { raw: "\\frac{d}{dx}\\sin(2x)", answer: "2 \\cos\\left(2 x\\right)" },
+    { raw: "\\left(x^{2}+1\\right)^{3}\u2019", answer: "6 \\left(x^{2} + 1\\right)^{2} x" },
   ];
 
   for (const scan of scans) {
@@ -40,6 +43,14 @@ describe("scan to steps", () => {
   it("routes an out-of-scope scan to a message instead of the solver", () => {
     const latex = normalizeLatex("\\int_0^1 x\\,dx");
     expect(detectOutOfScope(latex)).toBe("integrals");
+  });
+
+  it("hands a derivative it cannot take back as unsupported, not half-solved", () => {
+    const latex = normalizeLatex("\\frac{dy}{dx}");
+    expect(detectOutOfScope(latex)).toBeNull();
+    const outcome = trySolve(latex);
+    expect(outcome.ok).toBe(false);
+    if (!outcome.ok) expect(outcome.reason).toBe("unsupported");
   });
 
   it("keeps an unreadable scan out of the solver", () => {

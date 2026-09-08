@@ -8,13 +8,20 @@
  */
 export interface CorpusProblem {
   latex: string;
-  kind: "simplify" | "evaluate" | "solve";
+  kind: "simplify" | "evaluate" | "solve" | "differentiate";
   /** Exact expected answer LaTeX. */
   answer?: string;
   /** Numeric value of each solution, checked by substitution. */
   roots?: number[];
   /** Expected to be rejected rather than answered. */
   unsupported?: true;
+  /**
+   * How an unsupported problem is refused. "unsupported" is the useful one, an
+   * honest "we cannot do this yet"; "parse" records notation the grammar does
+   * not read at all, which the scope check in @openmath/ocr turns into the same
+   * message before the solver ever sees it.
+   */
+  declineReason?: "parse" | "unsupported";
   tags: string[];
 }
 
@@ -121,6 +128,65 @@ export const problems: CorpusProblem[] = [
   { latex: "x^{3}-8=0", kind: "solve", unsupported: true, tags: ["cubic"] },
   { latex: "\\sin(x)=1", kind: "solve", unsupported: true, tags: ["trig"] },
   { latex: "\\frac{1}{x}=2", kind: "solve", unsupported: true, tags: ["rational"] },
+
+  // ---- derivatives: the leaves
+  { latex: "\\frac{d}{dx}(7)", kind: "differentiate", answer: "0", tags: ["derivative", "constant"] },
+  { latex: "\\frac{d}{dx}(x)", kind: "differentiate", answer: "1", tags: ["derivative", "variable"] },
+  { latex: "\\frac{d}{dx}(x^{3})", kind: "differentiate", answer: "3 x^{2}", tags: ["derivative", "power"] },
+  { latex: "\\frac{d}{dx} x^{2}", kind: "differentiate", answer: "2 x", tags: ["derivative", "power", "no-brackets"] },
+  { latex: "\\frac{d}{dx}(x^{-2})", kind: "differentiate", answer: "-2 x^{-3}", tags: ["derivative", "power", "negative-exponent"] },
+  { latex: "\\frac{d}{dx}(5x^{4})", kind: "differentiate", answer: "20 x^{3}", tags: ["derivative", "constant-multiple"] },
+  { latex: "\\frac{d}{dx}(-x^{2})", kind: "differentiate", answer: "-2 x", tags: ["derivative", "signs"] },
+
+  // ---- derivatives: sums and differences
+  { latex: "\\frac{d}{dx}(x^{2}+3x)", kind: "differentiate", answer: "2 x + 3", tags: ["derivative", "sum"] },
+  { latex: "\\frac{d}{dx}(x^{2}-4x+7)", kind: "differentiate", answer: "2 x - 4", tags: ["derivative", "sum", "difference"] },
+  { latex: "\\frac{d}{dt}(t^{2}+t)", kind: "differentiate", answer: "2 t + 1", tags: ["derivative", "other-variable"] },
+
+  // ---- derivatives: the standard functions
+  { latex: "\\frac{d}{dx}\\sin(x)", kind: "differentiate", answer: "\\cos\\left(x\\right)", tags: ["derivative", "trig"] },
+  { latex: "\\frac{d}{dx}\\cos(x)", kind: "differentiate", answer: "-\\sin\\left(x\\right)", tags: ["derivative", "trig"] },
+  { latex: "\\frac{d}{dx}\\tan(x)", kind: "differentiate", answer: "\\sec\\left(x\\right)^{2}", tags: ["derivative", "trig"] },
+  { latex: "\\frac{d}{dx}\\ln(x)", kind: "differentiate", answer: "\\frac{1}{x}", tags: ["derivative", "log"] },
+  { latex: "\\frac{d}{dx}\\sqrt{x}", kind: "differentiate", answer: "\\frac{1}{2 \\sqrt{x}}", tags: ["derivative", "roots"] },
+  { latex: "\\frac{d}{dx}\\exp(x)", kind: "differentiate", answer: "\\exp\\left(x\\right)", tags: ["derivative", "exponential"] },
+  { latex: "\\frac{d}{dx}e^{x}", kind: "differentiate", answer: "e^{x}", tags: ["derivative", "exponential"] },
+  { latex: "\\frac{d}{dx}2^{x}", kind: "differentiate", answer: "2^{x} \\ln\\left(2\\right)", tags: ["derivative", "exponential"] },
+
+  // ---- derivatives: chain rule
+  { latex: "\\frac{d}{dx}\\sin(2x)", kind: "differentiate", answer: "2 \\cos\\left(2 x\\right)", tags: ["derivative", "chain", "trig"] },
+  { latex: "\\frac{d}{dx}\\cos(3x)", kind: "differentiate", answer: "-3 \\sin\\left(3 x\\right)", tags: ["derivative", "chain", "trig"] },
+  { latex: "\\frac{d}{dx}\\tan(x^{2})", kind: "differentiate", answer: "2 \\sec\\left(x^{2}\\right)^{2} x", tags: ["derivative", "chain", "trig"] },
+  { latex: "\\frac{d}{dx}(x^{2}+1)^{3}", kind: "differentiate", answer: "6 \\left(x^{2} + 1\\right)^{2} x", tags: ["derivative", "chain", "power"] },
+  { latex: "\\frac{d}{dx}(3x+1)^{4}", kind: "differentiate", answer: "12 \\left(3 x + 1\\right)^{3}", tags: ["derivative", "chain", "power"] },
+  { latex: "\\frac{d}{dx}\\sqrt{x^{2}+1}", kind: "differentiate", answer: "\\frac{x}{\\sqrt{x^{2} + 1}}", tags: ["derivative", "chain", "roots"] },
+  { latex: "\\frac{d}{dx}\\ln(x^{2}+1)", kind: "differentiate", answer: "\\frac{2 x}{x^{2} + 1}", tags: ["derivative", "chain", "log"] },
+  { latex: "\\frac{d}{dx}e^{3x}", kind: "differentiate", answer: "3 e^{3 x}", tags: ["derivative", "chain", "exponential"] },
+  { latex: "\\frac{d}{dx}\\sin(\\sqrt{x})", kind: "differentiate", answer: "\\frac{\\cos\\left(\\sqrt{x}\\right)}{2 \\sqrt{x}}", tags: ["derivative", "chain", "nested"] },
+  { latex: "\\frac{d}{dx}\\sin(\\cos(x))", kind: "differentiate", answer: "-\\cos\\left(\\cos\\left(x\\right)\\right) \\sin\\left(x\\right)", tags: ["derivative", "chain", "nested"] },
+  { latex: "\\frac{d}{dx}\\sin(\\sin(\\sin(x)))", kind: "differentiate", answer: "\\cos\\left(\\sin\\left(\\sin\\left(x\\right)\\right)\\right) \\cos\\left(\\sin\\left(x\\right)\\right) \\cos\\left(x\\right)", tags: ["derivative", "chain", "nested"] },
+
+  // ---- derivatives: products and quotients
+  { latex: "\\frac{d}{dx}(x\\sin(x))", kind: "differentiate", answer: "\\sin\\left(x\\right) + x \\cos\\left(x\\right)", tags: ["derivative", "product"] },
+  { latex: "\\frac{d}{dx}(x\\ln(x))", kind: "differentiate", answer: "\\ln\\left(x\\right) + 1", tags: ["derivative", "product"] },
+  { latex: "\\frac{d}{dx}\\frac{\\sin(x)}{x}", kind: "differentiate", answer: "\\frac{\\cos\\left(x\\right) x - \\sin\\left(x\\right)}{x^{2}}", tags: ["derivative", "quotient"] },
+  { latex: "\\frac{d}{dx}\\frac{\\sin(2x)}{x}", kind: "differentiate", answer: "\\frac{2 \\cos\\left(2 x\\right) x - \\sin\\left(2 x\\right)}{x^{2}}", tags: ["derivative", "quotient", "chain"] },
+  { latex: "\\frac{d}{dx}\\frac{x}{x+1}", kind: "differentiate", answer: "\\frac{1}{\\left(x + 1\\right)^{2}}", tags: ["derivative", "quotient"] },
+  { latex: "\\frac{d}{dx}\\frac{1}{x}", kind: "differentiate", answer: "\\frac{-1}{x^{2}}", tags: ["derivative", "quotient", "reciprocal"] },
+  { latex: "\\frac{d}{dx}\\frac{x^{2}}{3}", kind: "differentiate", answer: "\\frac{2 x}{3}", tags: ["derivative", "constant-multiple"] },
+
+  // ---- derivatives: prime notation
+  { latex: "(x^{2}+3x)'", kind: "differentiate", answer: "2 x + 3", tags: ["derivative", "prime"] },
+  { latex: "(x^{3})''", kind: "differentiate", answer: "6 x", tags: ["derivative", "prime", "second"] },
+
+  // ---- derivatives out of scope, must be refused rather than half-answered
+  { latex: "\\frac{dy}{dx}", kind: "differentiate", unsupported: true, tags: ["derivative", "implicit"] },
+  { latex: "\\frac{d}{dx}(y^{2})", kind: "differentiate", unsupported: true, tags: ["derivative", "implicit"] },
+  { latex: "f'(x)", kind: "differentiate", unsupported: true, tags: ["derivative", "prime", "undefined-function"] },
+  { latex: "\\frac{d}{dx}\\arctan(x)", kind: "differentiate", unsupported: true, tags: ["derivative", "no-rule"] },
+  { latex: "\\frac{d}{dx}\\left|x\\right|", kind: "differentiate", unsupported: true, tags: ["derivative", "no-rule"] },
+  { latex: "\\frac{d}{dx}(x^{2})=2x", kind: "differentiate", unsupported: true, tags: ["derivative", "equation"] },
+  { latex: "\\int x\\,dx", kind: "differentiate", unsupported: true, declineReason: "parse", tags: ["integral"] },
 ];
 
 export const byTag = (tag: string): CorpusProblem[] =>

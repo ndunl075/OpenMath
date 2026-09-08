@@ -56,7 +56,7 @@ export interface Rule {
   apply(n: MathNode, ctx: RuleContext): RuleResult | null;
 }
 
-export type SolutionKind = "simplify" | "solve" | "evaluate";
+export type SolutionKind = "simplify" | "solve" | "evaluate" | "differentiate";
 
 export interface Solution {
   kind: SolutionKind;
@@ -67,7 +67,7 @@ export interface Solution {
   /** One entry per solution when solving, e.g. two roots of a quadratic. */
   answers: string[];
   steps: Step[];
-  /** The variable an equation was solved for. */
+  /** The variable an equation was solved for, or differentiated with respect to. */
   variable?: string;
   /**
    * False when at least one step, or the final answer, failed verification.

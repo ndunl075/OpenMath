@@ -107,7 +107,8 @@ export function ResultSheet({
             <p>{outcome.error.message}</p>
             <p class="result__scope">
               Right now OpenMath handles arithmetic, fractions, roots, expanding and
-              simplifying, linear equations and inequalities, and quadratics.
+              simplifying, linear equations and inequalities, quadratics, and
+              derivatives in a single variable.
             </p>
             <div class="result__actions">
               <button type="button" class="button button--primary" onClick={onEdit}>
