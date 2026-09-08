@@ -91,7 +91,6 @@ describe("detectOutOfScope", () => {
   it("names the structure the solver cannot handle", () => {
     expect(detectOutOfScope("\\int x dx")).toBe("integrals");
     expect(detectOutOfScope("\\sum_{i=1}^{n} i")).toBe("sums and products");
-    expect(detectOutOfScope("\\lim_{x \\to 0} x")).toBe("limits");
     expect(detectOutOfScope("\\begin{matrix}1&2\\end{matrix}")).toBe(
       "matrices and aligned environments",
     );
@@ -101,6 +100,14 @@ describe("detectOutOfScope", () => {
     expect(detectOutOfScope("2x+3=7")).toBeNull();
     expect(detectOutOfScope("\\frac{x+1}{2}")).toBeNull();
     expect(detectOutOfScope("\\sqrt{x}")).toBeNull();
+  });
+
+  it("lets limits reach the solver now that it can take them", () => {
+    expect(detectOutOfScope("\\lim_{x \\to 0} x")).toBeNull();
+    expect(detectOutOfScope("\\lim_{x \\to \\infty} \\frac{1}{x}")).toBeNull();
+    // The solver refuses the limits it cannot do, naming the expression, which
+    // is a better message than a blanket "limits are out of scope".
+    expect(detectOutOfScope("\\lim_{x \\to 0^+} \\ln(x)")).toBeNull();
   });
 
   it("lets derivatives reach the solver now that it can take them", () => {

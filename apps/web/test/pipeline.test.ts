@@ -21,6 +21,12 @@ describe("scan to steps", () => {
     { raw: "$\\frac{d}{dx}(x^{2} + 3x)$", answer: "2 x + 3" },
     { raw: "\\frac{d}{dx}\\sin(2x)", answer: "2 \\cos\\left(2 x\\right)" },
     { raw: "\\left(x^{2}+1\\right)^{3}\u2019", answer: "6 \\left(x^{2} + 1\\right)^{2} x" },
+    { raw: "\\sin(\\frac{\\pi}{6})", answer: "\\frac{1}{2}" },
+    { raw: "\\log_{2}(8)", answer: "3" },
+    { raw: "$\\lim_{x \\to 2} \\frac{x^{2}-4}{x-2}$", answer: "4" },
+    // The scan of a limit at infinity arrives with the symbols, not the commands.
+    { raw: "\\displaystyle\\lim_{x → ∞} \\frac{1}{x}", answer: "0" },
+    { raw: "\\lim_{x \\to 0^+} \\sqrt{x}", answer: "0" },
   ];
 
   for (const scan of scans) {
@@ -43,6 +49,22 @@ describe("scan to steps", () => {
   it("routes an out-of-scope scan to a message instead of the solver", () => {
     const latex = normalizeLatex("\\int_0^1 x\\,dx");
     expect(detectOutOfScope(latex)).toBe("integrals");
+  });
+
+  it("lets a limit through the scope check now that the solver takes them", () => {
+    const latex = normalizeLatex("\\lim_{x \\to 0}\\frac{\\sin(x)}{x}");
+    expect(detectOutOfScope(latex)).toBeNull();
+    const outcome = trySolve(latex);
+    if (!outcome.ok) throw new Error(`${latex}: ${outcome.message}`);
+    expect(outcome.solution.answer).toBe("1");
+  });
+
+  it("hands a limit it cannot take back as unsupported, not half-solved", () => {
+    const latex = normalizeLatex("\\lim_{x → ∞} \\frac{e^{x}}{x}");
+    expect(detectOutOfScope(latex)).toBeNull();
+    const outcome = trySolve(latex);
+    expect(outcome.ok).toBe(false);
+    if (!outcome.ok) expect(outcome.reason).toBe("unsupported");
   });
 
   it("hands a derivative it cannot take back as unsupported, not half-solved", () => {

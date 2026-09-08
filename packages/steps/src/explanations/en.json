@@ -61,5 +61,20 @@
   "DIFF_LN": { "title": "Differentiate the logarithm", "text": "The natural log climbs more slowly the bigger {variable} gets, at a rate of exactly one over {variable}." },
   "DIFF_LN_CHAIN": { "title": "Use the chain rule on the logarithm", "text": "The log measures relative change, so the rate is how fast {inside} moves compared with how big it already is." },
   "DIFF_SQRT": { "title": "Differentiate the square root", "text": "A square root flattens out as it grows, and the rate works out as one over twice the root." },
-  "DIFF_SQRT_CHAIN": { "title": "Use the chain rule on the square root", "text": "The square root gives the outside rate, and it has to be scaled by how fast {inside} underneath is changing." }
+  "DIFF_SQRT_CHAIN": { "title": "Use the chain rule on the square root", "text": "The square root gives the outside rate, and it has to be scaled by how fast {inside} underneath is changing." },
+  "EVALUATE_TRIG": { "title": "Read the exact value of {function}({angle})", "text": "{angle} is one of the angles whose {function} is known exactly, and it is {result} — not a rounded decimal." },
+  "EVALUATE_INVERSE_TRIG": { "title": "Read the angle back", "text": "{result} is the angle in the principal range whose {function} counterpart gives {value}." },
+  "PYTHAGOREAN_IDENTITY": { "title": "Use the Pythagorean identity", "text": "Sine and cosine of {angle} are the two legs of a right triangle with hypotenuse 1, so their squares always add to 1." },
+  "EVALUATE_LOG": { "title": "Work out the logarithm", "text": "A logarithm asks what power of {base} gives {argument}, and the answer here is exactly {result}." },
+  "LOG_PRODUCT": { "title": "Add the logarithms", "text": "Adding logarithms multiplies what is inside them, so {first} and {second} join into one logarithm." },
+  "LOG_QUOTIENT": { "title": "Subtract the logarithms", "text": "Subtracting logarithms divides what is inside them, so {first} over {second} becomes a single logarithm." },
+  "LOG_POWER": { "title": "Bring the exponent down", "text": "A power inside a logarithm is repeated multiplication, which a logarithm turns into repeated addition, so the {exponent} moves out in front." },
+  "LIMIT_SUBSTITUTE": { "title": "Substitute {variable} = {point}", "text": "The expression is continuous here, so where it is heading is simply its value at {point}." },
+  "LIMIT_CONSTANT": { "title": "The expression does not depend on {variable}", "text": "Nothing inside changes as {variable} moves, so the limit is just {expression}." },
+  "LIMIT_INDETERMINATE": { "title": "Substituting gives {form}", "text": "{form} is indeterminate: it does not say the limit is 1, or 0, or anything at all. The expression has to be rewritten before {variable} = {point} can go in." },
+  "LIMIT_FACTOR": { "title": "Factor out {factor}", "text": "Top and bottom are both zero at that point, which is exactly what it means for {factor} to divide into each of them; writing it out is what makes the cancelling visible." },
+  "LIMIT_AT_INFINITY": { "title": "Compare the degrees", "text": "The bottom is degree {bottom} and the top only degree {top}, so the denominator outgrows the numerator and the fraction is squeezed to zero." },
+  "LIMIT_AT_INFINITY_RATIO": { "title": "Compare the degrees", "text": "Top and bottom are both degree {top}, so far out only the leading terms matter and the fraction settles at {result}." },
+  "LIMIT_LHOPITAL": { "title": "Apply l'Hopital's rule", "text": "With the form {form}, what decides the limit is how fast {top} and {bottom} are changing, so differentiate each of them and ask again." },
+  "LIMIT_DOES_NOT_EXIST": { "title": "The limit does not exist", "text": "The expression does not settle on any value as {variable} approaches {point}, so there is no limit to report." }
 }

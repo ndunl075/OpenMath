@@ -1,4 +1,4 @@
-import { children, key, type MathNode, num } from "./ast.js";
+import { asLimit, children, INFINITY, key, type MathNode, num } from "./ast.js";
 
 const GREEK = new Set([
   "alpha", "beta", "gamma", "delta", "epsilon", "theta", "lambda", "mu",
@@ -38,6 +38,7 @@ function prec(n: MathNode): number {
 }
 
 function symbolToLatex(name: string): string {
+  if (name === INFINITY) return "\\infty";
   const [head = "", ...restParts] = name.split("_");
   const sub = restParts.join("_");
   const base = GREEK.has(head) ? `\\${head}` : head;
@@ -158,6 +159,15 @@ class Serializer {
         if (n.name === "abs") return `\\left|${this.render(a0!)}\\right|`;
         if (n.name === "log" && a1) {
           return `\\log_{${this.render(a1)}}\\left(${this.render(a0!)}\\right)`;
+        }
+        if (n.name === "lim") {
+          const l = asLimit(n);
+          if (l) {
+            const marker = l.side === "right" ? "^{+}" : l.side === "left" ? "^{-}" : "";
+            // The body is always bracketed for the same reason a derivative's
+            // is: nothing written after the limit can be read back into it.
+            return `\\lim_{${this.render(n.args[1]!)} \\to ${this.render(l.point)}${marker}}\\left(${this.render(l.body)}\\right)`;
+          }
         }
         if (n.name === "diff" && a0 && a1) {
           // The operand is always bracketed, so re-reading this cannot pick up

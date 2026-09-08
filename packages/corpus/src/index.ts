@@ -8,7 +8,7 @@
  */
 export interface CorpusProblem {
   latex: string;
-  kind: "simplify" | "evaluate" | "solve" | "differentiate";
+  kind: "simplify" | "evaluate" | "solve" | "differentiate" | "limit";
   /** Exact expected answer LaTeX. */
   answer?: string;
   /** Numeric value of each solution, checked by substitution. */
@@ -187,6 +187,111 @@ export const problems: CorpusProblem[] = [
   { latex: "\\frac{d}{dx}\\left|x\\right|", kind: "differentiate", unsupported: true, tags: ["derivative", "no-rule"] },
   { latex: "\\frac{d}{dx}(x^{2})=2x", kind: "differentiate", unsupported: true, tags: ["derivative", "equation"] },
   { latex: "\\int x\\,dx", kind: "differentiate", unsupported: true, declineReason: "parse", tags: ["integral"] },
+
+  // ---- exact trigonometric values: a named angle has a number for an answer
+  { latex: "\\sin(0)", kind: "evaluate", answer: "0", tags: ["trig", "exact"] },
+  { latex: "\\cos(0)", kind: "evaluate", answer: "1", tags: ["trig", "exact"] },
+  { latex: "\\sin(\\pi)", kind: "evaluate", answer: "0", tags: ["trig", "exact"] },
+  { latex: "\\cos(\\pi)", kind: "evaluate", answer: "-1", tags: ["trig", "exact"] },
+  { latex: "\\sin(\\frac{\\pi}{6})", kind: "evaluate", answer: "\\frac{1}{2}", tags: ["trig", "exact"] },
+  { latex: "\\cos(\\frac{\\pi}{3})", kind: "evaluate", answer: "\\frac{1}{2}", tags: ["trig", "exact"] },
+  { latex: "\\sin(\\frac{\\pi}{4})", kind: "evaluate", answer: "\\frac{\\sqrt{2}}{2}", tags: ["trig", "exact", "surd"] },
+  { latex: "\\cos(\\frac{\\pi}{4})", kind: "evaluate", answer: "\\frac{\\sqrt{2}}{2}", tags: ["trig", "exact", "surd"] },
+  { latex: "\\tan(\\frac{\\pi}{4})", kind: "evaluate", answer: "1", tags: ["trig", "exact"] },
+  { latex: "\\tan(\\frac{\\pi}{3})", kind: "evaluate", answer: "\\sqrt{3}", tags: ["trig", "exact", "surd"] },
+  { latex: "\\tan(\\frac{\\pi}{6})", kind: "evaluate", answer: "\\frac{\\sqrt{3}}{3}", tags: ["trig", "exact", "surd"] },
+  { latex: "\\sin(\\frac{7\\pi}{6})", kind: "evaluate", answer: "-\\frac{1}{2}", tags: ["trig", "exact", "third-quadrant"] },
+  { latex: "\\cos(\\frac{5\\pi}{6})", kind: "evaluate", answer: "-\\frac{\\sqrt{3}}{2}", tags: ["trig", "exact", "second-quadrant"] },
+  { latex: "\\tan(\\frac{3\\pi}{4})", kind: "evaluate", answer: "-1", tags: ["trig", "exact", "second-quadrant"] },
+  { latex: "\\sin(\\frac{3\\pi}{2})", kind: "evaluate", answer: "-1", tags: ["trig", "exact"] },
+  { latex: "\\cos(\\frac{7\\pi}{4})", kind: "evaluate", answer: "\\frac{\\sqrt{2}}{2}", tags: ["trig", "exact", "fourth-quadrant"] },
+  { latex: "\\sin(-\\frac{\\pi}{6})", kind: "evaluate", answer: "-\\frac{1}{2}", tags: ["trig", "exact", "negative-angle"] },
+  { latex: "\\cos(\\frac{13\\pi}{6})", kind: "evaluate", answer: "\\frac{\\sqrt{3}}{2}", tags: ["trig", "exact", "coterminal"] },
+  { latex: "\\sec(\\pi)", kind: "evaluate", answer: "-1", tags: ["trig", "exact", "reciprocal"] },
+  // No closed form at a fifth of pi, so it is left exactly as written.
+  { latex: "\\sin(\\frac{\\pi}{5})", kind: "evaluate", answer: "\\sin\\left(\\frac{\\pi}{5}\\right)", tags: ["trig", "no-exact-form"] },
+
+  // ---- inverse trigonometry, read back on the principal branch
+  { latex: "\\arcsin(1)", kind: "evaluate", answer: "\\frac{\\pi}{2}", tags: ["trig", "inverse"] },
+  { latex: "\\arcsin(\\frac{1}{2})", kind: "evaluate", answer: "\\frac{\\pi}{6}", tags: ["trig", "inverse"] },
+  { latex: "\\arctan(1)", kind: "evaluate", answer: "\\frac{\\pi}{4}", tags: ["trig", "inverse"] },
+  { latex: "\\arccos(0)", kind: "evaluate", answer: "\\frac{\\pi}{2}", tags: ["trig", "inverse"] },
+  { latex: "\\arccos(-1)", kind: "evaluate", answer: "\\pi", tags: ["trig", "inverse"] },
+
+  // ---- the Pythagorean identity
+  { latex: "\\sin(x)^{2}+\\cos(x)^{2}", kind: "simplify", answer: "1", tags: ["trig", "identity"] },
+  { latex: "\\sin(2x)^{2}+\\cos(2x)^{2}", kind: "simplify", answer: "1", tags: ["trig", "identity"] },
+
+  // ---- undefined, and refused rather than answered
+  { latex: "\\tan(\\frac{\\pi}{2})", kind: "evaluate", unsupported: true, tags: ["trig", "undefined"] },
+  { latex: "\\tan(\\frac{3\\pi}{2})", kind: "evaluate", unsupported: true, tags: ["trig", "undefined"] },
+  { latex: "\\ln(0)", kind: "evaluate", unsupported: true, tags: ["log", "undefined"] },
+  { latex: "\\log(-100)", kind: "evaluate", unsupported: true, tags: ["log", "undefined"] },
+
+  // ---- logarithms with an exact answer
+  { latex: "\\log_{2}(8)", kind: "evaluate", answer: "3", tags: ["log", "exact"] },
+  { latex: "\\log(100)", kind: "evaluate", answer: "2", tags: ["log", "exact", "base-ten"] },
+  { latex: "\\ln(e)", kind: "evaluate", answer: "1", tags: ["log", "exact"] },
+  { latex: "\\ln(1)", kind: "evaluate", answer: "0", tags: ["log", "exact"] },
+  { latex: "\\log_{3}(81)", kind: "evaluate", answer: "4", tags: ["log", "exact"] },
+  { latex: "\\log_{2}(\\frac{1}{8})", kind: "evaluate", answer: "-3", tags: ["log", "exact", "negative"] },
+  { latex: "\\ln(e^{5})", kind: "evaluate", answer: "5", tags: ["log", "exact", "power"] },
+  { latex: "\\log_{2}(4)+\\log_{2}(8)", kind: "evaluate", answer: "5", tags: ["log", "exact"] },
+  // Irrational, so leaving it alone is the honest answer; a decimal would not be.
+  { latex: "\\log_{2}(10)", kind: "evaluate", answer: "\\log_{2}\\left(10\\right)", tags: ["log", "no-exact-form"] },
+
+  // ---- the log laws, shown as steps
+  { latex: "\\ln(x)+\\ln(y)", kind: "simplify", answer: "\\ln\\left(x y\\right)", tags: ["log", "laws"] },
+  { latex: "\\ln(x)-\\ln(y)", kind: "simplify", answer: "\\ln\\left(\\frac{x}{y}\\right)", tags: ["log", "laws"] },
+  { latex: "\\ln(x^{3})", kind: "simplify", answer: "3 \\ln\\left(x\\right)", tags: ["log", "laws"] },
+  { latex: "\\log_{2}(x)+\\log_{2}(y)", kind: "simplify", answer: "\\log_{2}\\left(x y\\right)", tags: ["log", "laws"] },
+
+  // ---- limits by direct substitution
+  { latex: "\\lim_{x \\to 3}(x^{2}+1)", kind: "limit", answer: "10", tags: ["limit", "substitute"] },
+  { latex: "\\lim_{t \\to 3}(t^{2}-9)", kind: "limit", answer: "0", tags: ["limit", "substitute", "other-variable"] },
+  { latex: "\\lim_{x \\to 5}7", kind: "limit", answer: "7", tags: ["limit", "constant"] },
+  { latex: "\\lim_{x \\to 0}\\frac{x^{2}-4}{x-2}", kind: "limit", answer: "2", tags: ["limit", "substitute"] },
+
+  // ---- limits that need factoring and cancelling
+  { latex: "\\lim_{x \\to 2}\\frac{x^{2}-4}{x-2}", kind: "limit", answer: "4", tags: ["limit", "factor", "indeterminate"] },
+  { latex: "\\lim_{x \\to 1}\\frac{x^{2}-1}{x-1}", kind: "limit", answer: "2", tags: ["limit", "factor", "indeterminate"] },
+  { latex: "\\lim_{x \\to 0}\\frac{x^{2}+x}{x}", kind: "limit", answer: "1", tags: ["limit", "factor", "indeterminate"] },
+  { latex: "\\lim_{x \\to 4}\\frac{x-4}{x^{2}-16}", kind: "limit", answer: "\\frac{1}{8}", tags: ["limit", "factor", "indeterminate"] },
+
+  // ---- limits by l'Hopital's rule
+  { latex: "\\lim_{x \\to 0}\\frac{\\sin(x)}{x}", kind: "limit", answer: "1", tags: ["limit", "lhopital", "indeterminate"] },
+  { latex: "\\lim_{x \\to 0}\\frac{\\sin(2x)}{x}", kind: "limit", answer: "2", tags: ["limit", "lhopital", "chain"] },
+  { latex: "\\lim_{x \\to 0}\\frac{x}{\\sin(x)}", kind: "limit", answer: "1", tags: ["limit", "lhopital"] },
+  { latex: "\\lim_{x \\to 0}\\frac{e^{x}-1}{x}", kind: "limit", answer: "1", tags: ["limit", "lhopital"] },
+  { latex: "\\lim_{x \\to 0}\\frac{\\tan(x)}{x}", kind: "limit", answer: "1", tags: ["limit", "lhopital"] },
+  { latex: "\\lim_{x \\to \\infty}\\frac{\\ln(x)}{x}", kind: "limit", answer: "0", tags: ["limit", "lhopital", "infinity"] },
+
+  // ---- limits at infinity, decided by comparing degrees
+  { latex: "\\lim_{x \\to \\infty}\\frac{1}{x}", kind: "limit", answer: "0", tags: ["limit", "infinity"] },
+  { latex: "\\lim_{x \\to \\infty}\\frac{2x^{2}+1}{x^{2}+3}", kind: "limit", answer: "2", tags: ["limit", "infinity", "degrees"] },
+  { latex: "\\lim_{x \\to \\infty}\\frac{3x+1}{x^{2}}", kind: "limit", answer: "0", tags: ["limit", "infinity", "degrees"] },
+  { latex: "\\lim_{x \\to -\\infty}\\frac{x+1}{x}", kind: "limit", answer: "1", tags: ["limit", "infinity", "negative"] },
+  { latex: "\\lim_{x \\to \\infty}\\frac{5}{x^{2}+1}", kind: "limit", answer: "0", tags: ["limit", "infinity"] },
+
+  // ---- one-sided limits
+  { latex: "\\lim_{x \\to 0^{+}}\\sqrt{x}", kind: "limit", answer: "0", tags: ["limit", "one-sided"] },
+  { latex: "\\lim_{x \\to 2^{-}}(x^{2})", kind: "limit", answer: "4", tags: ["limit", "one-sided"] },
+
+  // ---- limits with no value: reported as not existing, not answered
+  { latex: "\\lim_{x \\to 0}\\frac{1}{x}", kind: "limit", answer: "\\text{does not exist}", tags: ["limit", "does-not-exist", "two-sides-disagree"] },
+  { latex: "\\lim_{x \\to 0^{+}}\\frac{1}{x}", kind: "limit", answer: "\\text{does not exist}", tags: ["limit", "does-not-exist", "one-sided"] },
+  { latex: "\\lim_{x \\to 1}\\frac{1}{(x-1)^{2}}", kind: "limit", answer: "\\text{does not exist}", tags: ["limit", "does-not-exist"] },
+
+  // ---- limits out of scope, refused rather than half-answered
+  // Only defined to the right of zero, so the two-sided limit is not there to find.
+  { latex: "\\lim_{x \\to 0}\\sqrt{x}", kind: "limit", unsupported: true, tags: ["limit", "one-sided", "domain"] },
+  { latex: "\\lim_{x \\to \\infty}\\frac{e^{x}}{x}", kind: "limit", unsupported: true, tags: ["limit", "infinity", "unbounded"] },
+  { latex: "\\lim_{x \\to \\infty}\\frac{x^{2}}{x}", kind: "limit", unsupported: true, tags: ["limit", "infinity", "unbounded"] },
+  { latex: "\\lim_{x \\to 0}\\frac{\\left|x\\right|}{x}", kind: "limit", unsupported: true, tags: ["limit", "no-rule"] },
+  { latex: "\\lim_{x \\to 0}\\frac{\\sin(x)}{x}=1", kind: "limit", unsupported: true, tags: ["limit", "equation"] },
+  { latex: "\\lim_{x \\to 0}(a x)", kind: "limit", unsupported: true, tags: ["limit", "two-variable"] },
+  // Infinity is a destination, not a quantity to do arithmetic with.
+  { latex: "2+\\infty", kind: "evaluate", unsupported: true, tags: ["infinity", "out-of-scope"] },
 ];
 
 export const byTag = (tag: string): CorpusProblem[] =>

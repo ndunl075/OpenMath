@@ -1,9 +1,11 @@
 import {
-  asDiff, containsDiff, evaluateNumeric, firstDiff, freeSymbols, hasDivisionByZero,
-  type MathNode, num, parseLatex, Rational, rel, sym, symbols, toLatex,
+  asDiff, asLimit, containsDiff, containsInfinity, containsLimit, evaluateNumeric,
+  firstDiff, firstLimit, freeSymbols, hasDivisionByZero, type MathNode, num,
+  parseLatex, Rational, rel, sym, symbols, toLatex, undefinedReason,
 } from "@openmath/math-core";
 import { run } from "./engine.js";
 import { explain } from "./explain.js";
+import { solveLimit } from "./limit.js";
 import { chooseVariable } from "./rules/equation.js";
 import { allRules, differentiationRules, expressionRules } from "./rules/index.js";
 import { coeff, degree, relationDegree } from "./poly.js";
@@ -11,7 +13,7 @@ import { polynomialOf, solveQuadratic } from "./quadratic.js";
 import { type Solution, type Step, UnsupportedProblemError } from "./types.js";
 import { checkSolution, verifyDerivative } from "./verify.js";
 
-export type ProblemKind = "simplify" | "evaluate" | "solve" | "differentiate";
+export type ProblemKind = "simplify" | "evaluate" | "solve" | "differentiate" | "limit";
 
 export interface Classification {
   kind: ProblemKind;
@@ -21,6 +23,13 @@ export interface Classification {
 
 /** Decide what kind of problem this is before trying to solve it. */
 export function classify(node: MathNode): Classification {
+  // A limit anywhere makes this a limit problem, and it is checked before the
+  // derivative because l'Hopital's rule puts derivatives inside limits.
+  if (containsLimit(node)) {
+    const top = firstLimit(node);
+    const l = top ? asLimit(top) : null;
+    return { kind: "limit", ...(l ? { variable: l.variable } : {}) };
+  }
   // A derivative anywhere makes this a differentiation problem, equals sign or
   // not; `differentiate` is what refuses the equation form with a real reason.
   if (containsDiff(node)) {
@@ -269,9 +278,23 @@ export function solveNode(node: MathNode): Solution {
   if (hasDivisionByZero(node)) {
     throw new UnsupportedProblemError("this divides by zero, so it has no value");
   }
+  // \tan(\pi/2) and \ln(0) are not hard problems, they are problems with no
+  // answer. Echoing one back as though it were its own solution is worse than
+  // saying so.
+  const undefinedInput = undefinedReason(node);
+  if (undefinedInput) throw new UnsupportedProblemError(undefinedInput);
+
   const c = classify(node);
+  // Infinity is a place a limit heads towards, not a quantity to compute with,
+  // so it is refused everywhere else rather than folded into arithmetic.
+  if (c.kind !== "limit" && containsInfinity(node)) {
+    throw new UnsupportedProblemError(
+      "infinity is only supported as the point a limit approaches",
+    );
+  }
   const solution =
-    c.kind === "solve" ? solveEquation(node)
+    c.kind === "limit" ? solveLimit(node)
+    : c.kind === "solve" ? solveEquation(node)
     : c.kind === "differentiate" ? differentiate(node)
     : simplify(node, c.kind);
 

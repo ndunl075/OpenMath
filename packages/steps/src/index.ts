@@ -1,6 +1,7 @@
 export * from "./types.js";
 export * from "./engine.js";
 export * from "./explain.js";
+export * from "./limit.js";
 export * from "./normalize.js";
 export * from "./poly.js";
 export * from "./quadratic.js";

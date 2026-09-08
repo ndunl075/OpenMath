@@ -6,7 +6,8 @@ step, not just the answer.
 Everything runs in your browser. No account, no ads, no subscription, no server.
 Your photos never leave your device.
 
-**Status:** v1 in development. Algebra through quadratics and derivatives works end to end.
+**Status:** v1 in development. Algebra through quadratics, derivatives and limits
+works end to end.
 Recognition is wired but has not yet been benchmarked on real photos, see
 [Known gaps](#known-gaps).
 
@@ -37,13 +38,22 @@ hidden rather than displayed, and the app says so.
 
 Arithmetic and exact fractions, powers and roots, expanding brackets,
 collecting like terms, algebraic fractions, linear equations and inequalities,
-quadratics by factoring or the formula with exact radical roots, and
-derivatives in a single variable including the product, quotient and chain
-rules.
+quadratics by factoring or the formula with exact radical roots, derivatives in
+a single variable including the product, quotient and chain rules, and limits by
+substitution, factoring and cancelling, l'Hopital's rule, or comparing degrees at
+infinity, one-sided ones included.
+
+Trigonometric and logarithmic values come out exactly: `\sin(\frac{\pi}{6})` is
+`\frac{1}{2}` and `\cos(\frac{\pi}{4})` is `\frac{\sqrt{2}}{2}`, never a
+decimal. Where there is no closed form, as in `\log_2(10)`, the expression is
+left as it stands rather than approximated, and where there is no value at all,
+as in `\tan(\frac{\pi}{2})` or `\ln(0)`, it says so.
 
 Out of scope for v1, and refused clearly rather than answered wrongly: word
 problems, integrals, systems of equations, matrices, trigonometric equations,
-implicit differentiation, and percentages.
+implicit differentiation, and percentages. Among limits, anything the rules
+cannot settle is declined rather than half-answered, and a limit that runs off
+to infinity is reported as not existing rather than given a value.
 
 ## Repository layout
 
@@ -69,7 +79,7 @@ the recognition model on handwritten datasets, kept against the contingency in
 ```bash
 pnpm install
 pnpm dev        # http://localhost:5173
-pnpm test       # 240 tests
+pnpm test       # 514 tests
 pnpm typecheck
 ```
 
@@ -83,7 +93,7 @@ Static files, so any host works. Vercel is configured in `vercel.json`:
 pnpm --filter @openmath/web build   # outputs apps/web/dist
 ```
 
-First load is about 125 kB gzipped. The recognition model is a separate
+First load is about 136 kB gzipped. The recognition model is a separate
 download, fetched only when someone actually scans, and cached afterwards.
 
 ## Contributing
