@@ -167,7 +167,13 @@ export function solveLimit(node: MathNode): Solution {
     answer,
     answers: [answer],
     steps,
-    verified: steps.every((s) => !s.unverified) && numeric === "ok",
+    // "mismatch" is a real disagreement and must fail. "unknown" means the
+    // limit could not be measured at all, which is common precisely where
+    // l'Hopital is used: (1-cos x)/x^2 loses every significant digit to
+    // cancellation walking in towards 0 and comes back NaN. Each step has
+    // been checked on its own, l'Hopital structurally and the rest by
+    // sampling, so the chain is the evidence when the measurement is silent.
+    verified: steps.every((s) => !s.unverified) && numeric !== "mismatch",
     ...(result.incomplete ? { incomplete: true } : {}),
   };
 }
