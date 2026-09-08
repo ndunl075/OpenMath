@@ -330,6 +330,8 @@ export const problems: CorpusProblem[] = [
   { latex: "\\arcsin(1)", kind: "evaluate", answer: "\\frac{\\pi}{2}", tags: ["trig", "inverse"] },
   { latex: "\\arcsin(\\frac{1}{2})", kind: "evaluate", answer: "\\frac{\\pi}{6}", tags: ["trig", "inverse"] },
   { latex: "\\arctan(1)", kind: "evaluate", answer: "\\frac{\\pi}{4}", tags: ["trig", "inverse"] },
+  { latex: "\\lim_{x \\to \\infty} \\frac{x}{e^{x}}", kind: "limit", answer: "0", tags: ["limit", "lhopital", "exponential"] },
+  { latex: "\\lim_{x \\to \\infty} \\frac{x^{2}}{e^{x}}", kind: "limit", answer: "0", tags: ["limit", "lhopital", "exponential"] },
   { latex: "\\arccos(0)", kind: "evaluate", answer: "\\frac{\\pi}{2}", tags: ["trig", "inverse"] },
   { latex: "\\arccos(-1)", kind: "evaluate", answer: "\\pi", tags: ["trig", "inverse"] },
 

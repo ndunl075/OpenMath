@@ -590,5 +590,9 @@
   "DIFF_LOG": {
     "title": "Differentiate the base-ten logarithm",
     "text": "A base-ten log is the natural log scaled down by ln 10, so its rate carries that same factor."
+  },
+  "LIMIT_BOUNDED_OVER_UNBOUNDED": {
+    "title": "The bottom runs away, so the fraction goes to zero",
+    "text": "{bottom} grows without any ceiling while the top stays put, so the fraction is a fixed amount shared among ever more, and it thins away to nothing."
   }
 }

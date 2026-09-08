@@ -121,11 +121,23 @@ function growsWithoutBound(l: LimitParts, expr: MathNode): boolean {
   const f = bodyAt(l, expr);
   const sign = at > 0 ? 1 : -1;
   const values = GROWTH_LADDER.map((t) => f(sign * t));
-  if (values.some((v) => !Number.isFinite(v))) return false;
-  for (let i = 1; i < values.length; i++) {
-    if (Math.abs(values[i]!) <= Math.abs(values[i - 1]!)) return false;
+
+  // Overflowing a double is evidence of growth, not a reason to abstain.
+  // e^x passes 1.8e308 somewhere around x = 710, so climbing the ladder to
+  // 1e6 always ran it off the top and lim x->inf x/e^x was refused for want
+  // of a form, while ln(x)/x — which stays in range — was answered. NaN is
+  // the genuinely unreadable case and still gives up.
+  let climbed = 0;
+  for (const v of values) {
+    if (Number.isNaN(v)) return false;
+    if (!Number.isFinite(v)) break;
+    if (climbed > 0 && Math.abs(v) <= Math.abs(values[climbed - 1]!)) return false;
+    climbed++;
   }
-  if (Math.abs(values[values.length - 1]!) < 5) return false;
+  const overflowed = climbed < values.length;
+  if (climbed === 0) return false;
+  if (!overflowed && Math.abs(values[values.length - 1]!) < 5) return false;
+  if (overflowed) return true;
   return !Number.isFinite(limitNumerically(f, at, l.side));
 }
 
@@ -257,6 +269,35 @@ export const limitAtInfinity = limitRule("LIMIT_AT_INFINITY", (l): RuleResult | 
   };
 });
 
+/**
+ * A bounded top over a bottom that runs away is zero.
+ *
+ * The degree comparison above only reads rational functions, so it had nothing
+ * to say about 1/e^x — which is exactly what l'Hopital leaves behind when it
+ * is used on x/e^x, so that limit was worked most of the way out and then
+ * refused on the last step.
+ */
+export const limitBoundedOverUnbounded = limitRule(
+  "LIMIT_BOUNDED_OVER_UNBOUNDED",
+  (l): RuleResult | null => {
+    if (l.body.type !== "div") return null;
+    if (!growsWithoutBound(l, l.body.den)) return null;
+
+    // The top must settle somewhere finite. A top that also runs away is an
+    // indeterminate form for l'Hopital, and one that oscillates for ever, as
+    // sin x does, is not something to answer by claiming a value.
+    const top = limitNumerically(bodyAt(l, l.body.num), pointValue(l), l.side);
+    if (!Number.isFinite(top)) return null;
+
+    const node = num(Rational.ZERO);
+    return {
+      node,
+      changes: [{ kind: "replace", fromIds: [l.node.id], toIds: [node.id] }],
+      vars: { bottom: toLatex(l.body.den), variable: l.variable },
+    };
+  },
+);
+
 // ---------------------------------------------------------------- l'Hopital
 
 /**
@@ -306,5 +347,6 @@ export const limitTransformRules: Rule[] = [
   limitSubstitute,
   limitFactorAndCancel,
   limitAtInfinity,
+  limitBoundedOverUnbounded,
   limitLHopital,
 ];
