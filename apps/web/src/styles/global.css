@@ -10,7 +10,7 @@ html, body, #app {
 
 body {
   font-family: var(--font-ui);
-  font-size: 16px;
+  font-size: var(--fs-body);
   line-height: 1.5;
   color: var(--text);
   background: var(--surface);
@@ -23,16 +23,19 @@ button {
   color: inherit;
   border: none;
   background: none;
+  padding: 0;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
 
 button:focus-visible,
 input:focus-visible,
+a:focus-visible,
+label:focus-visible,
 [tabindex]:focus-visible {
-  outline: 2px solid var(--accent-500);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-xs);
 }
 
 input { font: inherit; color: inherit; }
@@ -49,6 +52,33 @@ input { font: inherit; color: inherit; }
   border: 0;
 }
 
+/* ------------------------------------------------------------------- type */
+
+/* The one heading on a screen. */
+.t-display {
+  margin: 0;
+  font-size: var(--fs-display);
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: var(--track-display);
+  color: var(--text);
+}
+
+/* Small capitals for eyebrows and gutter numbers: quiet, and always close to what they label. */
+.eyebrow {
+  display: block;
+  margin: 0;
+  font-size: var(--fs-label);
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ------------------------------------------------------------------- math */
+
 /* Wide math scrolls inside its own box; the page never scrolls sideways. */
 .math-scroll {
   overflow-x: auto;
@@ -57,10 +87,7 @@ input { font: inherit; color: inherit; }
   scrollbar-width: thin;
 }
 .math-scroll::-webkit-scrollbar { height: 4px; }
-.math-scroll::-webkit-scrollbar-thumb {
-  background: var(--border-strong);
-  border-radius: var(--radius-pill);
-}
+.math-scroll::-webkit-scrollbar-thumb { background: var(--rule); }
 
 .katex { font-size: 1.08em; }
 .katex-display { margin: 0; }

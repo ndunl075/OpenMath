@@ -27,7 +27,8 @@ interface Box {
   height: number;
 }
 
-const DEFAULT_HIGHLIGHT = "rgba(99, 102, 241, 0.28)";
+/* Teal, matching `--highlight` in the web app, for callers that pass nothing. */
+const DEFAULT_HIGHLIGHT = "rgba(0, 131, 136, 0.26)";
 
 function measure(container: HTMLElement, prefix: string): Map<NodeId, Box> {
   const base = container.getBoundingClientRect();

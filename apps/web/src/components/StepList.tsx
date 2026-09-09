@@ -56,13 +56,13 @@ export function StepList({
 
   return (
     <section class="steps" aria-label="Solving steps">
-      <div class="steps__toolbar">
-        <button type="button" class="button button--ghost" onClick={() => void playAll()}>
+      <div class="steps__bar">
+        <button type="button" class="button button--primary" onClick={() => void playAll()}>
           <Icon name={playingAll ? "pause" : "play"} size={16} filled={!playingAll} />
           {playingAll ? "Stop" : "Play all"}
         </button>
         <div class="speed" role="group" aria-label="Animation speed">
-          <Icon name="gauge" size={15} />
+          <span class="speed__label" aria-hidden="true">Speed</span>
           {SPEEDS.map((s) => (
             <button
               key={s}

@@ -39,3 +39,8 @@ jobs:
 
       - name: Check the first load stays small
         run: node scripts/check-bundle-size.mjs
+
+      # Three design rules the owner set. They are cheap to break by accident
+      # and invisible in a diff, so they are checked rather than remembered.
+      - name: Check the design constraints hold
+        run: node scripts/check-design-constraints.mjs
