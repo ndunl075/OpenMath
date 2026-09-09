@@ -434,22 +434,6 @@
   min-height: 0;
   padding-bottom: var(--s-6);
 }
-/*
- * With something typed the lead is a calculator's display: the rendered
- * problem sits directly above the line it was typed on, and the air is above
- * it rather than between the two.
- */
-.math-input__lead--preview {
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  padding-bottom: var(--s-4);
-}
-.math-input__lead > .eyebrow + .math-input__preview { margin-top: var(--label-gap); }
-.math-input__preview { font-size: var(--math-preview); padding: var(--s-1) 0; }
-/* The preview reads from the left like the answer will, not centred like a textbook display. */
-.math-input__preview .katex-display,
-.math-input__preview .katex-display > .katex { text-align: left; }
 
 .math-input__examples-label { margin-top: var(--s-8); }
 
@@ -478,11 +462,118 @@
 .examples__item:hover { color: var(--accent); }
 .examples__item .katex { font-size: 1em; }
 
+/*
+ * The problem, as it will be read. The <input> that takes the keystrokes sits
+ * under the maths, invisible: what the reader sees, and taps, is KaTeX's
+ * rendering of what it holds, with the caret drawn where the next character
+ * lands. The raw LaTeX is a fold below, for whoever wants it.
+ */
+.math-field { flex: none; }
+.math-field__label { margin-bottom: var(--label-gap); }
+.math-field__box {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  min-height: 60px;
+  padding: 0 var(--s-1) 0 var(--s-3);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-sm);
+  background: var(--surface-raised);
+  cursor: text;
+  transition: border-color var(--duration-fast) var(--ease-standard),
+    box-shadow var(--duration-fast) var(--ease-standard);
+}
+.math-field__box:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+/* Real and focusable, never seen: it takes the keys and the IME; the view takes the taps. */
+.math-field__input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  opacity: 0;
+  pointer-events: none;
+  color: transparent;
+  caret-color: transparent;
+  /* Anything smaller and iOS zooms the page in on focus. */
+  font-size: 16px;
+}
+.math-field__input:focus-visible { outline: none; }
+.math-field__view {
+  flex: 1;
+  min-width: 0;
+  padding: var(--s-2) 0;
+  font-size: var(--math-preview);
+}
+/* The problem reads from the left, like the answer will, not centred like a textbook display. */
+.math-field__view .katex-display,
+.math-field__view .katex-display > .katex { text-align: left; }
+/* Not maths yet, a control word half typed: the source as text, caret and all. */
+.math-source {
+  font-family: var(--font-mono);
+  font-size: 18px;
+  color: var(--text-muted);
+  white-space: pre;
+}
+
+/*
+ * The caret. KaTeX draws a zero-width atom with this id where the marker sat;
+ * the bar is a border on it, so nothing around it moves when it appears. It
+ * shows only while the field has focus, and blinks only for readers who have
+ * not asked for less motion.
+ */
+#om-caret {
+  display: inline-block;
+  width: 0;
+  height: 1em;
+  margin: 0 -1px;
+  border-left: 2px solid var(--text);
+  vertical-align: -0.2em;
+  visibility: hidden;
+  animation: om-caret-blink 1.1s step-end infinite;
+}
+.math-field__box:focus-within #om-caret { visibility: visible; }
+@keyframes om-caret-blink { 50% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  #om-caret { animation: none; }
+}
+/* An argument with nothing in it yet, and the example shown before anything is typed. */
+[id^="om-slot-"],
+#om-placeholder { color: var(--text-faint); }
+
+/* The raw LaTeX, folded away: a small text button opens the line below it. */
+.math-input__raw { margin-top: var(--s-2); }
+.math-input__raw-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-1);
+  min-height: 32px;
+  padding: 0 var(--s-2);
+  margin-left: calc(-1 * var(--s-2));
+  border-radius: var(--radius-xs);
+  color: var(--text-muted);
+  font-size: var(--fs-label);
+  font-weight: 600;
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  transition: color var(--duration-fast) var(--ease-standard);
+}
+.math-input__raw-toggle:hover { color: var(--text); }
+.math-input__raw-toggle svg { color: var(--text-faint); }
+
 .math-input__field {
   flex: none;
   display: flex;
   align-items: center;
   gap: var(--s-2);
+  margin-top: var(--s-1);
   padding: 0 var(--s-1) 0 var(--s-3);
   border: 1px solid var(--rule);
   border-radius: var(--radius-sm);
@@ -490,19 +581,10 @@
   transition: border-color var(--duration-fast) var(--ease-standard),
     box-shadow var(--duration-fast) var(--ease-standard);
 }
+.math-input__field[hidden] { display: none; }
 .math-input__field:focus-within {
   border-color: var(--accent);
   box-shadow: 0 0 0 1px var(--accent);
-}
-.math-input__field-label {
-  flex: none;
-  padding-right: var(--s-2);
-  border-right: 1px solid var(--hairline);
-  font-size: var(--fs-label);
-  font-weight: 600;
-  letter-spacing: var(--track-label);
-  text-transform: uppercase;
-  color: var(--text-faint);
 }
 .math-input__field input {
   flex: 1;
