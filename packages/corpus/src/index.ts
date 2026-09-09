@@ -15,7 +15,8 @@ export interface CorpusProblem {
     | "differentiate"
     | "factor"
     | "limit"
-    | "integrate";
+    | "integrate"
+    | "series";
   /** Exact expected answer LaTeX. */
   answer?: string;
   /**
@@ -426,6 +427,10 @@ export const problems: CorpusProblem[] = [
   { latex: "\\int \\frac{1}{1+x^{2}} \\, dx", kind: "integrate", answer: "\\arctan\\left(x\\right) + C", upToConstant: true, tags: ["integral", "arctan"] },
   { latex: "\\int \\tan(x) \\, dx", kind: "integrate", answer: "-\\ln\\left|\\cos\\left(x\\right)\\right| + C", upToConstant: true, tags: ["integral", "trig"] },
   { latex: "\\int \\sec(x) \\, dx", kind: "integrate", answer: "\\ln\\left|\\sec\\left(x\\right) + \\tan\\left(x\\right)\\right| + C", upToConstant: true, tags: ["integral", "trig"] },
+  { latex: "\\sum_{n=1}^{10} n", kind: "series", answer: "55", tags: ["series", "finite"] },
+  { latex: "\\sum_{n=1}^{\\infty} \\frac{1}{2^{n}}", kind: "series", answer: "1", tags: ["series", "geometric"] },
+  { latex: "\\sum_{n=0}^{\\infty} \\frac{1}{3^{n}}", kind: "series", answer: "\\frac{3}{2}", tags: ["series", "geometric"] },
+  { latex: "5!", kind: "evaluate", answer: "120", tags: ["factorial"] },
   { latex: "\\int e^{x}\\sin(x) \\, dx", kind: "integrate", answer: "\\frac{e^{x} \\sin\\left(x\\right) - e^{x} \\cos\\left(x\\right)}{2} + C", upToConstant: true, tags: ["integral", "cyclic-parts"] },
   { latex: "\\int \\sqrt{1-x^{2}} \\, dx", kind: "integrate", answer: "\\frac{\\arcsin\\left(x\\right) + x \\sqrt{1 - x^{2}}}{2} + C", upToConstant: true, tags: ["integral", "trig-substitution"] },
   { latex: "\\int x\\sqrt{x+1} \\, dx", kind: "integrate", answer: "\\frac{2}{5} \\left(x + 1\\right)^{\\frac{5}{2}} - \\frac{2}{3} \\left(x + 1\\right)^{\\frac{3}{2}} + C", upToConstant: true, tags: ["integral", "back-substitution"] },

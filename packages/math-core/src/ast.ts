@@ -436,7 +436,14 @@ export function firstDiff(n: MathNode): FnNode | null {
  */
 export function substitute(n: MathNode, name: string, value: MathNode): MathNode {
   if (n.type === "sym") return n.name === name ? cloneFresh(value) : n;
-  if (n.type === "fn" && (n.name === "diff" || n.name === "lim")) {
+  // Every one of these binds its second argument. Substituting into a bound
+  // variable would rewrite the dx of an integral or the index of a sum into
+  // whatever value was being put in, which is not a substitution but a
+  // corruption of the notation.
+  if (
+    n.type === "fn" &&
+    (n.name === "diff" || n.name === "lim" || n.name === "integral" || n.name === "sum")
+  ) {
     const bound = n.args[1];
     if (bound && bound.type === "sym" && bound.name === name) return n;
   }
@@ -498,6 +505,58 @@ export function containsLimit(n: MathNode): boolean {
   let found = false;
   walk(n, (x) => {
     if (x.type === "fn" && x.name === "lim") found = true;
+  });
+  return found;
+}
+
+// ------------------------------------------------------------------- sums
+
+/**
+ * A summation, `fn("sum", [body, index, from, to])`, following `integral` and
+ * `lim` in being an ordinary function node so every traversal and serializer
+ * already written keeps working.
+ *
+ * Named `summation` rather than `sum` because an `add` node is also a sum and
+ * the two would be impossible to tell apart when reading the code.
+ */
+export const summation = (
+  body: MathNode,
+  index: MathNode,
+  from: MathNode,
+  to: MathNode,
+  id = freshId(),
+): MathNode => fn("sum", [body, index, from, to], id);
+
+export interface SummationParts {
+  node: FnNode;
+  body: MathNode;
+  index: string;
+  from: MathNode;
+  to: MathNode;
+  /** True when the upper limit is infinity, i.e. this is a series. */
+  infinite: boolean;
+}
+
+export function asSummation(n: MathNode): SummationParts | null {
+  if (n.type !== "fn" || n.name !== "sum" || n.args.length !== 4) return null;
+  const [body, index, from, to] = n.args;
+  if (!body || !index || !from || !to) return null;
+  if (index.type !== "sym") return null;
+  return { node: n, body, index: index.name, from, to, infinite: isInfinity(to) };
+}
+
+export function containsSummation(n: MathNode): boolean {
+  let found = false;
+  walk(n, (x) => {
+    if (x.type === "fn" && x.name === "sum") found = true;
+  });
+  return found;
+}
+
+export function firstSummation(n: MathNode): MathNode | null {
+  let found: MathNode | null = null;
+  walk(n, (x) => {
+    if (!found && x.type === "fn" && x.name === "sum") found = x;
   });
   return found;
 }

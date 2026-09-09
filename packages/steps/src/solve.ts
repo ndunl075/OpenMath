@@ -1,7 +1,8 @@
 import {
-  add, asDiff, asIntegral, asLimit, cloneFresh, containsDiff, containsInfinity,
-  containsIntegral, containsLimit, definiteIntegral as makeDefiniteIntegral,
-  evaluateNumeric, firstDiff, firstIntegral, firstLimit, freeSymbols,
+  add, asDiff, asIntegral, asLimit, asSummation, cloneFresh, containsDiff,
+  containsInfinity, containsIntegral, containsLimit, containsSummation,
+  definiteIntegral as makeDefiniteIntegral,
+  evaluateNumeric, firstDiff, firstIntegral, firstLimit, firstSummation, freeSymbols,
   hasDivisionByZero, integral, isInfinity, key, limit, type MathNode, neg, num,
   parseLatex, Rational, rel, splitCoefficient, substitute, sym, symbols, toLatex,
   undefinedReason, walk,
@@ -16,6 +17,7 @@ import {
   isAbsoluteValueProblem, solveAbsoluteValueProblem, solveQuadraticInequality,
 } from "./inequality.js";
 import { solveLimit } from "./limit.js";
+import { connectSeriesToSolver, solveSeries } from "./series.js";
 import { normalize } from "./normalize.js";
 import { chooseVariable } from "./rules/equation.js";
 import {
@@ -40,7 +42,8 @@ export type ProblemKind =
   | "differentiate"
   | "factor"
   | "limit"
-  | "integrate";
+  | "integrate"
+  | "series";
 
 export interface Classification {
   kind: ProblemKind;
@@ -108,6 +111,13 @@ export function isFactoringProblem(n: MathNode): boolean {
 
 /** Decide what kind of problem this is before trying to solve it. */
 export function classify(node: MathNode): Classification {
+  // A summation anywhere makes this a series problem, checked first because a
+  // convergence test may put a limit or an integral inside one.
+  if (containsSummation(node)) {
+    const top = firstSummation(node);
+    const parts = top ? asSummation(top) : null;
+    return { kind: "series", ...(parts ? { variable: parts.index } : {}) };
+  }
   // An integral anywhere makes this an integration problem. It is checked first
   // because an integrand may contain a derivative, and the integral is the
   // outer question in that case.
@@ -753,7 +763,11 @@ function improperIntegral(
  * integral 1 to infinity of 1/x, that it diverges *is* the answer.
  */
 function divergesAt(expression: MathNode, bound: string, sign: number): boolean {
-  const magnitudes = [1e3, 1e6, 1e9, 1e12].map((t) =>
+  // The ladder reaches absurdly far out on purpose. ln(ln b) diverges, and at
+  // b = a trillion it has only reached 3.3; anything judging it against a
+  // fixed threshold nearer than 1e200 would call it settled and report a
+  // finite area under a curve whose area is infinite.
+  const magnitudes = [1e3, 1e12, 1e30, 1e80, 1e200].map((t) =>
     Math.abs(evaluateNumeric(expression, { [bound]: sign * t })),
   );
   if (magnitudes.some((m) => Number.isNaN(m))) return false;
@@ -847,13 +861,17 @@ export function solveNode(node: MathNode): Solution {
   // so it is refused everywhere else rather than folded into arithmetic. The
   // bound of an improper integral is the other place it may legitimately
   // stand, and that is answered by rewriting it as a limit.
-  if (c.kind !== "limit" && !isImproperIntegral(node) && containsInfinity(node)) {
+  if (
+    c.kind !== "limit" && c.kind !== "series" &&
+    !isImproperIntegral(node) && containsInfinity(node)
+  ) {
     throw new UnsupportedProblemError(
       "infinity is only supported as the point a limit approaches",
     );
   }
   const solution =
-    c.kind === "limit" ? solveLimit(node)
+    c.kind === "series" ? solveSeries(node)
+    : c.kind === "limit" ? solveLimit(node)
     : c.kind === "solve" ? solveEquation(node)
     : c.kind === "differentiate" ? differentiate(node)
     : c.kind === "factor" ? factorExpression(node)
@@ -868,6 +886,11 @@ export function solveNode(node: MathNode): Solution {
   }
   return solution;
 }
+
+// The integral test in series.ts needs to ask for an integral, and this module
+// routes summations there. Handing over the two functions here rather than
+// importing them the other way keeps the cycle out of module initialisation.
+connectSeriesToSolver(solveNode, parseLatex);
 
 /** Parse LaTeX and solve it. Throws ParseError or UnsupportedProblemError. */
 export function solve(latex: string): Solution {

@@ -259,6 +259,30 @@ function knownPositive(n: MathNode): boolean {
   }
 }
 
+/** 5! -> 120 */
+export const evaluateFactorial: Rule = {
+  id: "EVALUATE_FACTORIAL",
+  apply(n) {
+    if (n.type !== "fn" || n.name !== "factorial") return null;
+    const arg = n.args[0];
+    if (!arg) return null;
+    const value = evaluateExact(arg);
+    if (!value || !value.isInteger() || value.isNegative()) return null;
+    const times = Number(value.toNumber());
+    // Past twenty or so the exact answer is a very long integer that no
+    // student wrote down on purpose, and printing it helps nobody.
+    if (times > 20) return null;
+    let total = Rational.ONE;
+    for (let k = 2; k <= times; k++) total = total.mul(Rational.of(k));
+    const result = num(total);
+    return {
+      node: result,
+      changes: [{ kind: "replace", fromIds: [n.id], toIds: [result.id] }],
+      vars: { value: value.toLatex(), result: total.toLatex() },
+    };
+  },
+};
+
 /** |e| -> e, for anything whose sign is not in doubt. */
 export const absoluteValueOfPositive: Rule = {
   id: "ABS_OF_POSITIVE",
@@ -285,4 +309,5 @@ export const arithmeticRules: Rule[] = [
   simplifyRadical,
   evaluateAbsoluteValue,
   absoluteValueOfPositive,
+  evaluateFactorial,
 ];

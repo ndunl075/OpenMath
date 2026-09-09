@@ -126,6 +126,9 @@ export function lex(input: string): Token[] {
       // Lagrange's prime, as in f'(x). The OCR normalizer already folds the
       // curly Unicode apostrophes onto this character.
       case "'":
+      // Factorial, which binds tighter than anything and reads after its
+      // operand: 5! and n!.
+      case "!":
         push("op", c, i); i++; continue;
       default:
         throw new ParseError(`unexpected character ${JSON.stringify(c)}`, i);

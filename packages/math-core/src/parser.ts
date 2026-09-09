@@ -3,7 +3,7 @@ import { Rational } from "./rational.js";
 import {
   add, DEFAULT_DERIVATIVE_VARIABLE, definiteIntegral, diff, div, fn, INFINITY,
   integral, isConstantSymbol, limit, type LimitSide, type MathNode, mul, neg,
-  num, pow, rel, type Relation, sym, symbols,
+  num, pow, rel, type Relation, summation, sym, symbols,
 } from "./ast.js";
 
 export { ParseError };
@@ -182,6 +182,13 @@ class Parser {
 
   private parsePower(): MathNode {
     let node = this.parseAtom();
+    // Factorial binds tighter than the exponent: n!^2 is (n!)^2, and 2^n! is
+    // 2 raised to n factorial, which is what reading it here rather than after
+    // the exponent gives.
+    while (this.at("op", "!")) {
+      this.next();
+      node = fn("factorial", [node]);
+    }
     if (this.at("op", "^")) {
       this.next();
       this.exponentDepth++;
@@ -354,6 +361,8 @@ class Parser {
 
     if (name === "lim") return this.parseLimit(tk);
 
+    if (name === "sum") return this.parseSummation(tk);
+
     if (FUNCTIONS.has(name)) {
       let base: MathNode | null = null;
       if (this.at("op", "_")) {
@@ -481,6 +490,43 @@ class Parser {
    * `0^+` is not an exponent and reading it as one turns a perfectly good
    * one-sided limit into a syntax error.
    */
+  /**
+   * `\sum_{n=1}^{\infty} a_n`, and the finite form with a number on top.
+   *
+   * The subscript carries both the index and where it starts, joined by an
+   * equals sign, which is the one place in the grammar where `=` is not a
+   * relation. Reading it here rather than letting parseExpr see it is what
+   * stops `n=1` becoming an equation.
+   */
+  private parseSummation(tk: Token): MathNode {
+    if (!this.eat("op", "_")) {
+      throw new ParseError("\\sum needs a subscript saying where the index starts", tk.pos);
+    }
+    this.expect("lbrace");
+
+    const it = this.peek();
+    if (it.kind !== "ident") throw new ParseError("expected an index variable", it.pos);
+    this.next();
+    const index = it.value;
+
+    if (!this.eat("op", "=")) {
+      throw new ParseError("expected = after the index of the sum", this.peek().pos);
+    }
+    const end = this.findGroupEnd(tk.pos);
+    if (end <= this.i) {
+      throw new ParseError("the sum does not say where the index starts", this.peek().pos);
+    }
+    const from = this.parseSlice(this.i, end);
+    this.i = end + 1;
+
+    if (!this.eat("op", "^")) {
+      throw new ParseError("\\sum needs an upper limit", this.peek().pos);
+    }
+    const to = this.parseGroup();
+
+    return summation(this.parseLimitBody(), sym(index), from, to);
+  }
+
   private parseLimit(tk: Token): MathNode {
     if (!this.eat("op", "_")) {
       throw new ParseError("\\lim needs a subscript saying what approaches what", tk.pos);

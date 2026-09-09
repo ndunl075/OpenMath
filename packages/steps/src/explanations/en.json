@@ -674,5 +674,41 @@
   "INT_CSC_CUBED": {
     "title": "The standard cosecant-cubed integral",
     "text": "The cosecant mirror of the secant-cubed result, reached the same way: parts brings the integral back and it is solved for."
+  },
+  "SUM_WRITE_OUT": {
+    "title": "Write the terms out",
+    "text": "The index {index} runs from {from} to {to}, so put each value in turn and add what comes out."
+  },
+  "SUM_ADD_TERMS": {
+    "title": "Add all the terms",
+    "text": "There are {count} terms, too many to write out one by one, so they are added exactly as {index} runs through its range."
+  },
+  "SERIES_NTH_TERM_DIVERGES": {
+    "title": "The terms do not go to zero",
+    "text": "{term} heads towards {limit} rather than 0. A sum can only settle if what is being added dies away, so this one cannot — no further test is needed."
+  },
+  "SERIES_GEOMETRIC": {
+    "title": "A geometric series",
+    "text": "Each term is {ratio} times the one before, starting at {first}. That ratio is less than 1 in size, so the total closes in on the first term divided by one minus the ratio, which is {result}."
+  },
+  "SERIES_GEOMETRIC_DIVERGES": {
+    "title": "A geometric series that grows",
+    "text": "Each term is {ratio} times the one before, and that is at least 1 in size, so the terms never shrink and the total runs away."
+  },
+  "SERIES_P_TEST": {
+    "title": "A p-series",
+    "text": "This is one over {index} to the power {p}. A p-series converges exactly when that power is greater than 1."
+  },
+  "SERIES_ALTERNATING": {
+    "title": "The alternating series test",
+    "text": "The signs alternate and the sizes shrink steadily towards zero, so each partial sum overshoots by less than the one before and they close in on a single value."
+  },
+  "SERIES_RATIO_TEST": {
+    "title": "The ratio test",
+    "text": "Comparing each term with the one before, the ratio settles at about {L}. Below 1 the terms shrink geometrically and the series converges; above 1 they grow and it cannot."
+  },
+  "EVALUATE_FACTORIAL": {
+    "title": "Work out the factorial",
+    "text": "{value} factorial is every whole number from 1 up to {value} multiplied together, which comes to {result}."
   }
 }
