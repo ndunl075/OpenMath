@@ -750,5 +750,13 @@
   "TAYLOR_ASSEMBLE": {
     "title": "Put the terms together",
     "text": "Each coefficient sits on its own power of {variable}, and the terms whose derivative vanished at the centre drop out."
+  },
+  "CANCEL_FACTORIALS": {
+    "title": "Cancel the factorials",
+    "text": "{top} is {bottom} multiplied by the next {gap} whole numbers up, so everything below cancels and only those are left."
+  },
+  "CANCEL_SAME_BASE_POWERS": {
+    "title": "Subtract the exponents",
+    "text": "Both powers are of {base}, so dividing one by the other leaves {base} raised to the difference of the exponents."
   }
 }

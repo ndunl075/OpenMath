@@ -1,9 +1,11 @@
 import {
   add, asSummation, cloneFresh, definiteIntegral as makeDefiniteIntegral, div,
-  evaluateExact, evaluateNumeric, isConstantSymbol, limitNumerically,
-  type MathNode, num, Rational, substitute, sym, symbols, toLatex, walk,
+  evaluateExact, evaluateNumeric, INFINITY, isConstantSymbol, limit,
+  limitNumerically, type MathNode, num, Rational, substitute, sym, symbols,
+  toLatex, walk,
 } from "@openmath/math-core";
 import { run } from "./engine.js";
+import { solveLimit } from "./limit.js";
 import { normalize } from "./normalize.js";
 import { expressionRules } from "./rules/index.js";
 import { coeff, degree, toPolynomial } from "./poly.js";
@@ -116,14 +118,38 @@ function asPSeries(body: MathNode, index: string): Rational | null {
 // ------------------------------------------------------------------ the tests
 
 /**
- * Where the terms are heading, measured with the same extrapolation the limit
- * engine uses. Null when it cannot be measured.
+ * Work out a limit at infinity with the rule engine, exactly.
  *
- * Extrapolated rather than simply read far out, because a term like n/(n+1)
- * is still visibly short of its limit at n = a million, and comparing raw
- * values there says "not settled" about a sequence that plainly settles.
+ * This is the difference between a series verdict that is *derived* and one
+ * that is *measured*. The rest of the repo checks its answers symbolically —
+ * an integral is differentiated back, a step is compared as an identity — and
+ * the convergence tests were the one place that rested on sampling. Where the
+ * limit engine can settle the question it now does, and the sampling below is
+ * only what happens when it cannot.
+ */
+function symbolicLimit(expr: MathNode, index: string): number | null {
+  try {
+    const solution = solveLimit(limit(cloneFresh(expr), sym(index), sym(INFINITY)));
+    if (!solution.verified) return null;
+    const value = evaluateNumeric(parseLatexRef!(solution.answer));
+    return Number.isFinite(value) ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Where the terms are heading. Derived if the rule engine can, measured
+ * otherwise.
+ *
+ * The measurement is extrapolated rather than read far out, because a term
+ * like n/(n+1) is still visibly short of its limit at n = a million, and
+ * comparing raw values there says "not settled" about a sequence that plainly
+ * settles.
  */
 function termLimit(body: MathNode, index: string): number | null {
+  const exact = symbolicLimit(body, index);
+  if (exact !== null) return exact;
   const at = limitNumerically((k) => valueAt(body, index, Math.round(k)), Infinity);
   return Number.isFinite(at) ? at : null;
 }
@@ -143,6 +169,34 @@ type RatioVerdict =
   | { kind: "unknown" };
 
 /**
+ * |a(n+1)/a(n)| as an expression, simplified, and its limit taken exactly.
+ *
+ * Null when the simplification leaves something the limit engine will not
+ * settle, which is when the numeric ladder takes over.
+ */
+function symbolicRatio(body: MathNode, index: string): number | null {
+  const next = substitute(
+    cloneFresh(body), index, add([sym(index), num(Rational.ONE)]),
+  );
+  const ratio = run(
+    div(next, cloneFresh(body)), expressionRules, {},
+    { verify: false, maxSteps: 80 },
+  ).node;
+  // A ratio that still contains a factorial did not cancel, and sampling it
+  // is hopeless anyway once the factorial overflows.
+  if (containsFactorial(ratio)) return null;
+  return symbolicLimit(ratio, index);
+}
+
+function containsFactorial(n: MathNode): boolean {
+  let found = false;
+  walk(n, (x) => {
+    if (x.type === "fn" && x.name === "factorial") found = true;
+  });
+  return found;
+}
+
+/**
  * What the ratio test can say about |a(n+1)/a(n)|.
  *
  * Three ways to reach a verdict, and the last two matter more than they look.
@@ -158,6 +212,12 @@ type RatioVerdict =
  * that exactly wrong.
  */
 function ratioTest(body: MathNode, index: string): RatioVerdict {
+  // Symbolically first. The ratio of one term to the next simplifies — the
+  // factorials cancel, the powers subtract — and the limit engine reads what
+  // is left exactly. sum n/2^n comes to one half rather than to 0.500025.
+  const derived = symbolicRatio(body, index);
+  if (derived !== null) return { kind: "settles", L: Math.abs(derived) };
+
   const ratios: number[] = [];
   for (const k of RATIO_LADDER) {
     const a = valueAt(body, index, k);
