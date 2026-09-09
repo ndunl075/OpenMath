@@ -29,6 +29,17 @@ const INDEFINITE = [
   // Not sqrt(x-3): this file samples between -0.6 and 3.1, where it is
   // undefined almost everywhere, and the check needs points it can use.
   "\\int x(x+2)^{5} \\, dx",
+  // Cyclic integration by parts: parts twice comes back to the start.
+  "\\int e^{x}\\sin(x) \\, dx", "\\int e^{x}\\cos(x) \\, dx",
+  "\\int e^{2x}\\sin(3x) \\, dx", "\\int e^{-x}\\cos(x) \\, dx",
+  // Trig substitution, all three shapes.
+  "\\int \\sqrt{1-x^{2}} \\, dx", "\\int \\sqrt{4-x^{2}} \\, dx",
+  "\\int \\frac{x^{2}}{\\sqrt{1-x^{2}}} \\, dx",
+  "\\int \\frac{1}{x^{2}\\sqrt{1-x^{2}}} \\, dx",
+  "\\int \\frac{1}{\\sqrt{x^{2}+1}} \\, dx", "\\int \\sqrt{x^{2}+1} \\, dx",
+  "\\int \\frac{1}{\\sqrt{4+x^{2}}} \\, dx",
+  // The secant-cubed family the tangent substitution lands on.
+  "\\int \\sec(x)^{3} \\, dx", "\\int \\csc(x)^{2} \\, dx",
   // The secant pair, and the inverse tangent after completing the square.
   "\\int \\sec(x) \\, dx", "\\int \\csc(x) \\, dx",
   "\\int \\frac{1}{x^{2}+2x+5} \\, dx", "\\int \\frac{1}{x^{2}+6x+13} \\, dx",
@@ -44,7 +55,9 @@ describe("every antiderivative differentiates back to its integrand", () => {
       const answer = parseLatex(r.solution.answer.replace(/\s*\+\s*C$/, ""));
       const back = diff(answer, sym("x"));
       let compared = 0;
-      for (const x of [0.43, 1.17, 2.28, -0.61, 3.05]) {
+      // The small values matter: anything carrying sqrt(1 - x^2) is undefined
+      // outside (-1, 1), and the check needs three points it can actually use.
+      for (const x of [0.43, 1.17, 2.28, -0.61, 3.05, 0.21, -0.35, 0.77, -0.82]) {
         const a = evaluateNumeric(back, { x });
         const b = evaluateNumeric(integrand, { x });
         if (!Number.isFinite(a) || !Number.isFinite(b)) continue;

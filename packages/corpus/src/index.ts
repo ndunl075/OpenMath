@@ -426,6 +426,9 @@ export const problems: CorpusProblem[] = [
   { latex: "\\int \\frac{1}{1+x^{2}} \\, dx", kind: "integrate", answer: "\\arctan\\left(x\\right) + C", upToConstant: true, tags: ["integral", "arctan"] },
   { latex: "\\int \\tan(x) \\, dx", kind: "integrate", answer: "-\\ln\\left|\\cos\\left(x\\right)\\right| + C", upToConstant: true, tags: ["integral", "trig"] },
   { latex: "\\int \\sec(x) \\, dx", kind: "integrate", answer: "\\ln\\left|\\sec\\left(x\\right) + \\tan\\left(x\\right)\\right| + C", upToConstant: true, tags: ["integral", "trig"] },
+  { latex: "\\int e^{x}\\sin(x) \\, dx", kind: "integrate", answer: "\\frac{e^{x} \\sin\\left(x\\right) - e^{x} \\cos\\left(x\\right)}{2} + C", upToConstant: true, tags: ["integral", "cyclic-parts"] },
+  { latex: "\\int \\sqrt{1-x^{2}} \\, dx", kind: "integrate", answer: "\\frac{\\arcsin\\left(x\\right) + x \\sqrt{1 - x^{2}}}{2} + C", upToConstant: true, tags: ["integral", "trig-substitution"] },
+  { latex: "\\int x\\sqrt{x+1} \\, dx", kind: "integrate", answer: "\\frac{2}{5} \\left(x + 1\\right)^{\\frac{5}{2}} - \\frac{2}{3} \\left(x + 1\\right)^{\\frac{3}{2}} + C", upToConstant: true, tags: ["integral", "back-substitution"] },
   { latex: "\\int \\frac{1}{x^{2}+2x+5} \\, dx", kind: "integrate", answer: "\\frac{\\arctan\\left(\\frac{x + 1}{2}\\right)}{2} + C", upToConstant: true, tags: ["integral", "complete-square"] },
   // sqrt(3/4) is irrational, so there is no exact answer to give.
   { latex: "\\int \\frac{1}{x^{2}+x+1} \\, dx", kind: "integrate", unsupported: true, declineReason: "unsupported", tags: ["integral", "irrational"] },

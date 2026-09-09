@@ -654,5 +654,25 @@
   "INT_EXPAND_POWERS": {
     "title": "Multiply out first",
     "text": "Written as {expanded} this is a sum of separate powers, and the power rule takes each one on its own."
+  },
+  "INT_CYCLIC_BY_PARTS": {
+    "title": "Integrate by parts twice and solve for the integral",
+    "text": "Parts turns {integrand} into another integral of the same shape, and doing it again brings back the one you started with. So call the integral I, and the two rounds give an equation in I — rearranging it is what produces this answer, without ever integrating directly."
+  },
+  "INT_TRIG_SUBSTITUTION": {
+    "title": "Substitute to clear the square root",
+    "text": "Putting {substitution} turns {root} into {becomes}, because the Pythagorean identity collapses the root exactly. Integrate in {angle}, then read each function back off the right triangle the substitution describes."
+  },
+  "INT_CSC_SQUARED": {
+    "title": "Integrate the cosecant squared",
+    "text": "Cotangent differentiates to minus cosecant squared, so cosecant squared integrates to minus cotangent."
+  },
+  "INT_SEC_CUBED": {
+    "title": "The standard secant-cubed integral",
+    "text": "Parts on secant cubed produces secant cubed again, so it is solved for rather than integrated — the same trick as a cyclic integration by parts, and this is the result."
+  },
+  "INT_CSC_CUBED": {
+    "title": "The standard cosecant-cubed integral",
+    "text": "The cosecant mirror of the secant-cubed result, reached the same way: parts brings the integral back and it is solved for."
   }
 }
