@@ -4,13 +4,40 @@
  * is deliberately not counted here.
  */
 import { gzipSync } from "node:zlib";
-import { readFile, readdir } from "node:fs/promises";
+import { access, readFile, readdir } from "node:fs/promises";
 import { join } from "node:path";
 
-const DIST = "apps/web/dist/assets";
+const OUTPUT = "dist";
+const DIST = join(OUTPUT, "assets");
 const BUDGET_KB = 200;
 /** Chunks fetched only when someone scans, not on first load. */
 const DEFERRED = [/transformers/, /ocr-runtime/, /^ort-/];
+
+/**
+ * The host has to be told where the build lands, and nothing checked that what
+ * it was told matched where the build actually lands. A deployment failed on
+ * exactly that: vercel.json said apps/web/dist while Vite wrote somewhere
+ * else, and the mismatch only surfaced as a failed deploy. Checked here
+ * because CI already runs this straight after the build.
+ */
+const vercel = JSON.parse(await readFile("vercel.json", "utf8"));
+if (vercel.outputDirectory !== OUTPUT) {
+  console.error(
+    `vercel.json says the build lands in "${vercel.outputDirectory}", ` +
+    `but it lands in "${OUTPUT}". A deploy would find nothing to serve.`,
+  );
+  process.exit(1);
+}
+
+// index.html is what the host serves; assets alone are not a site.
+for (const required of ["index.html", "sw.js", "manifest.webmanifest"]) {
+  try {
+    await access(join(OUTPUT, required));
+  } catch {
+    console.error(`the build produced no ${required} in "${OUTPUT}"`);
+    process.exit(1);
+  }
+}
 
 const files = await readdir(DIST);
 let total = 0;
