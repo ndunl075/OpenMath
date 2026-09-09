@@ -11,6 +11,11 @@ export interface NormalizeReport {
   latex: string;
   /** What was changed, for the report-a-bad-scan flow. */
   notes: string[];
+  /**
+   * The variable an instruction asked for, as in "solve for y". Undefined when
+   * the input carried no such instruction.
+   */
+  solveFor?: string;
 }
 
 const UNICODE: Array<[RegExp, string]> = [
@@ -123,6 +128,72 @@ function readGroup(s: string, start: number): { body: string; end: number } | nu
     }
   }
   return null;
+}
+
+/*
+ * Environments that only carry layout. A recognition model given a photo of a
+ * single line very often returns it wrapped in one of these — `\\begin{aligned}
+ * y = 6x + 2 \\end{aligned}` is `y = 6x + 2` with decoration — so refusing them
+ * outright refused most real scans. Matrix environments are deliberately absent:
+ * those carry meaning the solver has no rules for, and stay out of scope.
+ */
+const LAYOUT_ENVIRONMENTS = [
+  "aligned", "align", "alignat", "gathered", "gather", "split",
+  "equation", "displaymath", "math", "array", "multline", "eqnarray",
+];
+
+/** Reads the optional `{lcr}` or `[t]` argument that `array` and `alignat` take. */
+function skipEnvironmentArgs(s: string, from: number): number {
+  let i = from;
+  for (;;) {
+    const ch = s[i];
+    if (ch === "{") {
+      const group = readGroup(s, i);
+      if (!group) return i;
+      i = group.end;
+    } else if (ch === "[") {
+      const close = s.indexOf("]", i);
+      if (close < 0) return i;
+      i = close + 1;
+    } else return i;
+  }
+}
+
+/**
+ * Unwraps a layout environment that holds a single row, and drops the `&`
+ * markers that only aligned the columns. An environment with a real row
+ * separator is left alone: two rows are two statements, and quietly running
+ * them together would invent a problem the student never wrote.
+ *
+ * Runs before `stripNoise`, which collapses the `\\` that marks those rows.
+ */
+function unwrapLayoutEnvironments(s: string, notes: string[]): string {
+  let out = s;
+  let changed = false;
+  for (let pass = 0; pass < 6; pass++) {
+    let next = out;
+    for (const env of LAYOUT_ENVIRONMENTS) {
+      for (const name of [env, `${env}*`]) {
+        const open = `\\begin{${name}}`;
+        const close = `\\end{${name}}`;
+        const start = next.indexOf(open);
+        if (start < 0) continue;
+        const bodyStart = skipEnvironmentArgs(next, start + open.length);
+        const end = next.indexOf(close, bodyStart);
+        if (end < 0) continue;
+        const body = next.slice(bodyStart, end);
+        // A trailing separator is just a line ending, not a second row.
+        if (/\\\\\s*\S/.test(body)) continue;
+        const flattened = body.replace(/\\\\/g, " ").replace(/&/g, " ");
+        next = next.slice(0, start) + flattened + next.slice(end + close.length);
+        changed = true;
+      }
+    }
+    if (next === out) break;
+    out = next;
+  }
+  if (changed) notes.push("unwrapped a layout environment");
+  return out;
 }
 
 function unwrapTransparent(s: string, notes: string[]): string {
@@ -338,11 +409,36 @@ function stripTrailingPunctuation(s: string, notes: string[]): string {
 }
 
 /** Clean OCR output into parseable LaTeX, reporting what changed. */
+/*
+ * Worksheets state the task in words before the maths: "Solve for y: y = 6x + 2".
+ * Left in place those words are not a comment to the parser — it reads them as
+ * a product of single letters — so they have to come off either way. Taking the
+ * variable with them is what stops the solver answering a different question
+ * than the one asked: `y = 6x + 2` has two variables in it, and without the
+ * instruction the preference order picks x.
+ */
+const INSTRUCTION =
+  /^\s*(?:solve|find|determine|isolate)\s+(?:for\s+)?([a-zA-Z])\b(?:\s+in\s+terms\s+of\s+[a-zA-Z]\b)?\s*[:.,]?\s*/i;
+
+function extractInstruction(s: string, notes: string[]): { rest: string; solveFor?: string } {
+  const m = INSTRUCTION.exec(s);
+  if (!m) return { rest: s };
+  const rest = s.slice(m[0].length);
+  // "Solve 2x + 3 = 7" names no variable; the `x` matched there is the maths.
+  if (!rest.trim()) return { rest: s };
+  notes.push("read the instruction in front of the problem");
+  return { rest, solveFor: m[1] };
+}
+
 export function normalizeWithReport(raw: string): NormalizeReport {
   const notes: string[] = [];
   if (!raw || !raw.trim()) return { latex: "", notes: ["empty result"] };
 
   let out = raw;
+  // Before anything else: the words are not LaTeX and must not be repaired as if
+  // they were.
+  const instruction = extractInstruction(out, notes);
+  out = instruction.rest;
   out = stripDelimiters(out, notes);
   out = replaceUnicode(out, notes);
   // Balance first: every later pass reads balanced groups.
@@ -351,6 +447,8 @@ export function normalizeWithReport(raw: string): NormalizeReport {
   out = joinSpacedNames(out, notes);
   out = joinSplitDigits(out, notes);
   out = unwrapTransparent(out, notes);
+  // Before stripNoise: it collapses the `\\` that marks a second row.
+  out = unwrapLayoutEnvironments(out, notes);
   // After unwrapping, so \operatorname{sin} has become a bare sin by now.
   out = restoreFunctionNames(out, notes);
   out = stripNoise(out, notes);
@@ -359,7 +457,7 @@ export function normalizeWithReport(raw: string): NormalizeReport {
   out = balanceBraces(out, notes);
   out = stripTrailingPunctuation(out, notes);
   out = tidySpacing(out);
-  return { latex: out, notes };
+  return { latex: out, notes, ...(instruction.solveFor ? { solveFor: instruction.solveFor } : {}) };
 }
 
 export function normalizeLatex(raw: string): string {
@@ -376,7 +474,12 @@ export function normalizeLatex(raw: string): string {
  * could give.
  */
 const OUT_OF_SCOPE = [
-  { pattern: /\\begin\s*\{/, label: "matrices and aligned environments" },
+  // Layout-only environments are unwrapped above, so what reaches here is
+  // either a matrix or genuinely more than one row. Those are different
+  // problems and deserve different messages.
+  { pattern: /\\begin\s*\{[A-Za-z]*matrix\*?\}/, label: "matrices" },
+  { pattern: /\\begin\s*\{cases\*?\}/, label: "piecewise definitions" },
+  { pattern: /\\begin\s*\{/, label: "more than one line of working at a time" },
   { pattern: /\\oint/, label: "contour integrals" },
   // \sum came off this list when the series engine landed; \prod has no
   // rules yet, so it stays.

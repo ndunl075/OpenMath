@@ -95,9 +95,10 @@ describe("detectOutOfScope", () => {
     // \sum came off the out-of-scope list when the series engine landed.
     expect(detectOutOfScope("\\sum_{i=1}^{n} i")).toBeNull();
     expect(detectOutOfScope("\\prod_{i=1}^{n} i")).toBe("products");
-    expect(detectOutOfScope("\\begin{matrix}1&2\\end{matrix}")).toBe(
-      "matrices and aligned environments",
-    );
+    // Layout-only environments are unwrapped rather than refused, so what is
+    // still out of scope here is the matrix itself, and it says so.
+    expect(detectOutOfScope("\\begin{matrix}1&2\\end{matrix}")).toBe("matrices");
+    expect(detectOutOfScope(normalizeLatex("\\begin{aligned} y = 6x + 2 \\end{aligned}"))).toBeNull();
   });
 
   it("passes ordinary algebra through", () => {

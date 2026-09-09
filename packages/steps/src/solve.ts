@@ -110,8 +110,23 @@ export function isFactoringProblem(n: MathNode): boolean {
   return hasVariableTerm;
 }
 
+/**
+ * Which variable to solve for, honouring an explicit request when the request
+ * names a variable the problem actually contains. Worksheets ask for one by
+ * name constantly — "solve for y" over `y = 6x + 2` — and without this the
+ * preference order in `chooseVariable` silently answers a different question:
+ * it returns x = (y - 2)/6 to a student who asked about y.
+ *
+ * A requested variable that does not appear is ignored rather than refused;
+ * the problem still has a sensible reading without it.
+ */
+function variableFor(node: MathNode, requested?: string): string | undefined {
+  if (requested && freeSymbols(node).has(requested)) return requested;
+  return chooseVariable(node);
+}
+
 /** Decide what kind of problem this is before trying to solve it. */
-export function classify(node: MathNode): Classification {
+export function classify(node: MathNode, requested?: string): Classification {
   // A Taylor expansion is asked for by name, so it is unambiguous and comes
   // first.
   if (node.type === "fn" && node.name === "taylor") {
@@ -148,7 +163,7 @@ export function classify(node: MathNode): Classification {
     return { kind: "differentiate", ...(d ? { variable: d.variable } : {}) };
   }
   if (node.type === "rel") {
-    const variable = chooseVariable(node);
+    const variable = variableFor(node, requested);
     const deg = variable ? relationDegree(node, variable) ?? undefined : undefined;
     return { kind: "solve", ...(variable ? { variable } : {}), ...(deg !== undefined ? { degree: deg } : {}) };
   }
@@ -394,9 +409,9 @@ function toSolution(problem: string, variable: string, r: Resolved): Solution {
   };
 }
 
-function solveEquation(node: MathNode): Solution {
+function solveEquation(node: MathNode, requested?: string): Solution {
   const problem = toLatex(node);
-  const variable = chooseVariable(node);
+  const variable = variableFor(node, requested);
 
   // A closed numeric claim like 2 + 2 = 5.
   if (!variable) {
@@ -853,7 +868,7 @@ function integrate(node: MathNode): Solution {
 }
 
 /** Solve or simplify an already-parsed expression. */
-export function solveNode(node: MathNode): Solution {
+export function solveNode(node: MathNode, requested?: string): Solution {
   if (hasDivisionByZero(node)) {
     throw new UnsupportedProblemError("this divides by zero, so it has no value");
   }
@@ -863,7 +878,7 @@ export function solveNode(node: MathNode): Solution {
   const undefinedInput = undefinedReason(node);
   if (undefinedInput) throw new UnsupportedProblemError(undefinedInput);
 
-  const c = classify(node);
+  const c = classify(node, requested);
   // Infinity is a place a limit heads towards, not a quantity to compute with,
   // so it is refused everywhere else rather than folded into arithmetic. The
   // bound of an improper integral is the other place it may legitimately
@@ -880,7 +895,7 @@ export function solveNode(node: MathNode): Solution {
     c.kind === "series"
       ? (node.type === "fn" && node.name === "taylor" ? solveTaylor(node) : solveSeries(node))
     : c.kind === "limit" ? solveLimit(node)
-    : c.kind === "solve" ? solveEquation(node)
+    : c.kind === "solve" ? solveEquation(node, requested)
     : c.kind === "differentiate" ? differentiate(node)
     : c.kind === "factor" ? factorExpression(node)
     : c.kind === "integrate" ? integrate(node)
@@ -900,9 +915,13 @@ export function solveNode(node: MathNode): Solution {
 // importing them the other way keeps the cycle out of module initialisation.
 connectSeriesToSolver(solveNode, parseLatex);
 
-/** Parse LaTeX and solve it. Throws ParseError or UnsupportedProblemError. */
-export function solve(latex: string): Solution {
-  return solveNode(parseLatex(latex));
+/**
+ * Parse LaTeX and solve it. `requested` names the variable to solve for, as in
+ * "solve for y"; it is ignored when the problem does not contain it. Throws
+ * ParseError or UnsupportedProblemError.
+ */
+export function solve(latex: string, requested?: string): Solution {
+  return solveNode(parseLatex(latex), requested);
 }
 
 /** Non-throwing wrapper for the UI. */
@@ -910,9 +929,9 @@ export type SolveOutcome =
   | { ok: true; solution: Solution }
   | { ok: false; reason: "parse" | "unsupported" | "error"; message: string };
 
-export function trySolve(latex: string): SolveOutcome {
+export function trySolve(latex: string, requested?: string): SolveOutcome {
   try {
-    return { ok: true, solution: solve(latex) };
+    return { ok: true, solution: solve(latex, requested) };
   } catch (e) {
     if (e instanceof UnsupportedProblemError) {
       return { ok: false, reason: "unsupported", message: e.message };
