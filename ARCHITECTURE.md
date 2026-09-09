@@ -230,10 +230,11 @@ Rendering detail: wrap every addressable sub-expression in `\htmlId{p-<path>}{..
 ### 6.2 Design system (ours)
 
 - **Icons**: Lucide (ISC) or Phosphor (MIT). Covers camera, flash, image, keyboard, history, chevron, play, pencil. Never hand-trace a competitor's glyph.
-- **Palette**: our own tokens. One accent color in our own shade (not Photomath's red as a set), neutral grays, semantic success/warn/error. Light + dark. Keep the OKLCH values in `tokens.css`.
+- **Palette**: our own tokens. One accent colour in our own shade (not Photomath's red as a set), neutral greys, semantic success/warn/error. **[revised]** Light only (`color-scheme: light`); the camera stage stays dark in its own `--stage-*` tokens because a viewfinder is not a theme choice. Keep the OKLCH values in `tokens.css`.
+- **Three rules, checked not remembered**: no pill shapes, no purple, no gradients. `scripts/check-design-constraints.mjs` enforces them in CI across `apps/` and `packages/`. It is chroma-aware about purple, because a near-neutral grey at hue 285 reads as grey and banning it would force pure greys for no reason. The accent earns its keep in three places — primary button, focus ring, animating step — and everything else is ink on paper.
 - **Type**: system font stack for UI; KaTeX fonts for math. No licensed fonts.
 - **Motion tokens**: durations 150 / 250 / 400 ms; standard, emphasized, and spring easings; all animation reads from these.
-- **Layout**: mobile-first at 360 px, safe-area insets, sheet heights as viewport fractions, 44 px minimum tap targets.
+- **Layout**: mobile-first at 360 px, safe-area insets, 44 px minimum tap targets. **[revised]** The result sheet sizes itself to its content (`height: auto` bounded by a `max-height`) rather than to a viewport fraction, so the peek state does not open onto a void. Both its heights being `auto` is why `tokens.css` sets `interpolate-size: allow-keywords`: without it the drag between peek and full snaps instead of animating.
 
 ## 7. Hosting and delivery
 
