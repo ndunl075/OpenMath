@@ -94,6 +94,39 @@ describe("scan to steps", () => {
     if (!outcome.ok) expect(outcome.reason).toBe("unsupported");
   });
 
+  /**
+   * The typed path used to skip the repairs the scan path got, so someone
+   * typing cos(0) on the keyboard was answered 0 — c*o*s*0 — while the same
+   * thing photographed came back as 1. Typing "cos" without a backslash is
+   * more likely than scanning it, not less.
+   */
+  describe("typed input gets the same repairs a scan does", () => {
+    const TYPED: Array<[string, string]> = [
+      ["cos(0)", "1"],
+      ["log(100)", "2"],
+      ["sqrt(16)", "4"],
+      ["ln(e)", "1"],
+      ["1 2 3 + 4 5 6", "579"],
+      ["sin(0)", "0"],
+    ];
+    for (const [typed, answer] of TYPED) {
+      it(`${typed} -> ${answer}`, () => {
+        const latex = normalizeLatex(typed);
+        expect(detectOutOfScope(latex)).toBeNull();
+        const outcome = trySolve(latex);
+        if (!outcome.ok) throw new Error(`${latex}: ${outcome.message}`);
+        expect(outcome.solution.answer).toBe(answer);
+      });
+    }
+
+    it("is idempotent, so the scan path passing through twice is harmless", () => {
+      for (const raw of ["cos(0)", "1 2 3", "\\cos(0)", "x^{2} + 1", "\\int x \\, dx"]) {
+        const once = normalizeLatex(raw);
+        expect(normalizeLatex(once)).toBe(once);
+      }
+    });
+  });
+
   it("keeps an unreadable scan out of the solver", () => {
     expect(normalizeLatex("   ")).toBe("");
     const outcome = trySolve("2x +");

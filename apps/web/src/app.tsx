@@ -41,7 +41,13 @@ export function App() {
   }, []);
 
   const solveLatex = useCallback((latex: string, raw?: string) => {
-    const trimmed = latex.trim();
+    // Normalised here rather than only on the scan path. Someone typing on a
+    // keyboard writes cos, not \cos, and an unrepaired cos(0) is read as
+    // c*o*s*0 and answered 0 — the same confidently wrong answer a scan used
+    // to give, on the input people reach for when the camera misreads.
+    // Normalising is idempotent, so the scan path passing through twice is
+    // harmless.
+    const trimmed = normalizeLatex(latex).trim();
     if (!trimmed) return;
 
     const scope = detectOutOfScope(trimmed);
