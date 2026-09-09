@@ -202,9 +202,6 @@ export function Scanner({
               {CORNERS.map((corner) => (
                 <span key={corner} class={`bracket bracket--${corner}`} aria-hidden="true" />
               ))}
-              <span class="scanner__frame-icon" aria-hidden="true">
-                <Icon name="camera" size={28} />
-              </span>
               {state.status === "denied" ? (
                 <>
                   <h2>Camera access is off</h2>
@@ -225,7 +222,7 @@ export function Scanner({
                 </>
               )}
               <div class="scanner__frame-actions">
-                <button type="button" class="button button--primary button--block button--tall" onClick={onTypeIn}>
+                <button type="button" class="button button--stage-primary button--block button--tall" onClick={onTypeIn}>
                   <Icon name="keyboard" size={20} />
                   Type it in
                 </button>
@@ -240,23 +237,28 @@ export function Scanner({
         )}
 
         <header class="scanner__top">
-          <button type="button" class="icon-button" onClick={onOpenHistory} aria-label="History">
-            <Icon name="history" size={22} />
-          </button>
           <span class="scanner__brand">OpenMath</span>
-          {state.status === "ready" && state.hasTorch ? (
+          <div class="scanner__top-actions">
+            {state.status === "ready" && state.hasTorch ? (
+              <button
+                type="button"
+                class={`icon-button icon-button--stage ${torchOn ? "is-active" : ""}`}
+                onClick={() => void toggleTorch()}
+                aria-label={torchOn ? "Turn the light off" : "Turn the light on"}
+                aria-pressed={torchOn}
+              >
+                <Icon name={torchOn ? "flash" : "flashOff"} size={22} />
+              </button>
+            ) : null}
             <button
               type="button"
-              class={`icon-button ${torchOn ? "is-active" : ""}`}
-              onClick={() => void toggleTorch()}
-              aria-label={torchOn ? "Turn the light off" : "Turn the light on"}
-              aria-pressed={torchOn}
+              class="icon-button icon-button--stage"
+              onClick={onOpenHistory}
+              aria-label="History"
             >
-              <Icon name={torchOn ? "flash" : "flashOff"} size={22} />
+              <Icon name="history" size={22} />
             </button>
-          ) : (
-            <span class="icon-button icon-button--placeholder" aria-hidden="true" />
-          )}
+          </div>
         </header>
 
         {status.phase === "loading" ? (
@@ -289,8 +291,8 @@ export function Scanner({
 
       <footer class="scanner__controls">
         <label class="scanner__control" aria-label="Choose a photo">
-          <span class="icon-button icon-button--large">
-            <Icon name="image" size={24} />
+          <span class="scanner__control-icon">
+            <Icon name="image" size={26} />
           </span>
           <span aria-hidden="true">Photo</span>
           <input type="file" accept="image/*" class="visually-hidden" onChange={onPickFile} />
@@ -312,8 +314,8 @@ export function Scanner({
           onClick={onTypeIn}
           aria-label="Type the problem in"
         >
-          <span class="icon-button icon-button--large">
-            <Icon name="keyboard" size={24} />
+          <span class="scanner__control-icon">
+            <Icon name="keyboard" size={26} />
           </span>
           <span aria-hidden="true">Type</span>
         </button>

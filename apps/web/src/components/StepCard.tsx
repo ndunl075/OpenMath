@@ -1,3 +1,4 @@
+import type { JSX } from "preact";
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 import type { Step } from "@openmath/steps";
 import { playStep } from "@openmath/step-motion";
@@ -23,6 +24,31 @@ function highlightColor(): string {
     .getPropertyValue("--highlight")
     .trim();
   return value || FALLBACK_HIGHLIGHT;
+}
+
+/**
+ * Rule titles are plain English, but some carry a fragment of LaTeX, such as
+ * "Move \frac{1}{2} outside the integral". Each token that holds a command
+ * is set as math; the rest stays text. The raw title is kept for assistive
+ * tech, which has no use for KaTeX's layout spans.
+ */
+function renderTitle(title: string): JSX.Element {
+  if (!title.includes("\\")) return <span>{title}</span>;
+  return (
+    <span>
+      <span class="visually-hidden">{title}</span>
+      <span aria-hidden="true">
+        {title.split(" ").map((token, i) => (
+          <span key={i}>
+            {i > 0 ? " " : ""}
+            {token.includes("\\")
+              ? <span dangerouslySetInnerHTML={{ __html: renderLatex(token) }} />
+              : token}
+          </span>
+        ))}
+      </span>
+    </span>
+  );
 }
 
 export function StepCard({
@@ -82,41 +108,39 @@ export function StepCard({
   }, [index, play, register]);
 
   return (
-    <li class={`step-card${playing ? " is-playing" : ""}`}>
-      <div class="step-card__head">
-        <span class="step-card__number" aria-hidden="true">
-          {index + 1}
-        </span>
+    <li class={`step${playing ? " is-playing" : ""}`}>
+      <span class="step__number eyebrow" aria-hidden="true">
+        {String(index + 1).padStart(2, "0")}
+      </span>
+      <button
+        type="button"
+        class="step__title"
+        aria-expanded={expanded}
+        onClick={() => setExpanded((v) => !v)}
+      >
+        {renderTitle(step.title)}
+        <Icon name={expanded ? "chevronUp" : "chevronDown"} size={16} />
+      </button>
+      {animatable ? (
         <button
           type="button"
-          class="step-card__title"
-          aria-expanded={expanded}
-          onClick={() => setExpanded((v) => !v)}
+          class="step__play"
+          onClick={() => void play()}
+          aria-label={`Replay step ${index + 1}: ${step.title}`}
+          disabled={playing}
         >
-          <span>{step.title}</span>
-          <Icon name={expanded ? "chevronUp" : "chevronDown"} size={18} />
+          <Icon name={playing ? "pause" : "play"} size={16} filled={!playing} />
         </button>
-        {animatable ? (
-          <button
-            type="button"
-            class="step-card__play"
-            onClick={() => void play()}
-            aria-label={`Replay step ${index + 1}: ${step.title}`}
-            disabled={playing}
-          >
-            <Icon name={playing ? "pause" : "play"} size={16} filled={!playing} />
-          </button>
-        ) : null}
-      </div>
+      ) : null}
 
-      <div class="step-card__math math-scroll" ref={mathRef} />
+      <div class="step__math math-scroll" ref={mathRef} />
 
       {expanded && step.explanation ? (
-        <p class="step-card__explanation">{step.explanation}</p>
+        <p class="step__explanation">{step.explanation}</p>
       ) : null}
 
       {step.unverified ? (
-        <p class="step-card__warning">
+        <p class="step__warning">
           <Icon name="alert" size={15} />
           This step could not be checked automatically.
         </p>

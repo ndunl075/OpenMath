@@ -24,31 +24,35 @@ function relativeTime(at: number): string {
 export function HistoryPanel({ entries, onOpen, onRemove, onClear, onClose }: HistoryPanelProps) {
   return (
     <div class="panel">
-      <header class="panel__head">
-        <button type="button" class="icon-button icon-button--subtle" onClick={onClose} aria-label="Close">
-          <Icon name="close" size={22} />
+      <nav class="panel__nav" aria-label="Screens">
+        <button type="button" class="nav-link" onClick={onClose} aria-label="Back to the camera">
+          <Icon name="camera" size={18} />
+          Camera
         </button>
-        <h1>History</h1>
+      </nav>
+
+      <header class="page-head">
+        <h1 class="t-display">History</h1>
         {entries.length > 0 ? (
-          <button type="button" class="button button--ghost button--small" onClick={onClear}>
+          <button type="button" class="text-button" onClick={onClear}>
             Clear all
           </button>
-        ) : (
-          <span class="icon-button icon-button--placeholder" aria-hidden="true" />
-        )}
+        ) : null}
       </header>
+      <p class="page-lede">
+        {entries.length === 0
+          ? "Problems you solve are kept here, in this browser only. Nothing is uploaded."
+          : `${entries.length === 1 ? "One problem" : `${entries.length} problems`}, kept in this browser only. Nothing is uploaded.`}
+      </p>
 
       {entries.length === 0 ? (
-        <div class="panel__empty">
-          <Icon name="history" size={30} />
-          <p>Nothing here yet. Problems you solve are saved on this device only.</p>
-        </div>
+        <p class="panel__empty">Nothing solved yet.</p>
       ) : (
         <ul class="history">
           {entries.map((entry) => (
             <li class="history__item" key={entry.id}>
               <button type="button" class="history__open" onClick={() => onOpen(entry)}>
-                <MathView latex={entry.latex} label={entry.latex} />
+                <MathView latex={entry.latex} label={entry.latex} class="history__problem" />
                 <span class="history__meta">
                   <span class="history__answer">
                     <MathView latex={entry.answer} label={`Answer ${entry.answer}`} />
@@ -58,7 +62,7 @@ export function HistoryPanel({ entries, onOpen, onRemove, onClear, onClose }: Hi
               </button>
               <button
                 type="button"
-                class="icon-button icon-button--subtle"
+                class="icon-button"
                 onClick={() => onRemove(entry.id)}
                 aria-label={`Delete ${entry.latex}`}
               >
@@ -68,11 +72,6 @@ export function HistoryPanel({ entries, onOpen, onRemove, onClear, onClose }: Hi
           ))}
         </ul>
       )}
-
-      <p class="panel__footnote">
-        <Icon name="shield" size={15} />
-        History lives in this browser and is never uploaded.
-      </p>
     </div>
   );
 }

@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="OpenMath">
   <!-- Maskable variant: same mark, full-bleed tile, mark kept inside the safe zone. -->
-  <rect width="512" height="512" fill="#0B6B71"/>
+  <rect width="512" height="512" fill="#00666C"/>
   <g fill="#FFFFFF" transform="translate(256 256) scale(0.72) translate(-256 -256)">
     <rect x="100" y="134" width="196" height="62" rx="10"/>
     <rect x="158" y="225" width="196" height="62" rx="10"/>

@@ -133,25 +133,21 @@ export function App() {
         />
       ) : mode === "input" ? (
         <div class="panel">
-          <header class="panel__head">
+          <nav class="panel__nav" aria-label="Screens">
             <button
               type="button"
-              class="icon-button icon-button--subtle"
+              class="nav-link"
               onClick={() => setMode("scan")}
               aria-label="Back to the camera"
             >
-              <Icon name="camera" size={22} />
+              <Icon name="camera" size={18} />
+              Camera
             </button>
-            <h1>Type a problem</h1>
-            <button
-              type="button"
-              class="icon-button icon-button--subtle"
-              onClick={() => setMode("history")}
-              aria-label="History"
-            >
-              <Icon name="history" size={22} />
+            <button type="button" class="nav-link" onClick={() => setMode("history")}>
+              History
+              <Icon name="history" size={18} />
             </button>
-          </header>
+          </nav>
           <MathInput
             value={draft}
             onChange={setDraft}

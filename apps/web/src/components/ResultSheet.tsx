@@ -27,6 +27,8 @@ export interface ResultSheetProps {
 }
 
 const DRAG_THRESHOLD = 60;
+/** LaTeX longer than this is set a size smaller, so it fits a phone before it has to scroll. */
+const LONG_ANSWER = 36;
 
 export function ResultSheet({
   outcome, height, onHeightChange, onDismiss, onEdit, speed, onSpeedChange, reducedMotion,
@@ -90,10 +92,10 @@ export function ResultSheet({
           <div class="sheet__problem-math">
             <MathView latex={outcome.latex} label={`Problem: ${outcome.latex}`} />
           </div>
-          <button type="button" class="icon-button icon-button--subtle" onClick={onEdit} aria-label="Edit the problem">
+          <button type="button" class="icon-button" onClick={onEdit} aria-label="Edit the problem">
             <Icon name="pencil" size={20} />
           </button>
-          <button type="button" class="icon-button icon-button--subtle" onClick={onDismiss} aria-label="Close">
+          <button type="button" class="icon-button" onClick={onDismiss} aria-label="Close">
             <Icon name="close" size={20} />
           </button>
         </div>
@@ -102,7 +104,7 @@ export function ResultSheet({
       <div class="sheet__body">
         {outcome.error ? (
           <div class="result result--error">
-            <h2>
+            <h2 class="result__title">
               <Icon name="alert" size={20} />
               {outcome.error.reason === "unsupported"
                 ? "Not supported yet"
@@ -124,7 +126,7 @@ export function ResultSheet({
                 Edit the problem
               </button>
               <a
-                class="button button--ghost"
+                class="button button--text"
                 href={reportUrl({
                   latex: outcome.latex,
                   ...(outcome.raw ? { raw: outcome.raw } : {}),
@@ -140,8 +142,8 @@ export function ResultSheet({
           </div>
         ) : solution ? (
           <div class="result">
-            <div class="result__answer-block">
-              <p class="result__label">
+            <section class="result__answer-block" aria-label="Answer">
+              <p class="eyebrow result__label">
                 {solution.intervals
                   ? solution.intervals.length > 1 ? "Solution set" : "Solution"
                   : solution.answers.length > 1 ? "Solutions" : "Answer"}
@@ -158,7 +160,7 @@ export function ResultSheet({
                   ))}
                 </ul>
               ) : (
-                <div class="result__answer">
+                <div class={`result__answer${solution.answer.length > LONG_ANSWER ? " result__answer--long" : ""}`}>
                   <MathView latex={solution.answer} display label={`Answer: ${solution.answer}`} />
                 </div>
               )}
@@ -171,7 +173,7 @@ export function ResultSheet({
                   still shown, but treat it with care and please report this.
                 </p>
               ) : null}
-            </div>
+            </section>
 
             {stepsAvailable && !showSteps ? (
               <div class="result__cta">
@@ -210,7 +212,7 @@ export function ResultSheet({
         ) : (
           <div class="result">
             <div class="result__answer-block">
-              <p class="result__label">Working it out…</p>
+              <p class="eyebrow result__label">Working it out…</p>
             </div>
           </div>
         )}

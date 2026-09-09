@@ -113,26 +113,44 @@ export function MathInput({
   return (
     <div class="math-input">
       <div class="math-input__stage">
-        <div class="math-input__preview" aria-live="polite">
+        {/* The lead is the screen's headline: the heading and a few problems
+            to try while the field is empty, and the typed problem itself,
+            set large, once there is one. */}
+        <div class={`math-input__lead${value.trim() ? " math-input__lead--preview" : ""}`} aria-live="polite">
           {value.trim() ? (
-            <MathView latex={repaired} display label={`Preview of ${value}`} />
+            <>
+              <h1 class="visually-hidden">Type a problem</h1>
+              <span class="eyebrow">Preview</span>
+              <MathView
+                latex={repaired}
+                display
+                label={`Preview of ${value}`}
+                class="math-input__preview"
+              />
+            </>
           ) : (
-            <div class="math-input__empty">
-              <p class="math-input__placeholder">Type a problem, or try one of these</p>
-              <div class="math-input__examples">
+            <>
+              <h1 class="t-display">Type a problem</h1>
+              <p class="page-lede">
+                Arithmetic through calculus, worked step by step on this device.
+              </p>
+              <span class="eyebrow math-input__examples-label">Or start from one of these</span>
+              <ul class="examples">
                 {EXAMPLES.map((latex) => (
-                  <button
-                    type="button"
-                    key={latex}
-                    class="math-input__example"
-                    onClick={() => tryExample(latex)}
-                    aria-label={`Try ${latex}`}
-                  >
-                    <span aria-hidden="true" dangerouslySetInnerHTML={{ __html: renderLatex(latex) }} />
-                  </button>
+                  <li key={latex}>
+                    <button
+                      type="button"
+                      class="examples__item"
+                      onClick={() => tryExample(latex)}
+                      aria-label={`Try ${latex}`}
+                    >
+                      <span aria-hidden="true" dangerouslySetInnerHTML={{ __html: renderLatex(latex) }} />
+                      <Icon name="chevronRight" size={16} />
+                    </button>
+                  </li>
                 ))}
-              </div>
-            </div>
+              </ul>
+            </>
           )}
         </div>
 
