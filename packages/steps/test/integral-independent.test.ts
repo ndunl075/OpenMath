@@ -22,6 +22,13 @@ const INDEFINITE = [
   "\\int \\frac{1}{x^{2}+4} \\, dx", "\\int \\frac{1}{x^{2}+9} \\, dx",
   // Fractional powers.
   "\\int x^{\\frac{1}{2}} \\, dx", "\\int x^{-2} \\, dx",
+  // Substitutions that leave a stray x behind, so the substitution has to be
+  // inverted and put back in.
+  "\\int x\\sqrt{x+1} \\, dx", "\\int x^{2}\\sqrt{x+1} \\, dx",
+  "\\int \\frac{x}{\\sqrt{x+1}} \\, dx", "\\int x\\sqrt{2x+1} \\, dx",
+  // Not sqrt(x-3): this file samples between -0.6 and 3.1, where it is
+  // undefined almost everywhere, and the check needs points it can use.
+  "\\int x(x+2)^{5} \\, dx",
   // The secant pair, and the inverse tangent after completing the square.
   "\\int \\sec(x) \\, dx", "\\int \\csc(x) \\, dx",
   "\\int \\frac{1}{x^{2}+2x+5} \\, dx", "\\int \\frac{1}{x^{2}+6x+13} \\, dx",

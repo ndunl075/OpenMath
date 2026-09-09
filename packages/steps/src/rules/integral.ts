@@ -1,7 +1,7 @@
 import {
   add, asIntegral, children, cloneFresh, containsDiff, containsIntegral, countNodes, diff,
   div, fn, integral, type IntegralParts, isOne, isZero, key, makeTerm, type MathNode,
-  mul, neg, num, pow, Rational, sym, symbols, toLatex, walk, withChildren,
+  mul, neg, num, pow, Rational, substitute, sym, symbols, toLatex, walk, withChildren,
 } from "@openmath/math-core";
 import { run } from "../engine.js";
 import {
@@ -330,6 +330,40 @@ export const intTan = tableRule(
   (v) => neg(fn("ln", [fn("abs", [fn("cos", [sym(v)])])])),
 );
 
+/**
+ * A square root inside a product or sum becomes a half power.
+ *
+ * The power rule reads `pow` nodes and sqrt is a function node, so
+ * int (u-1)sqrt(u) du was declined while the identical
+ * int (u-1)u^(1/2) du was integrated term by term. Only fires where the root
+ * is mixed in with something else: a bare int sqrt(x) dx is already handled,
+ * and rewriting it would replace a step that reads well with one that does
+ * not.
+ */
+export const intSqrtAsPower = integralRule(
+  "INT_SQRT_AS_POWER",
+  ({ body, variable: v, node }) => {
+    if (body.type !== "mul" && body.type !== "add" && body.type !== "div") return null;
+    let found: MathNode | null = null;
+    walk(body, (n) => {
+      if (found) return;
+      if (n.type === "fn" && n.name === "sqrt" && n.args.length === 1 && dependsOn(n, v)) {
+        found = n;
+      }
+    });
+    if (!found) return null;
+    const root = found as MathNode & { type: "fn" };
+    const half = pow(cloneFresh(root.args[0]!), num(Rational.of(1, 2)), root.id);
+    const rebuilt = replaceSubtree(body, key(root), () => half);
+    const out = integral(rebuilt, sym(v));
+    return {
+      node: out,
+      changes: [{ kind: "replace", fromIds: [root.id], toIds: [half.id] }],
+      vars: { variable: v, root: toLatex(root), power: toLatex(half) },
+    };
+  },
+);
+
 export const intSec = tableRule(
   "INT_SEC",
   (body, v) => isCall(body, "sec", v),
@@ -656,8 +690,58 @@ function integrandInU(
   for (const attempt of attempts) {
     const substituted = replaceSubtree(attempt, target, () => sym(placeholder));
     if (!dependsOn(substituted, v)) return substituted;
+    // Something of the original variable is left over. When the substitution
+    // is linear it can be inverted and put in: for int x*sqrt(x+1) dx with
+    // u = x+1, the stray x becomes u-1 and the integrand turns into
+    // (u-1)*sqrt(u), which is a polynomial in u. Without this the whole
+    // problem was declined for the sake of one leftover x.
+    if (!appearsWrapped(body, candidate)) continue;
+    const inverted = invertLinear(candidate, v, placeholder);
+    if (!inverted) continue;
+    const rewritten = run(
+      substitute(substituted, v, inverted), tidyRules, {},
+      { verify: false, maxSteps: 30 },
+    ).node;
+    if (!dependsOn(rewritten, v)) return rewritten;
   }
   return null;
+}
+
+/**
+ * Does the candidate sit inside something — a root, an exponential, a bracket
+ * raised to a power — rather than standing on its own?
+ *
+ * Substituting only earns its place when it unwraps something. Without this
+ * check, inverting a linear substitution lets *any* linear part of the
+ * integrand absorb the whole problem: int (5x-3)/(x^2-2x-3) dx took u = 5x-3
+ * and came back with 2ln|5x+5| + 3ln|5x-15|, which is right — it differs from
+ * 3ln|x-3| + 2ln|x+1| by a constant, and the constant of integration swallows
+ * it — but it is not the answer anyone wants, and it walks straight past the
+ * partial fractions the question was set to practise.
+ */
+function appearsWrapped(body: MathNode, candidate: MathNode): boolean {
+  const target = key(candidate);
+  let wrapped = false;
+  walk(body, (n) => {
+    if (wrapped) return;
+    if (n.type === "fn" && n.args.some((a) => key(a) === target)) wrapped = true;
+    else if (n.type === "pow" && key(n.base) === target) wrapped = true;
+  });
+  return wrapped;
+}
+
+/**
+ * `u = ax + b` read backwards as `x = (u - b)/a`, or null when the
+ * substitution is not linear and so has no single inverse to offer.
+ */
+function invertLinear(candidate: MathNode, v: string, placeholder: string): MathNode | null {
+  const p = toPolynomial(candidate, v);
+  if (!p || degree(p) !== 1) return null;
+  const a = coeff(p, 1);
+  const b = coeff(p, 0);
+  if (a.isZero()) return null;
+  const shifted = b.isZero() ? sym(placeholder) : add([sym(placeholder), num(b.neg())]);
+  return a.equals(Rational.ONE) ? shifted : div(shifted, num(a));
 }
 
 /**
@@ -943,6 +1027,170 @@ export const intPartialFractions = integralRule(
  * answer — an antiderivative like (x^2+1)^4/4 reads best folded up, which is
  * why EXPAND_POWER is not in the pipeline and this is.
  */
+/**
+ * A sum of terms `c * v^r`, where r may be any rational. Written as a map from
+ * the exponent to its coefficient.
+ *
+ * `toPolynomial` only reads whole-number exponents, so it says no to
+ * (u-1)^2 * u^(1/2), and nothing then expanded it — which is how
+ * int x^2 sqrt(x+1) dx came to be declined after the substitution had already
+ * done the hard part. This reads the same shapes but keeps the exponents
+ * rational.
+ */
+type PowerSum = Map<string, { exp: Rational; coeff: Rational }>;
+
+function addTerm(into: PowerSum, exp: Rational, coeff: Rational): void {
+  const k = exp.toLatex();
+  const at = into.get(k);
+  if (at) at.coeff = at.coeff.add(coeff);
+  else into.set(k, { exp, coeff });
+}
+
+function timesPowerSum(a: PowerSum, b: PowerSum): PowerSum {
+  const out: PowerSum = new Map();
+  for (const x of a.values()) {
+    for (const y of b.values()) addTerm(out, x.exp.add(y.exp), x.coeff.mul(y.coeff));
+  }
+  return out;
+}
+
+const MAX_BINOMIAL_POWER = 6;
+
+/** A rational raised to a whole-number power, by repeated multiplication. */
+function raise(base: Rational, power: Rational): Rational | null {
+  if (!power.isInteger()) return null;
+  const times = Number(power.toNumber());
+  if (!Number.isSafeInteger(times) || Math.abs(times) > 32) return null;
+  if (times === 0) return Rational.ONE;
+  if (base.isZero()) return times > 0 ? Rational.ZERO : null;
+  let out = Rational.ONE;
+  for (let i = 0; i < Math.abs(times); i++) out = out.mul(base);
+  return times > 0 ? out : Rational.ONE.div(out);
+}
+
+function asPowerSum(n: MathNode, v: string): PowerSum | null {
+  switch (n.type) {
+    case "num":
+      return new Map([["0", { exp: Rational.ZERO, coeff: n.value }]]);
+    case "sym":
+      return n.name === v
+        ? new Map([["1", { exp: Rational.ONE, coeff: Rational.ONE }]])
+        : null;
+    case "neg": {
+      const inner = asPowerSum(n.arg, v);
+      if (!inner) return null;
+      const out: PowerSum = new Map();
+      for (const t of inner.values()) addTerm(out, t.exp, t.coeff.neg());
+      return out;
+    }
+    case "add": {
+      const out: PowerSum = new Map();
+      for (const a of n.args) {
+        const part = asPowerSum(a, v);
+        if (!part) return null;
+        for (const t of part.values()) addTerm(out, t.exp, t.coeff);
+      }
+      return out;
+    }
+    case "mul": {
+      let out: PowerSum = new Map([["0", { exp: Rational.ZERO, coeff: Rational.ONE }]]);
+      for (const a of n.args) {
+        const part = asPowerSum(a, v);
+        if (!part) return null;
+        out = timesPowerSum(out, part);
+      }
+      return out;
+    }
+    case "div": {
+      const top = asPowerSum(n.num, v);
+      const bottom = asPowerSum(n.den, v);
+      if (!top || !bottom || bottom.size !== 1) return null;
+      const [only] = [...bottom.values()];
+      if (!only || only.coeff.isZero()) return null;
+      const out: PowerSum = new Map();
+      for (const t of top.values()) addTerm(out, t.exp.sub(only.exp), t.coeff.div(only.coeff));
+      return out;
+    }
+    case "pow": {
+      const base = asPowerSum(n.base, v);
+      if (!base || n.exp.type !== "num") return null;
+      // A single term takes any rational power; a sum has to be multiplied
+      // out, so its exponent must be a small whole number.
+      if (base.size === 1) {
+        const [only] = [...base.values()];
+        if (!only) return null;
+        const power = n.exp.value;
+        let coefficient: Rational;
+        if (power.isInteger()) {
+          const raised = raise(only.coeff, power);
+          if (!raised) return null;
+          coefficient = raised;
+        } else {
+          // A fractional power of a coefficient is not rational in general,
+          // so only a bare 1 out front is safe to carry through.
+          if (!only.coeff.equals(Rational.ONE)) return null;
+          coefficient = Rational.ONE;
+        }
+        const exponent = only.exp.mul(power);
+        return new Map([[exponent.toLatex(), { exp: exponent, coeff: coefficient }]]);
+      }
+      const power = n.exp.value;
+      if (!power.isInteger() || power.isNegative() || power.isZero()) return null;
+      const times = Number(power.toNumber());
+      if (times > MAX_BINOMIAL_POWER) return null;
+      let out: PowerSum = new Map([["0", { exp: Rational.ZERO, coeff: Rational.ONE }]]);
+      for (let i = 0; i < times; i++) out = timesPowerSum(out, base);
+      return out;
+    }
+    case "fn":
+      if (n.name === "sqrt" && n.args.length === 1) {
+        return asPowerSum(pow(cloneFresh(n.args[0]!), num(Rational.of(1, 2))), v);
+      }
+      return null;
+    default:
+      return null;
+  }
+}
+
+function powerSumToNode(sum: PowerSum, v: string): MathNode {
+  const terms = [...sum.values()]
+    .filter((t) => !t.coeff.isZero())
+    .sort((a, b) => b.exp.toNumber() - a.exp.toNumber())
+    .map((t) =>
+      t.exp.isZero()
+        ? num(t.coeff)
+        : makeTerm(t.coeff, [
+          t.exp.equals(Rational.ONE) ? sym(v) : pow(sym(v), num(t.exp)),
+        ]),
+    );
+  if (terms.length === 0) return num(Rational.ZERO);
+  return terms.length === 1 ? terms[0]! : add(terms);
+}
+
+/**
+ * Multiply out an integrand whose exponents are not all whole numbers, so the
+ * power rule can take it a term at a time. INT_EXPAND above owns the ordinary
+ * polynomial case and words it better, so this only fires where a fractional
+ * or negative exponent is what stopped it.
+ */
+export const intExpandPowers = integralRule(
+  "INT_EXPAND_POWERS",
+  ({ body, variable: v, node }) => {
+    if (body.type !== "mul" && body.type !== "pow" && body.type !== "div") return null;
+    if (toPolynomial(body, v)) return null;
+    const sum = asPowerSum(body, v);
+    if (!sum || sum.size < 2) return null;
+    const expanded = powerSumToNode(sum, v);
+    if (key(expanded) === key(body)) return null;
+    const result = integral(expanded, sym(v), node.id);
+    return {
+      node: result,
+      changes: [{ kind: "replace", fromIds: [body.id], toIds: [expanded.id] }],
+      vars: { variable: v, expanded: toLatex(expanded) },
+    };
+  },
+);
+
 export const intExpand = integralRule("INT_EXPAND", ({ body, variable: v, node }) => {
   if (body.type !== "pow" && body.type !== "mul") return null;
   const expandable = toPolynomial(body, v);
@@ -991,11 +1239,13 @@ export const integralRules: Rule[] = [
   intCosSquared,
   intSinOdd,
   intCosOdd,
+  intSqrtAsPower,
   intSubstitution,
   intLongDivision,
   intPartialFractions,
   intByParts,
   intExpand,
+  intExpandPowers,
 ];
 
 /**

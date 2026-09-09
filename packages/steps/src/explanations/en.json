@@ -646,5 +646,13 @@
   "INT_COMPLETE_THE_SQUARE": {
     "title": "Complete the square, then read the inverse tangent",
     "text": "The bottom has no real roots, so it never vanishes. Writing it as {square} squared plus {a} squared puts it in the inverse tangent form, shifted along by {shift}."
+  },
+  "INT_SQRT_AS_POWER": {
+    "title": "Write the root as a power",
+    "text": "{root} is {power}, and written that way the power rule can take it along with everything else it is multiplied by."
+  },
+  "INT_EXPAND_POWERS": {
+    "title": "Multiply out first",
+    "text": "Written as {expanded} this is a sum of separate powers, and the power rule takes each one on its own."
   }
 }
