@@ -143,25 +143,33 @@ Kept honest because the alternative is a student photographing homework the app 
 
 **Calculus 1.** The full derivative table: power (integer, negative and fractional exponents), product, quotient, chain, all six trig functions, the three inverse trig, the three hyperbolic, `ln`, base-ten `log`, `exp` and general `a^x`. Higher-order derivatives. Limits by substitution, by factor-and-cancel, by degree comparison at infinity, and by l'Hopital for `0/0` and `inf/inf`.
 
-**Calculus 2.** Substitution, integration by parts (including repeated), partial fractions, long division, power reduction for `sin^2` and `cos^2`, odd powers of sine and cosine, `tan`, `cot`, `sec`, `csc`, the inverse tangent and sine forms including completing the square, and improper integrals with one infinite bound (rewritten as a limit, §5).
+**Calculus 2 — [revised]** now the whole course, not just the integration chapter.
+
+*Techniques of integration.* Substitution, including the kind that leaves a stray x and has to be inverted (`int x sqrt(x+1) dx`). Integration by parts, repeated, and the cyclic case where parts reproduces the integral and it is solved for algebraically (`int e^x sin x dx`). Partial fractions, long division. Power reduction for `sin^2` and `cos^2`, odd powers of sine and cosine, `tan`, `cot`, `sec`, `csc`, `sec^3` and its cosecant mirror. Trigonometric substitution in all three shapes — `sqrt(a^2-x^2)`, `sqrt(a^2+x^2)`, `sqrt(x^2-a^2)` — with the triangle back-substitution, and a constant pulled out of the root first when the square term does not carry a coefficient of one. Inverse tangent and sine forms including completing the square. Improper integrals with one infinite bound, rewritten as a limit.
+
+*Applications.* Arc length, volumes of revolution by disks, washers and shells, surface area, average value, area between curves, work — all reachable once the student writes the integral, which is the form they arrive in.
+
+*Sequences and series.* Sigma notation and factorials. Finite sums. For infinite series, the tests in the order a course teaches them: nth-term, geometric (with an exact sum), p-series, alternating, ratio, limit comparison against the dominant power, and the integral test, which hands the problem to the integration engine. Every verdict names the test that produced it.
+
+*Power series.* Radius and interval of convergence by the ratio test, with each endpoint put back in and settled separately, and centres away from zero read off the `(x-a)^n`. The standard Maclaurin series are recognised by what they sum to, so `sum x^n/n!` comes back as `e^x` with its reach in the note.
 
 **Not supported, and what happens instead:**
 
 | Missing | Behaviour |
 |---|---|
-| Sequences and series — convergence tests, Taylor and Maclaurin | `\sum` is refused at the parser |
-| Trigonometric substitution, e.g. `int sqrt(1-x^2) dx` | declined by name |
-| Cyclic integration by parts, e.g. `int e^x sin x dx` | declined by name |
-| Substitutions needing back-substitution, e.g. `int x sqrt(x+1) dx` | declined by name |
-| Arc length, volumes of revolution, parametric and polar | no notation for them |
-| Logarithmic differentiation, e.g. `d/dx(x^x)` | declined by name |
-| `log` with an explicit subscript base, as a derivative | declined by name |
+| Taylor series in the *generating* direction — given `f`, produce its series | no way to ask: see below |
+| Parametric and polar curves | no notation for them |
+| Multivariable anything (Calc 3) | out of scope by an earlier decision |
 | Limits of the form `0 * inf` and `1^inf` | declined by name |
-| Divergent limits and integrals | refused with "diverges"; there is no way to report infinity as an answer |
+| Divergent limits | refused; there is no way to report infinity as an answer |
 | An answer that is irrational, e.g. `int 1/(x^2+x+1) dx` | declined rather than approximated |
-| Both bounds infinite | declined, with a note to split the integral first |
+| Both integration bounds infinite | declined, with a note to split the integral first |
+| A series none of the tests settle | declined by name |
 
-The last three are policy rather than gaps. Approximating an irrational would break the promise that every answer is exact, and picking a split point for a doubly-infinite integral would be putting words in the student's mouth.
+The last four are policy rather than gaps. Approximating an irrational would break the promise that every answer is exact, picking a split point for a doubly-infinite integral would be putting words in the student's mouth, and a convergence test that guessed would be worse than one that declines.
+
+**The Taylor problem is the input model, not the engine.** Every derivative needed to build a Taylor series is already here. What is missing is a way to *ask*: a photograph carries mathematics, not the sentence "find the Maclaurin series of `f` about 0", and the keypad has no way to say it either. Recognising a series that is written down is expressible and is supported; generating one from a function is not, and inventing a notation students would never type would be worse than the gap. Closing it properly means letting the app read words, which reopens the no-LLM decision in section 0.
+
 
 **How accuracy is checked.** Three layers, deliberately not sharing code. Per step, the engine samples `before` against `after` (equations by checking `lhs - rhs` stays proportional, integrals by differentiating both sides, limits by measurement, and l'Hopital structurally). Per problem, the corpus records a hand-written answer and confirms it by measuring the problem itself — which is why a limit that cannot be measured and an integral running to infinity are tested elsewhere rather than weakening that rule. Across the whole engine, `accuracy-sweep.test.ts` cross-checks against a separately written differentiator, Simpson's rule, and substitution back into the original.
 

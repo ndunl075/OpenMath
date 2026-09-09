@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { problems } from "@openmath/corpus";
-import { containsIntegral, containsLimit, evaluateNumeric, parseLatex } from "@openmath/math-core";
+import {
+  asSummation, containsIntegral, containsLimit, evaluateNumeric, parseLatex,
+} from "@openmath/math-core";
 import { trySolve } from "@openmath/steps";
 import { differentiate, resolveDerivatives } from "../src/symbolic-diff.js";
 
@@ -208,6 +210,84 @@ describe("definite integrals match independent quadrature", () => {
       const want = (sum * h) / 3;
       if (!Number.isFinite(got) || Math.abs(got - want) > 1e-4 * Math.max(1, Math.abs(want))) {
         wrong.push(`int ${from}..${to} ${f} = ${r.solution.answer} = ${got}, quadrature says ${want}`);
+      }
+    }
+    expect(wrong).toEqual([]);
+  });
+});
+
+/**
+ * Series verdicts, checked one direction only.
+ *
+ * Partial sums cannot prove convergence — enough terms of sum 1/n look
+ * perfectly settled — but they can disprove it. A series claimed convergent
+ * whose partial sums march past a million is wrong, and no amount of slow
+ * convergence explains it away. The other direction, a claimed divergence
+ * that actually converges, is caught by the hand-written list in
+ * series-independent.test.ts.
+ */
+describe("no series is called convergent while its partial sums run away", () => {
+  const SERIES = [
+    "\\sum_{n=1}^{\\infty} \\frac{1}{n}", "\\sum_{n=1}^{\\infty} \\frac{1}{n^{2}}",
+    "\\sum_{n=1}^{\\infty} \\frac{1}{\\sqrt{n}}", "\\sum_{n=1}^{\\infty} \\frac{1}{n^{3}}",
+    "\\sum_{n=1}^{\\infty} \\frac{n}{n+1}", "\\sum_{n=1}^{\\infty} \\frac{n}{2^{n}}",
+    "\\sum_{n=1}^{\\infty} 2^{n}", "\\sum_{n=1}^{\\infty} \\frac{1}{2^{n}}",
+    "\\sum_{n=1}^{\\infty} \\frac{1}{n!}", "\\sum_{n=1}^{\\infty} \\frac{n!}{2^{n}}",
+    "\\sum_{n=1}^{\\infty} \\frac{1}{n(n+1)}", "\\sum_{n=1}^{\\infty} \\frac{2n}{n^{3}+1}",
+    "\\sum_{n=1}^{\\infty} \\frac{\\ln(n)}{n}", "\\sum_{n=2}^{\\infty} \\frac{1}{n\\ln(n)}",
+    "\\sum_{n=1}^{\\infty} n e^{-n}", "\\sum_{n=1}^{\\infty} \\frac{n^{2}}{3^{n}}",
+  ];
+
+  it("adds a hundred thousand terms of each and checks the claim", () => {
+    const wrong: string[] = [];
+    for (const problem of SERIES) {
+      const r = trySolve(problem);
+      if (!r.ok) continue;
+      const claimsConvergence = !r.solution.answer.includes("diverges");
+      if (!claimsConvergence) continue;
+
+      const parsed = parseLatex(problem);
+      const parts = asSummation(parsed);
+      if (!parts) continue;
+      const from = Math.round(evaluateNumeric(parts.from));
+      let total = 0;
+      for (let k = from; k < from + 100000; k++) {
+        const term = evaluateNumeric(parts.body, { [parts.index]: k });
+        if (!Number.isFinite(term)) break;
+        total += term;
+      }
+      if (Math.abs(total) > 1e6) {
+        wrong.push(`${problem} is called convergent, but 100000 terms come to ${total}`);
+      }
+    }
+    expect(wrong).toEqual([]);
+  });
+
+  it("every value it reports matches the partial sums", () => {
+    const VALUED = [
+      "\\sum_{n=1}^{\\infty} \\frac{1}{2^{n}}", "\\sum_{n=0}^{\\infty} \\frac{1}{3^{n}}",
+      "\\sum_{n=1}^{\\infty} \\frac{3}{4^{n}}", "\\sum_{n=1}^{\\infty} \\frac{1}{5^{n}}",
+      "\\sum_{n=1}^{10} n", "\\sum_{n=1}^{100} n", "\\sum_{n=1}^{5} n^{2}",
+    ];
+    const wrong: string[] = [];
+    for (const problem of VALUED) {
+      const r = trySolve(problem);
+      if (!r.ok) continue;
+      const claimed = evaluateNumeric(parseLatex(r.solution.answer));
+      if (!Number.isFinite(claimed)) continue;
+
+      const parts = asSummation(parseLatex(problem));
+      if (!parts) continue;
+      const from = Math.round(evaluateNumeric(parts.from));
+      const to = parts.infinite ? from + 200000 : Math.round(evaluateNumeric(parts.to));
+      let total = 0;
+      for (let k = from; k <= to; k++) {
+        const term = evaluateNumeric(parts.body, { [parts.index]: k });
+        if (!Number.isFinite(term)) break;
+        total += term;
+      }
+      if (Math.abs(total - claimed) > 1e-6 * Math.max(1, Math.abs(claimed))) {
+        wrong.push(`${problem} = ${r.solution.answer} = ${claimed}, partial sums give ${total}`);
       }
     }
     expect(wrong).toEqual([]);

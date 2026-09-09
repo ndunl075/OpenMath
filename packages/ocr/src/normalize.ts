@@ -375,7 +375,9 @@ export function normalizeLatex(raw: string): string {
 const OUT_OF_SCOPE = [
   { pattern: /\\begin\s*\{/, label: "matrices and aligned environments" },
   { pattern: /\\oint/, label: "contour integrals" },
-  { pattern: /\\sum|\\prod/, label: "sums and products" },
+  // \sum came off this list when the series engine landed; \prod has no
+  // rules yet, so it stays.
+  { pattern: /\\prod/, label: "products" },
   { pattern: /\\pm|\\mp/, label: "plus-or-minus" },
   // Deleting the sign would silently turn "20\\%" into "20", which is a
   // different problem with a different answer.

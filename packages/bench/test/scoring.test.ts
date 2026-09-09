@@ -63,7 +63,8 @@ describe("scoring one read", () => {
   });
 
   it("marks a read the solver refuses as out of scope, not as a parse error", () => {
-    const score = scoreItem("2x + 3 = 7", "\\sum_{i=1}^{n} i = 7");
+    // A product: \sum is in scope now that series are answered.
+    const score = scoreItem("2x + 3 = 7", "\\prod_{i=1}^{n} i = 7");
     expect(score.failure).toBe("out-of-scope");
     expect(score.answerMatch).toBe(false);
   });
@@ -111,7 +112,7 @@ describe("reading a latex string the way the app does", () => {
   it("reports why a string produced no answer", () => {
     expect(read("").failure).toBe("empty");
     expect(read("2x + ").failure).toBe("parse");
-    expect(read("\\sum x").failure).toBe("out-of-scope");
+    expect(read("\\prod x").failure).toBe("out-of-scope");
     expect(read("x^{3} + x = 1").failure).toBe("unsupported");
   });
 });

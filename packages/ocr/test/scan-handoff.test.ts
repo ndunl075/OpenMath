@@ -32,6 +32,11 @@ const ANSWERS: Array<[string, string]> = [
   ["x ^ { 2 } - 5 x + 6 = 0", "x = 2 \\quad \\text{or} \\quad x = 3"],
   ["\\dfrac { 1 } { 2 } + \\dfrac { 1 } { 3 }", "\\frac{5}{6}"],
   ["\\lim _ { x \\rightarrow 0 } \\frac { \\sin x } { x }", "1"],
+  // Sigma notation, with the bounds split into digits the way a model emits
+  // them. \sum used to be refused by the scope check outright.
+  ["\\sum _ { n = 1 } ^ { 1 0 } n", "55"],
+  ["\\sum _ { n = 1 } ^ { \\infty } \\frac { 1 } { 2 ^ { n } }", "1"],
+  ["5 !", "120"],
 ];
 
 describe("scans that used to give confidently wrong answers", () => {

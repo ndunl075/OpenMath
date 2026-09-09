@@ -92,7 +92,9 @@ describe("normalizeLatex", () => {
 describe("detectOutOfScope", () => {
   it("names the structure the solver cannot handle", () => {
     expect(detectOutOfScope("\\oint E dl")).toBe("contour integrals");
-    expect(detectOutOfScope("\\sum_{i=1}^{n} i")).toBe("sums and products");
+    // \sum came off the out-of-scope list when the series engine landed.
+    expect(detectOutOfScope("\\sum_{i=1}^{n} i")).toBeNull();
+    expect(detectOutOfScope("\\prod_{i=1}^{n} i")).toBe("products");
     expect(detectOutOfScope("\\begin{matrix}1&2\\end{matrix}")).toBe(
       "matrices and aligned environments",
     );

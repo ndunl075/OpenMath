@@ -52,8 +52,13 @@ describe("scan to steps", () => {
   }
 
   it("routes an out-of-scope scan to a message instead of the solver", () => {
-    const latex = normalizeLatex("\\sum_{i=1}^{n} i");
-    expect(detectOutOfScope(latex)).toBe("sums and products");
+    // A product. \sum came off this list when the series engine landed.
+    expect(detectOutOfScope(normalizeLatex("\\prod_{i=1}^{n} i"))).toBe("products");
+  });
+
+  it("sends a scanned sum to the solver rather than refusing it here", () => {
+    const latex = normalizeLatex("\\sum _ { n = 1 } ^ { 1 0 } n");
+    expect(detectOutOfScope(latex)).toBeNull();
   });
 
   it("sends a scanned integral to the solver rather than refusing it here", () => {
