@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "preact/hooks";
+import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 import type { Rect } from "@openmath/ocr";
 import { useCamera } from "../hooks/useCamera.js";
 import type { OcrStatus } from "../hooks/useOcr.js";
@@ -70,6 +70,9 @@ export function Scanner({
 }: ScannerProps) {
   const { videoRef, state, torchOn, toggleTorch, capture } = useCamera(active);
   const stageRef = useRef<HTMLDivElement>(null);
+  const stillRef = useRef<HTMLCanvasElement>(null);
+  /* The frame the shutter froze, shown while the model reads it. */
+  const [shot, setShot] = useState<HTMLCanvasElement | null>(null);
   const [frame, setFrame] = useState<Frame>(INITIAL_FRAME);
   const dragRef = useRef<{ mode: DragMode; startX: number; startY: number; start: Frame } | null>(null);
 
@@ -128,6 +131,12 @@ export function Scanner({
     const canvas = capture();
     const stage = stageRef.current;
     if (!canvas || !stage) return;
+    // The pixels are already frozen by this line: `capture` draws the video
+    // into a canvas synchronously. Showing that still in place of the live feed
+    // is what tells the reader so — before this, the stage kept playing the
+    // camera through recognition, and people held the phone over the page the
+    // whole time because nothing said they could stop.
+    setShot(canvas);
     const bounds = stage.getBoundingClientRect();
     const crop = frameToVideoRect(
       frame,
@@ -146,6 +155,22 @@ export function Scanner({
 
   const showPreview = state.status === "ready" || state.status === "starting";
 
+  // Painted rather than encoded to a data URL: a full-resolution frame is a
+  // megabyte of base64 and the phone is busy running the model.
+  useEffect(() => {
+    const dest = stillRef.current;
+    if (!dest || !shot) return;
+    dest.width = shot.width;
+    dest.height = shot.height;
+    dest.getContext("2d")?.drawImage(shot, 0, 0);
+  }, [shot]);
+
+  // Back to the live feed when there is something to retake: the camera being
+  // switched off, or a failure the reader has to point at the page again for.
+  useEffect(() => {
+    if (!active || status.phase === "error") setShot(null);
+  }, [active, status.phase]);
+
   return (
     <div class="scanner">
       <div class="scanner__stage" ref={stageRef}>
@@ -156,6 +181,8 @@ export function Scanner({
           muted
           autoPlay
         />
+
+        {shot ? <canvas ref={stillRef} class="scanner__still" aria-label="The photo being read" /> : null}
 
         {showPreview ? (
           <>
@@ -182,6 +209,9 @@ export function Scanner({
             >
               {state.status === "ready" && !busy ? (
                 <p class="viewfinder__hint" aria-hidden="true">Fit one problem inside the frame</p>
+              ) : null}
+              {shot && busy ? (
+                <p class="viewfinder__hint" aria-hidden="true">Got it — you can put the phone down</p>
               ) : null}
               {CORNERS.map((corner) => (
                 <span

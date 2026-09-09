@@ -2,10 +2,11 @@
 
 Free, open-source, camera-to-steps math solver. Runs 100% in the browser. No backend, no accounts, no LLMs, $0 to host.
 
-> **Status, updated during implementation.** Everything below is built except the
-> photo corpus and the OCR bench (§11 steps 1 and 2), which need real homework
-> photos. Three decisions changed once the code existed; each is marked
-> **[revised]** with the reason. See the [README](./README.md) for what works today.
+> **Status, updated during implementation.** Everything below is built except
+> the photo corpus and the OCR bench (§11 steps 1 and 2), which need real
+> homework photos, and §12a, which is design notes for work not started. Three
+> decisions changed once the code existed; each is marked **[revised]** with the
+> reason. See the [README](./README.md) for what works today.
 
 ## 0. Decisions (read this if nothing else)
 
@@ -290,6 +291,71 @@ scripts/               bundle-size budget check
 
 Word problems (reading comprehension is an LLM-shaped problem; revisit only by reopening the no-LLM decision), graphs, geometry figures, matrices, systems of equations, accounts, sync, native apps, any server.
 
+## 12a. Planned, not built
+
+Two things the owner wants next. Neither exists yet; both are recorded here so
+the design decisions are made before the code is.
+
+### 12a.1 Landing page
+
+A public page explaining what OpenMath is, so the app is not the only front
+door. Built with Fable, like the app's interface, and held to the same three
+rules — no pill shapes, no purple, no gradients — so it and the app read as one
+product. It is a separate build target rather than a route inside the PWA:
+folding marketing copy into the app bundle would spend the 200 kB budget on
+people who have already installed it.
+
+Two constraints carry over from §6.2, and one is new:
+
+- The trademark line is unchanged. The page may describe what the app does and
+  compare features on the merits. It may not use a competitor's name as a
+  descriptor of ours, borrow its palette as a set, or call this a clone.
+- It states the honest scope. The solver's coverage is real and measured, so the
+  page should say what it handles and what it does not rather than implying
+  everything. A landing page that oversells is the fastest way to make the
+  refusals look like bugs.
+- The claim that everything runs on-device is the strongest thing we have and
+  the easiest to undermine. If the page adds analytics, embedded fonts, or a
+  third-party form, that claim needs qualifying — or, better, do not add them.
+
+### 12a.2 Browser extension
+
+On a laptop the phone-camera flow is the wrong shape: the problem is already on
+the screen. The extension lets someone select a region of a page — a PDF
+worksheet, a courseware question, a scanned assignment — and get the same steps
+in place.
+
+The important property is that this changes almost nothing architecturally. The
+extension is another **host** for the existing pipeline: capture → crop → OCR →
+normalize → solve → steps. `packages/ocr`, `packages/math-core`, `packages/steps`
+and `packages/step-motion` are already host-agnostic, and the work is a new entry
+point in `apps/`, not a second solver. If building it starts requiring changes
+inside `packages/`, that is a signal the split is wrong, not that the packages
+need special cases.
+
+Decisions to make before writing it:
+
+- **Capture path.** `chrome.tabs.captureVisibleTab` needs only `activeTab` and
+  returns exactly what the reader sees, including PDFs rendered by the built-in
+  viewer. Injecting a content script to read the DOM is more precise on
+  HTML-rendered maths but fails on the PDFs students actually get sent. Prefer
+  the screenshot path; treat DOM extraction as an optimisation for later.
+- **Permissions.** `activeTab` plus a click, never `<all_urls>`. An extension
+  that can read every page you visit is a different product with a different
+  privacy story, and the whole pitch here is that nothing leaves the device.
+  Whatever the manifest asks for is what reviewers and users will judge.
+- **Where the model runs.** The OCR weights are 20–40 MB. Loading them per tab
+  is wasteful; the service worker is the natural home, with the offscreen
+  document API for the WASM runtime. This wants measuring before committing.
+- **Reading the screen is not watching the screen.** Capture happens on an
+  explicit user action and the image stays local, exactly as on the phone. Any
+  design where the extension observes continuously breaks the privacy claim in
+  §8, and no amount of "it never leaves your machine" copy will repair the
+  impression once it is in the manifest.
+- **Store review.** Both stores reject extensions that look like a competitor's
+  product. The §6.2 line — flow is free, assets are not — applies to the
+  extension's own icon, name and listing screenshots as much as to the app.
+
 ## 13. Risks
 
 | Risk | Mitigation |
@@ -302,6 +368,8 @@ Word problems (reading comprehension is an LLM-shaped problem; revisit only by r
 | Model repo ids or ONNX availability wrong | **This one was real.** The Texo entry pointed at a repository that does not exist and asked for a quantised export that is not published, so the default OCR could never have loaded. Corrected against the model's own shipped app. TexTeller and Pix2Text MFR remain unverified in exactly the same way, including their preprocessing, so bench them before trusting them |
 | mathsteps bugs (archived) | It's a seed, not a dependency; verification hides bad output; native engine replaces it |
 | Lookalike takedown (DMCA to Cloudflare/GitHub, no lawsuit needed) | Zero copied files: own icons, palette, copy, animations generated from our data (§6); never call it a clone |
+| Extension permissions read as spyware (§12a.2) | `activeTab` and an explicit click only, never `<all_urls>`; capture on user action, image stays local |
+| Landing page undercuts the on-device claim (§12a.1) | No analytics, no third-party embeds, no hosted fonts; the claim in §8 is the product |
 
 ## 14. Market check (verified Sep 2026)
 

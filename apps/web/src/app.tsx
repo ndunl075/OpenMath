@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "preact/hooks";
 import { trySolve } from "@openmath/steps";
-import { DEFAULT_PROVIDER_ID, detectOutOfScope, normalizeLatex } from "@openmath/ocr";
+import { DEFAULT_PROVIDER_ID, detectOutOfScope, normalizeLatex, normalizeWithReport } from "@openmath/ocr";
 import type { Rect } from "@openmath/ocr";
 import { HistoryPanel } from "./components/HistoryPanel.js";
 import { Icon } from "./components/Icon.js";
@@ -47,7 +47,8 @@ export function App() {
     // to give, on the input people reach for when the camera misreads.
     // Normalising is idempotent, so the scan path passing through twice is
     // harmless.
-    const trimmed = normalizeLatex(latex).trim();
+    const report = normalizeWithReport(latex);
+    const trimmed = report.latex.trim();
     if (!trimmed) return;
 
     const scope = detectOutOfScope(trimmed);
@@ -62,7 +63,9 @@ export function App() {
       return;
     }
 
-    const result = trySolve(trimmed);
+    // "Solve for y" names the variable; without it a two-variable equation like
+    // y = 6x + 2 is answered for x, which is a different question.
+    const result = trySolve(trimmed, report.solveFor);
     if (!result.ok) {
       setOutcome({
         id: nextId(),
@@ -94,6 +97,10 @@ export function App() {
     async (source: HTMLCanvasElement | Blob, crop?: Rect) => {
       const result = await recognize(source, crop);
       if (!result) return;
+      // Normalised once, here, for the draft the editor shows. The raw result
+      // is what goes to the solver: normalising strips an instruction like
+      // "solve for y", and doing it twice would drop the variable before the
+      // solver ever saw it.
       const latex = normalizeLatex(result.latex);
       setDraft(latex);
       // Nothing usable came back: open the editor rather than an error card, so
@@ -102,7 +109,7 @@ export function App() {
         setMode("input");
         return;
       }
-      solveLatex(latex, result.raw);
+      solveLatex(result.latex, result.raw);
     },
     [recognize, solveLatex],
   );
