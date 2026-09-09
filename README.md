@@ -119,7 +119,7 @@ Requires Node 22 and pnpm 10.
 Static files, so any host works. Vercel is configured in `vercel.json`:
 
 ```bash
-pnpm --filter @openmath/web build   # outputs ./dist
+pnpm --filter @openmath/web build   # outputs apps/web/dist
 ```
 
 First load is about 136 kB gzipped. The recognition model is a separate
