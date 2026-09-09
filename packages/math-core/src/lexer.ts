@@ -10,6 +10,7 @@ export type TokenKind =
   | "lbracket"
   | "rbracket"
   | "bar"
+  | "comma"
   | "eof";
 
 export interface Token {
@@ -121,6 +122,9 @@ export function lex(input: string): Token[] {
       case "[": push("lbracket", "[", i); i++; continue;
       case "]": push("rbracket", "]", i); i++; continue;
       case "|": push("bar", "|", i); i++; continue;
+      // Separates the arguments of a multi-argument function, which so far is
+      // only taylor and maclaurin.
+      case ",": push("comma", ",", i); i++; continue;
       case "+": case "-": case "*": case "/": case "^": case "_": case "=":
       case "<": case ">":
       // Lagrange's prime, as in f'(x). The OCR normalizer already folds the

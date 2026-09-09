@@ -250,6 +250,9 @@ function joinSpacedNames(s: string, notes: string[]): string {
 const FUNCTION_NAMES = [
   "arcsin", "arccos", "arctan", "sinh", "cosh", "tanh",
   "sin", "cos", "tan", "sec", "csc", "cot", "log", "ln", "exp",
+  // Named operations rather than functions, but they reach the parser the
+  // same way and a student types them without the backslash just the same.
+  "maclaurin", "taylor",
 ];
 
 function restoreFunctionNames(s: string, notes: string[]): string {

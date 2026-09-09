@@ -18,6 +18,7 @@ import {
 } from "./inequality.js";
 import { solveLimit } from "./limit.js";
 import { connectSeriesToSolver, solveSeries } from "./series.js";
+import { solveTaylor } from "./taylor.js";
 import { normalize } from "./normalize.js";
 import { chooseVariable } from "./rules/equation.js";
 import {
@@ -111,6 +112,12 @@ export function isFactoringProblem(n: MathNode): boolean {
 
 /** Decide what kind of problem this is before trying to solve it. */
 export function classify(node: MathNode): Classification {
+  // A Taylor expansion is asked for by name, so it is unambiguous and comes
+  // first.
+  if (node.type === "fn" && node.name === "taylor") {
+    const v = node.args[1];
+    return { kind: "series", ...(v && v.type === "sym" ? { variable: v.name } : {}) };
+  }
   // A summation anywhere makes this a series problem, checked first because a
   // convergence test may put a limit or an integral inside one.
   if (containsSummation(node)) {
@@ -870,7 +877,8 @@ export function solveNode(node: MathNode): Solution {
     );
   }
   const solution =
-    c.kind === "series" ? solveSeries(node)
+    c.kind === "series"
+      ? (node.type === "fn" && node.name === "taylor" ? solveTaylor(node) : solveSeries(node))
     : c.kind === "limit" ? solveLimit(node)
     : c.kind === "solve" ? solveEquation(node)
     : c.kind === "differentiate" ? differentiate(node)

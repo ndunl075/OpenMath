@@ -37,6 +37,12 @@ const ANSWERS: Array<[string, string]> = [
   ["\\sum _ { n = 1 } ^ { 1 0 } n", "55"],
   ["\\sum _ { n = 1 } ^ { \\infty } \\frac { 1 } { 2 ^ { n } }", "1"],
   ["5 !", "120"],
+  // Named operations: a student types the word without a backslash, and a
+  // scan of a worked solution shows it the same way.
+  ["maclaurin(e^{x}, 4)",
+    "1 + x + \\frac{1}{2} x^{2} + \\frac{1}{6} x^{3} + \\frac{1}{24} x^{4}"],
+  ["taylor(x^{2}, 1, 2)",
+    "1 + 2 \\left(x - 1\\right) + \\left(x - 1\\right)^{2}"],
 ];
 
 describe("scans that used to give confidently wrong answers", () => {

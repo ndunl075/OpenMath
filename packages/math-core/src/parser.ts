@@ -363,6 +363,10 @@ class Parser {
 
     if (name === "sum") return this.parseSummation(tk);
 
+    if (name === "taylor" || name === "maclaurin") {
+      return this.parseTaylor(tk, name === "maclaurin");
+    }
+
     if (FUNCTIONS.has(name)) {
       let base: MathNode | null = null;
       if (this.at("op", "_")) {
@@ -525,6 +529,50 @@ class Parser {
     const to = this.parseGroup();
 
     return summation(this.parseLimitBody(), sym(index), from, to);
+  }
+
+  /**
+   * `taylor(f, a, n)` and `maclaurin(f, n)`.
+   *
+   * A named operation rather than a piece of notation, because there is no
+   * notation for it: "find the Maclaurin series of f" is a sentence, and this
+   * is the shortest thing a student can type that means the same. The OCR
+   * normalizer restores the backslash, so a scan that reads the word gets
+   * here too.
+   *
+   * The order defaults to 4, which is what a question asks for when it does
+   * not say — enough terms to show the pattern.
+   */
+  private parseTaylor(tk: Token, maclaurin: boolean): MathNode {
+    const args = this.parseArgumentList(tk);
+    const body = args[0];
+    if (!body) throw new ParseError(`${tk.value} needs a function to expand`, tk.pos);
+
+    const centre = maclaurin ? num(Rational.ZERO) : args[1] ?? num(Rational.ZERO);
+    const orderArg = maclaurin ? args[1] : args[2];
+    const order = orderArg ?? num(Rational.of(4));
+
+    const free = [...symbols(body)].filter((s) => !isConstantSymbol(s));
+    const variable = free.length === 1 && free[0]
+      ? free[0]
+      : DEFAULT_DERIVATIVE_VARIABLE;
+    return fn("taylor", [body, sym(variable), centre, order]);
+  }
+
+  /** `(a, b, c)` — the arguments of a multi-argument function. */
+  private parseArgumentList(tk: Token): MathNode[] {
+    if (!this.at("lparen") && !this.at("lbrace")) {
+      throw new ParseError(`${tk.value} needs its arguments in brackets`, tk.pos);
+    }
+    const closing = this.at("lparen") ? "rparen" : "rbrace";
+    this.next();
+    const args: MathNode[] = [];
+    if (!this.at(closing)) {
+      args.push(this.parseExpr());
+      while (this.eat("comma")) args.push(this.parseExpr());
+    }
+    this.expect(closing);
+    return args;
   }
 
   private parseLimit(tk: Token): MathNode {

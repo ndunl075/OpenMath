@@ -734,5 +734,21 @@
   "SERIES_KNOWN": {
     "title": "This is a series you know",
     "text": "These terms are the Maclaurin series of {sum}, so wherever the series converges that is exactly what it adds up to."
+  },
+  "TAYLOR_SETUP": {
+    "title": "Write down the Taylor formula",
+    "text": "Every term is a derivative of {f} at {centre}, divided by that many factorials, times {variable} minus {centre} to the matching power. So the work is a column of derivatives, each one read off at {centre}."
+  },
+  "TAYLOR_TERM_FIRST": {
+    "title": "The function itself at the centre",
+    "text": "Before any differentiating, {f} at {centre} is {value}. That is the constant the series starts from."
+  },
+  "TAYLOR_TERM": {
+    "title": "Derivative {order}, read off at the centre",
+    "text": "Differentiating {order} times gives {derivative}, and at {centre} that is {value}. Divided by {factorial} it becomes the coefficient of the power {order} term."
+  },
+  "TAYLOR_ASSEMBLE": {
+    "title": "Put the terms together",
+    "text": "Each coefficient sits on its own power of {variable}, and the terms whose derivative vanished at the centre drop out."
   }
 }

@@ -14,6 +14,7 @@ const TOPICS: Record<string, string[]> = {
   "series tests": ["\\sum_{n=1}^{\\infty} \\frac{1}{n}", "\\sum_{n=1}^{\\infty} \\frac{1}{n^{2}}", "\\sum_{n=1}^{\\infty} \\frac{1}{n!}", "\\sum_{n=1}^{\\infty} \\frac{n!}{2^{n}}", "\\sum_{n=1}^{\\infty} \\frac{(-1)^{n}}{n}", "\\sum_{n=1}^{\\infty} \\frac{2n}{n^{3}+1}", "\\sum_{n=2}^{\\infty} \\frac{1}{n\\ln(n)}", "\\sum_{n=1}^{\\infty} \\frac{n}{n+1}"],
   "geometric series": ["\\sum_{n=1}^{\\infty} \\frac{1}{2^{n}}", "\\sum_{n=0}^{\\infty} \\left(\\frac{2}{3}\\right)^{n}", "\\sum_{n=1}^{\\infty} 2^{n}"],
   "power series": ["\\sum_{n=0}^{\\infty} x^{n}", "\\sum_{n=1}^{\\infty} \\frac{x^{n}}{n}", "\\sum_{n=1}^{\\infty} \\frac{x^{n}}{n 3^{n}}", "\\sum_{n=0}^{\\infty} n! x^{n}", "\\sum_{n=1}^{\\infty} \\frac{(x-3)^{n}}{n}"],
+  "taylor generation": ["\\maclaurin(e^{x}, 4)", "\\maclaurin(\\sin(x), 5)", "\\maclaurin(\\ln(1+x), 4)", "\\maclaurin(\\sqrt{1+x}, 3)", "\\taylor(e^{x}, 1, 3)", "\\taylor(x^{3}+2x, 1, 3)"],
   "maclaurin": ["\\sum_{n=0}^{\\infty} \\frac{x^{n}}{n!}", "\\sum_{n=0}^{\\infty} \\frac{(-1)^{n} x^{2n+1}}{(2n+1)!}", "\\sum_{n=0}^{\\infty} \\frac{(-1)^{n} x^{2n}}{(2n)!}"],
 };
 

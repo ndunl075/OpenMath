@@ -171,6 +171,14 @@ class Serializer {
             return `\\lim_{${this.render(n.args[1]!)} \\to ${this.render(l.point)}${marker}}\\left(${this.render(l.body)}\\right)`;
           }
         }
+        if (n.name === "taylor" && n.args.length === 4) {
+          const [f, v, centre, order] = n.args as [MathNode, MathNode, MathNode, MathNode];
+          const at = this.render(centre);
+          return at === "0"
+            ? `\\maclaurin\\left(${this.render(f)}, ${this.render(order)}\\right)`
+            : `\\taylor\\left(${this.render(f)}, ${at}, ${this.render(order)}\\right)`;
+          void v;
+        }
         if (n.name === "factorial" && a0) {
           // Bracketed unless the operand is a single symbol or number, so
           // (n+1)! does not come back as n+1!.
