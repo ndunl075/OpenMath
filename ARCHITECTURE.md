@@ -237,7 +237,7 @@ Rendering detail: wrap every addressable sub-expression in `\htmlId{p-<path>}{..
 
 ## 7. Hosting and delivery
 
-- **App**: **[revised]** Vercel from `main`, configured in `vercel.json`: build `pnpm --filter @openmath/web build`, output `apps/web/dist`, SPA rewrite, immutable asset caching, and `no-cache` on the service worker so updates actually land. Static output, so Cloudflare Pages or GitHub Pages need no code change.
+- **App**: **[revised]** Vercel from `main`, configured in `vercel.json`: build `pnpm --filter @openmath/web build`, output `dist` at the repository root, SPA rewrite, immutable asset caching, and `no-cache` on the service worker so updates actually land. Static output, so Cloudflare Pages or GitHub Pages need no code change.
 - **Not set**: `Cross-Origin-Embedder-Policy`. It would unlock multi-threaded WASM, but `require-corp` blocks the cross-origin model fetch. Single-threaded inference is the deliberate trade.
 - **Weights**: Hugging Face Hub model repo; transformers.js fetches from it by default. Mirror the ONNX files to GitHub Releases and make the host configurable (`env.remoteHost`) so a provider change is a one-line fix.
 - **PWA**: service worker precaches the app shell; weights cached on first run; manifest for "Add to Home Screen"; works fully offline afterward.
