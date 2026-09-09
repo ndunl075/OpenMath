@@ -237,12 +237,14 @@ Rendering detail: wrap every addressable sub-expression in `\htmlId{p-<path>}{..
 
 ## 7. Hosting and delivery
 
-- **App**: **[revised]** Vercel from `main`, configured in `vercel.json`: build `pnpm --filter @openmath/web build`, output `dist` at the repository root, SPA rewrite, immutable asset caching, and `no-cache` on the service worker so updates actually land. Static output, so Cloudflare Pages or GitHub Pages need no code change.
+- **App**: **[revised]** Vercel from `main`, configured in `vercel.json`: build `pnpm --filter @openmath/web build`, output `apps/web/dist`, SPA rewrite, immutable asset caching, and `no-cache` on the service worker so updates actually land. Static output, so Cloudflare Pages or GitHub Pages need no code change.
 - **Not set**: `Cross-Origin-Embedder-Policy`. It would unlock multi-threaded WASM, but `require-corp` blocks the cross-origin model fetch. Single-threaded inference is the deliberate trade.
 - **Weights**: Hugging Face Hub model repo; transformers.js fetches from it by default. Mirror the ONNX files to GitHub Releases and make the host configurable (`env.remoteHost`) so a provider change is a one-line fix.
 - **PWA**: service worker precaches the app shell; weights cached on first run; manifest for "Add to Home Screen"; works fully offline afterward.
 - **CI**: `.github/workflows/ci.yml` runs typecheck, the full test suite including the corpus, the production build, and the bundle-size budget. Corpus regressions block merge.
 - **No telemetry, no analytics, no error reporting service.** The GitHub issue flow is the feedback channel.
+
+**Two `vercel.json` files, and why — [revised].** Vercel reads only the one sitting at whatever it has been told the project's Root Directory is. Left empty it reads the top-level file; set to `apps/web` it reads `apps/web/vercel.json` and the top-level one is invisible to it. Two deployments failed on that: the first because the output path in the file being read was wrong, the second because the fix moved the build outside the directory Vercel was looking in. Worse than the failures, the SPA rewrite, the immutable asset caching and `Service-Worker-Allowed` lived only in the top-level file, so under a Root Directory of `apps/web` none of them applied — a green deploy would have 404'd every deep link and cached the service worker wrongly, and said nothing. Both files now exist and describe the same site; `scripts/check-bundle-size.mjs` runs after the build in CI and fails if either points somewhere the build does not land, or if the two disagree about routing or headers.
 
 ## 8. Privacy
 
