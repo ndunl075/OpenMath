@@ -249,6 +249,67 @@ export function solveSeries(node: MathNode): Solution {
 // --------------------------------------------------------------- power series
 
 /**
+ * The standard Maclaurin series, recognised by what they add up to.
+ *
+ * Matched numerically rather than by pattern: a series is this one exactly
+ * when it sums to this function, and comparing values at several points
+ * settles that without needing a case for every way the terms might be
+ * written. It is also self-verifying — a match *is* the check.
+ *
+ * The other direction, being handed e^x and asked for its series, has no
+ * notation to ask it in. A photograph carries mathematics, not the sentence
+ * "find the Maclaurin series of", and the keypad has no way to say it either.
+ * That limitation is the input model rather than the engine, and it is
+ * written down in ARCHITECTURE section 5.1 rather than papered over.
+ */
+const KNOWN_SERIES: string[] = [
+  "e^{x}",
+  "\\frac{1}{1 - x}",
+  "-\\ln\\left(1 - x\\right)",
+  "\\ln\\left(1 + x\\right)",
+  "\\sin\\left(x\\right)",
+  "\\cos\\left(x\\right)",
+  "\\arctan\\left(x\\right)",
+  "\\frac{1}{1 + x}",
+  "x e^{x}",
+];
+
+/** Points comfortably inside every radius above. */
+const RECOGNITION_POINTS = [0.17, -0.23, 0.31, -0.08];
+
+function recognise(node: MathNode, variable: string): string | null {
+  for (const candidate of KNOWN_SERIES) {
+    let parsed: MathNode;
+    try {
+      parsed = parseLatexRef!(candidate);
+    } catch {
+      continue;
+    }
+    // The candidate has to be written in the same letter the series uses.
+    const inVariable = variable === "x"
+      ? parsed
+      : substitute(parsed, "x", sym(variable));
+
+    let compared = 0;
+    let agrees = true;
+    for (const at of RECOGNITION_POINTS) {
+      const summed = evaluateNumeric(node, { [variable]: at });
+      const closed = evaluateNumeric(inVariable, { [variable]: at });
+      if (!Number.isFinite(summed) || !Number.isFinite(closed)) continue;
+      compared++;
+      if (Math.abs(summed - closed) > 1e-9 * Math.max(1, Math.abs(closed))) {
+        agrees = false;
+        break;
+      }
+    }
+    if (agrees && compared >= 3) {
+      return variable === "x" ? candidate : toLatex(inVariable);
+    }
+  }
+  return null;
+}
+
+/**
  * Where the series is centred: the `a` in (x - a)^n. Zero when the variable
  * appears bare, which is the usual case.
  */
@@ -294,6 +355,12 @@ function powerSeries(
   from: number,
   variable: string,
 ): Solution {
+  // A standard series has a closed form, and that is the better answer — but
+  // it is not the whole answer. "Find the sum" and "find the interval of
+  // convergence" are both asked of the same series, and a textbook gives both:
+  // 1/(1-x) *for |x| < 1*. So the sum leads and the interval follows it.
+  const known = recognise(node, variable);
+
   const centre = centreOf(body, index, variable);
   if (centre === null) {
     throw new UnsupportedProblemError(
@@ -331,10 +398,14 @@ function powerSeries(
     steps.push(displayStep("SERIES_RADIUS_INFINITE", problem, "\\text{all } " + variable, node, {
       variable, index,
     }));
-    const answer = `R = \\infty`;
+    const reach = `The ratio shrinks to zero whatever ${variable} is, so this converges for every ${variable}.`;
+    if (known) {
+      steps.push(displayStep("SERIES_KNOWN", `R = \\infty`, known, node, { variable, sum: known }));
+    }
+    const answer = known ?? `R = \\infty`;
     return {
       kind: "series", problem, answer, answers: [answer], steps, verified: true,
-      note: `The ratio shrinks to zero whatever ${variable} is, so this converges for every ${variable}.`,
+      note: known ? `The Maclaurin series of ${known}. ${reach}` : reach,
     };
   }
   if (growing) {
@@ -370,10 +441,12 @@ function powerSeries(
   const [low, high] = ends as [{ at: number; included: boolean | null }, { at: number; included: boolean | null }];
 
   if (low.included === null || high.included === null) {
-    const answer = `R = ${formatNumber(radius)}`;
+    const answer = known ?? `R = ${formatNumber(radius)}`;
     return {
       kind: "series", problem, answer, answers: [answer], steps, verified: true,
-      note: `The radius is ${formatNumber(radius)}. The endpoints need checking separately and none of the tests here settle them.`,
+      note: known
+        ? `The Maclaurin series of ${known}, with radius ${formatNumber(radius)}.`
+        : `The radius is ${formatNumber(radius)}. The endpoints need checking separately and none of the tests here settle them.`,
     };
   }
 
@@ -390,10 +463,16 @@ function powerSeries(
     },
   ));
 
-  const answer = intervalLatex(low.at, high.at, low.included, high.included);
+  const interval = intervalLatex(low.at, high.at, low.included, high.included);
+  if (known) {
+    steps.push(displayStep("SERIES_KNOWN", interval, known, node, { variable, sum: known }));
+  }
+  const answer = known ?? interval;
   return {
     kind: "series", problem, answer, answers: [answer], steps, verified: true,
-    note: `The radius of convergence is ${formatNumber(radius)}.`,
+    note: known
+      ? `The Maclaurin series of ${known}, on ${interval}.`
+      : `The radius of convergence is ${formatNumber(radius)}.`,
   };
 }
 

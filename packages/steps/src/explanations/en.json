@@ -730,5 +730,9 @@
   "SERIES_ENDPOINTS": {
     "title": "Check the two endpoints",
     "text": "The ratio test says nothing at the ends, so each is put back in and settled on its own: at {lower} the series {lowerVerdict}, and at {upper} it {upperVerdict}."
+  },
+  "SERIES_KNOWN": {
+    "title": "This is a series you know",
+    "text": "These terms are the Maclaurin series of {sum}, so wherever the series converges that is exactly what it adds up to."
   }
 }

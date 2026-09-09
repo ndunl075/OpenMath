@@ -110,10 +110,9 @@ describe("sums with a value", () => {
  */
 describe("power series", () => {
   const CASES: Array<[string, string]> = [
-    ["\\sum_{n=0}^{\\infty} x^{n}", "\\left(-1, 1\\right)"],
-    // Converges at -1 by the alternating test, diverges at 1 as the harmonic.
-    ["\\sum_{n=1}^{\\infty} \\frac{x^{n}}{n}", "\\left[-1, 1\\right)"],
-    // p = 2 at both ends, so both are included.
+    // p = 2 at both ends, so both are included. No closed form, so the
+    // interval is the answer; the ones that do have a closed form are
+    // checked below, where the interval moves into the note.
     ["\\sum_{n=1}^{\\infty} \\frac{x^{n}}{n^{2}}", "\\left[-1, 1\\right]"],
     ["\\sum_{n=0}^{\\infty} \\frac{x^{n}}{2^{n}}", "\\left(-2, 2\\right)"],
     ["\\sum_{n=1}^{\\infty} \\frac{x^{n}}{n 3^{n}}", "\\left[-3, 3\\right)"],
@@ -132,13 +131,63 @@ describe("power series", () => {
   it("converges everywhere when the ratio dies away", () => {
     const r = trySolve("\\sum_{n=0}^{\\infty} \\frac{x^{n}}{n!}");
     expect(r.ok).toBe(true);
-    if (r.ok) expect(r.solution.answer).toContain("\\infty");
+    // It is e^x, and the note carries the reach.
+    if (r.ok) expect(r.solution.note).toContain("every x");
+  });
+
+  it("gives the sum and the interval together", () => {
+    const cases: Array<[string, string, string]> = [
+      ["\\sum_{n=0}^{\\infty} x^{n}", "\\frac{1}{1 - x}", "\\left(-1, 1\\right)"],
+      ["\\sum_{n=1}^{\\infty} \\frac{x^{n}}{n}", "-\\ln\\left(1 - x\\right)", "\\left[-1, 1\\right)"],
+    ];
+    for (const [problem, sum, interval] of cases) {
+      const r = trySolve(problem);
+      expect(r.ok).toBe(true);
+      if (!r.ok) continue;
+      expect(r.solution.answer).toBe(sum);
+      expect(r.solution.note).toContain(interval);
+    }
   });
 
   it("converges only at the centre when the ratio runs away", () => {
     const r = trySolve("\\sum_{n=0}^{\\infty} n! x^{n}");
     expect(r.ok).toBe(true);
     if (r.ok) expect(r.solution.answer).toBe("x = 0");
+  });
+});
+
+/**
+ * The standard Maclaurin series, recognised by what they sum to. Written out
+ * by hand from the ones a Calc 2 course expects to be memorised.
+ */
+describe("series a course expects you to recognise", () => {
+  const CASES: Array<[string, string]> = [
+    ["\\sum_{n=0}^{\\infty} \\frac{x^{n}}{n!}", "e^{x}"],
+    ["\\sum_{n=0}^{\\infty} x^{n}", "\\frac{1}{1 - x}"],
+    ["\\sum_{n=1}^{\\infty} \\frac{x^{n}}{n}", "-\\ln\\left(1 - x\\right)"],
+    ["\\sum_{n=0}^{\\infty} \\frac{(-1)^{n} x^{2n+1}}{(2n+1)!}", "\\sin\\left(x\\right)"],
+    ["\\sum_{n=0}^{\\infty} \\frac{(-1)^{n} x^{2n}}{(2n)!}", "\\cos\\left(x\\right)"],
+    ["\\sum_{n=0}^{\\infty} \\frac{(-1)^{n}x^{2n+1}}{2n+1}", "\\arctan\\left(x\\right)"],
+  ];
+  for (const [problem, sum] of CASES) {
+    it(`${problem} = ${sum}`, () => {
+      const r = trySolve(problem);
+      expect(r.ok, `declined: ${r.ok ? "" : r.message}`).toBe(true);
+      if (r.ok) expect(r.solution.answer).toBe(sum);
+    });
+  }
+
+  it("carries the letter the series was written in", () => {
+    const r = trySolve("\\sum_{n=0}^{\\infty} \\frac{t^{n}}{n!}");
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.solution.answer).toBe("e^{t}");
+  });
+
+  it("falls back to the interval when there is no closed form", () => {
+    // sum x^n/n^2 has no elementary sum, so the interval is the answer.
+    const r = trySolve("\\sum_{n=1}^{\\infty} \\frac{x^{n}}{n^{2}}");
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.solution.answer).toBe("\\left[-1, 1\\right]");
   });
 });
 
