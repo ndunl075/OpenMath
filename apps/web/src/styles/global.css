@@ -29,6 +29,8 @@ button {
 
 button:focus-visible,
 input:focus-visible,
+a:focus-visible,
+label:focus-visible,
 [tabindex]:focus-visible {
   outline: 2px solid var(--accent-500);
   outline-offset: 2px;
@@ -57,10 +59,7 @@ input { font: inherit; color: inherit; }
   scrollbar-width: thin;
 }
 .math-scroll::-webkit-scrollbar { height: 4px; }
-.math-scroll::-webkit-scrollbar-thumb {
-  background: var(--border-strong);
-  border-radius: var(--radius-pill);
-}
+.math-scroll::-webkit-scrollbar-thumb { background: var(--border-strong); }
 
 .katex { font-size: 1.08em; }
 .katex-display { margin: 0; }

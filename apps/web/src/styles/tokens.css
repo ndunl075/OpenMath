@@ -4,36 +4,67 @@
  */
 :root {
   color-scheme: light dark;
+  /*
+   * The result sheet sizes itself to its content, so its two heights are
+   * both `auto`. Without this the drag between them snaps; with it the
+   * height transition runs. Browsers that do not know the property fall
+   * back to the snap, which is what we would have had anyway.
+   */
+  interpolate-size: allow-keywords;
 
-  /* Brand: indigo to violet. Deliberately not a red camera app. */
-  --accent-50: oklch(0.97 0.02 285);
-  --accent-100: oklch(0.93 0.05 285);
-  --accent-300: oklch(0.78 0.13 285);
-  --accent-500: oklch(0.58 0.21 285);
-  --accent-600: oklch(0.52 0.21 288);
-  --accent-700: oklch(0.45 0.19 288);
-  --accent-contrast: oklch(0.99 0 0);
+  /*
+   * Brand: one deep teal. It reads as a study tool rather than a camera app,
+   * and sits well away from every competitor's palette.
+   * Hue 200 throughout; only lightness and chroma move.
+   */
+  --accent-50: oklch(0.96 0.02 200);
+  --accent-100: oklch(0.92 0.05 200);
+  --accent-300: oklch(0.75 0.1 200);
+  --accent-500: oklch(0.55 0.095 200);
+  --accent-600: oklch(0.48 0.085 200);
+  --accent-700: oklch(0.4 0.08 200);
+  --accent-contrast: oklch(1 0 0);
 
-  --surface: oklch(0.99 0.002 285);
+  /* Neutrals: cool graphite with barely-there chroma. */
+  --surface: oklch(0.985 0.003 230);
   --surface-raised: oklch(1 0 0);
-  --surface-sunken: oklch(0.96 0.004 285);
-  --surface-inverse: oklch(0.18 0.02 285);
-  --scrim: oklch(0.18 0.02 285 / 0.55);
+  --surface-sunken: oklch(0.95 0.006 230);
+  --surface-inverse: oklch(0.2 0.014 230);
+  --scrim: oklch(0.15 0.012 230 / 0.6);
 
-  --text: oklch(0.24 0.02 285);
-  --text-muted: oklch(0.52 0.02 285);
-  --text-faint: oklch(0.66 0.015 285);
+  --text: oklch(0.22 0.015 230);
+  --text-muted: oklch(0.48 0.015 230);
+  --text-faint: oklch(0.56 0.012 230);
   --text-inverse: oklch(0.99 0 0);
 
-  --border: oklch(0.9 0.006 285);
-  --border-strong: oklch(0.82 0.01 285);
+  --border: oklch(0.89 0.008 230);
+  --border-strong: oklch(0.8 0.01 230);
 
-  --ok: oklch(0.62 0.15 155);
+  /* Keyboard keys: a raised key on a sunken tray. */
+  --key: oklch(1 0 0);
+  --key-op: oklch(0.91 0.008 230);
+  --key-edge: oklch(0.8 0.01 230);
+
+  /*
+   * The camera stage is dark in both schemes, like every camera. These do not
+   * change under prefers-color-scheme.
+   */
+  --stage: oklch(0.15 0.01 230);
+  --stage-bar: oklch(0.1 0.008 230);
+  --stage-line: oklch(1 0 0 / 0.07);
+  --stage-control: oklch(1 0 0 / 0.12);
+  --stage-control-hover: oklch(1 0 0 / 0.2);
+  --stage-accent: oklch(0.78 0.11 200);
+  --on-stage: oklch(0.98 0 0);
+  --on-stage-muted: oklch(0.78 0.008 230);
+  --on-stage-accent: oklch(0.15 0.01 230);
+
+  --ok: oklch(0.55 0.15 150);
   --warn: oklch(0.72 0.16 75);
-  --danger: oklch(0.58 0.2 25);
+  --danger: oklch(0.55 0.2 25);
 
-  --highlight: oklch(0.58 0.21 285 / 0.24);
-  --highlight-strong: oklch(0.58 0.21 285 / 0.4);
+  --highlight: oklch(0.55 0.095 200 / 0.26);
+  --highlight-strong: oklch(0.55 0.095 200 / 0.42);
 
   /* Spacing: a 4px rhythm. */
   --s-1: 4px;
@@ -46,15 +77,16 @@
   --s-10: 40px;
   --s-12: 48px;
 
-  --radius-sm: 8px;
-  --radius-md: 14px;
-  --radius-lg: 22px;
-  --radius-xl: 30px;
-  --radius-pill: 999px;
+  /* Radii: squared-off. Nothing in the app is a capsule. */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 18px;
 
-  --shadow-sheet: 0 -12px 40px oklch(0.2 0.02 285 / 0.18);
-  --shadow-card: 0 1px 2px oklch(0.2 0.02 285 / 0.06), 0 4px 14px oklch(0.2 0.02 285 / 0.05);
-  --shadow-float: 0 6px 24px oklch(0.2 0.02 285 / 0.22);
+  --shadow-sheet: 0 -8px 32px oklch(0.15 0.012 230 / 0.2);
+  --shadow-card: 0 1px 2px oklch(0.15 0.012 230 / 0.06);
+  --shadow-float: 0 6px 24px oklch(0.15 0.012 230 / 0.22);
 
   /* Motion tokens mirror packages/step-motion so the whole app moves as one. */
   --duration-fast: 150ms;
@@ -65,38 +97,43 @@
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
 
   --font-ui: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   --tap-target: 44px;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --accent-50: oklch(0.26 0.05 285);
-    --accent-100: oklch(0.32 0.08 285);
-    --accent-300: oklch(0.6 0.16 285);
-    --accent-500: oklch(0.68 0.17 285);
-    --accent-600: oklch(0.74 0.15 288);
-    --accent-700: oklch(0.8 0.12 288);
-    --accent-contrast: oklch(0.16 0.02 285);
+    --accent-50: oklch(0.27 0.04 200);
+    --accent-100: oklch(0.33 0.06 200);
+    --accent-300: oklch(0.62 0.1 200);
+    --accent-500: oklch(0.8 0.11 200);
+    --accent-600: oklch(0.84 0.1 200);
+    --accent-700: oklch(0.88 0.08 200);
+    --accent-contrast: oklch(0.16 0.012 230);
 
-    --surface: oklch(0.17 0.015 285);
-    --surface-raised: oklch(0.22 0.018 285);
-    --surface-sunken: oklch(0.13 0.012 285);
+    --surface: oklch(0.19 0.012 230);
+    --surface-raised: oklch(0.24 0.014 230);
+    --surface-sunken: oklch(0.15 0.01 230);
     --surface-inverse: oklch(0.97 0 0);
-    --scrim: oklch(0.08 0.01 285 / 0.65);
+    --scrim: oklch(0.08 0.008 230 / 0.65);
 
-    --text: oklch(0.95 0.005 285);
-    --text-muted: oklch(0.74 0.01 285);
-    --text-faint: oklch(0.6 0.01 285);
-    --text-inverse: oklch(0.16 0.02 285);
+    --text: oklch(0.95 0.005 230);
+    --text-muted: oklch(0.74 0.01 230);
+    --text-faint: oklch(0.64 0.01 230);
+    --text-inverse: oklch(0.16 0.012 230);
 
-    --border: oklch(0.3 0.014 285);
-    --border-strong: oklch(0.4 0.018 285);
+    --border: oklch(0.31 0.014 230);
+    --border-strong: oklch(0.42 0.016 230);
 
-    --highlight: oklch(0.68 0.17 285 / 0.3);
-    --highlight-strong: oklch(0.68 0.17 285 / 0.45);
+    --key: oklch(0.31 0.014 230);
+    --key-op: oklch(0.26 0.014 230);
+    --key-edge: oklch(0.12 0.01 230);
 
-    --shadow-sheet: 0 -12px 40px oklch(0 0 0 / 0.5);
-    --shadow-card: 0 1px 2px oklch(0 0 0 / 0.3), 0 4px 14px oklch(0 0 0 / 0.25);
+    --highlight: oklch(0.8 0.11 200 / 0.3);
+    --highlight-strong: oklch(0.8 0.11 200 / 0.45);
+
+    --shadow-sheet: 0 -8px 32px oklch(0 0 0 / 0.5);
+    --shadow-card: 0 1px 2px oklch(0 0 0 / 0.3);
     --shadow-float: 0 6px 24px oklch(0 0 0 / 0.5);
   }
 }

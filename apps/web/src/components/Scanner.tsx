@@ -24,6 +24,7 @@ interface Frame {
 
 const INITIAL_FRAME: Frame = { x: 0.08, y: 0.36, width: 0.84, height: 0.2 };
 const MIN_SIZE = 0.08;
+const CORNERS = ["nw", "ne", "sw", "se"] as const;
 
 type DragMode = "move" | "nw" | "ne" | "sw" | "se" | null;
 
@@ -179,10 +180,13 @@ export function Scanner({
               role="application"
               aria-label="Viewfinder. Drag to move, drag a corner to resize."
             >
-              {(["nw", "ne", "sw", "se"] as const).map((corner) => (
+              {state.status === "ready" && !busy ? (
+                <p class="viewfinder__hint" aria-hidden="true">Fit one problem inside the frame</p>
+              ) : null}
+              {CORNERS.map((corner) => (
                 <span
                   key={corner}
-                  class={`viewfinder__handle viewfinder__handle--${corner}`}
+                  class={`bracket bracket--${corner}`}
                   onPointerDown={onPointerDown(corner)}
                   onPointerMove={onPointerMove}
                   onPointerUp={endDrag}
@@ -194,31 +198,44 @@ export function Scanner({
           </>
         ) : (
           <div class="scanner__fallback">
-            {state.status === "denied" ? (
-              <>
-                <Icon name="camera" size={34} />
-                <h2>Camera access is off</h2>
-                <p>
-                  Allow camera access in your browser settings to scan, or type the problem
-                  in instead. Nothing you scan ever leaves this device.
-                </p>
-              </>
-            ) : state.status === "unavailable" ? (
-              <>
-                <Icon name="camera" size={34} />
-                <h2>No camera here</h2>
-                <p>{state.reason}</p>
-              </>
-            ) : (
-              <>
-                <Icon name="camera" size={34} />
-                <h2>Starting the camera</h2>
-              </>
-            )}
-            <button type="button" class="button button--primary" onClick={onTypeIn}>
-              <Icon name="keyboard" size={18} />
-              Type it in
-            </button>
+            <div class="scanner__frame">
+              {CORNERS.map((corner) => (
+                <span key={corner} class={`bracket bracket--${corner}`} aria-hidden="true" />
+              ))}
+              <span class="scanner__frame-icon" aria-hidden="true">
+                <Icon name="camera" size={28} />
+              </span>
+              {state.status === "denied" ? (
+                <>
+                  <h2>Camera access is off</h2>
+                  <p>
+                    Allow camera access in your browser settings to scan, or type the problem
+                    in instead. Nothing you scan ever leaves this device.
+                  </p>
+                </>
+              ) : state.status === "unavailable" ? (
+                <>
+                  <h2>No camera here</h2>
+                  <p>{state.reason}</p>
+                </>
+              ) : (
+                <>
+                  <h2>Starting the camera</h2>
+                  <p>Point it at one problem and it will be framed here.</p>
+                </>
+              )}
+              <div class="scanner__frame-actions">
+                <button type="button" class="button button--primary button--block button--tall" onClick={onTypeIn}>
+                  <Icon name="keyboard" size={20} />
+                  Type it in
+                </button>
+                <label class="button button--stage button--block">
+                  <Icon name="image" size={20} />
+                  Choose a photo
+                  <input type="file" accept="image/*" class="visually-hidden" onChange={onPickFile} />
+                </label>
+              </div>
+            </div>
           </div>
         )}
 
@@ -271,9 +288,12 @@ export function Scanner({
       </div>
 
       <footer class="scanner__controls">
-        <label class="icon-button icon-button--large" aria-label="Choose a photo">
-          <Icon name="image" size={24} />
-          <input type="file" accept="image/*" hidden onChange={onPickFile} />
+        <label class="scanner__control" aria-label="Choose a photo">
+          <span class="icon-button icon-button--large">
+            <Icon name="image" size={24} />
+          </span>
+          <span aria-hidden="true">Photo</span>
+          <input type="file" accept="image/*" class="visually-hidden" onChange={onPickFile} />
         </label>
 
         <button
@@ -288,11 +308,14 @@ export function Scanner({
 
         <button
           type="button"
-          class="icon-button icon-button--large"
+          class="scanner__control"
           onClick={onTypeIn}
           aria-label="Type the problem in"
         >
-          <Icon name="keyboard" size={24} />
+          <span class="icon-button icon-button--large">
+            <Icon name="keyboard" size={24} />
+          </span>
+          <span aria-hidden="true">Type</span>
         </button>
       </footer>
     </div>

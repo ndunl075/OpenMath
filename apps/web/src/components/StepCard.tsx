@@ -14,12 +14,15 @@ export interface StepCardProps {
   register?: (index: number, play: () => Promise<void>) => void;
 }
 
+/** The same teal as `--highlight` in tokens.css, for when the stylesheet is not there. */
+const FALLBACK_HIGHLIGHT = "rgba(0, 131, 136, 0.26)";
+
 function highlightColor(): string {
-  if (typeof window === "undefined") return "rgba(99, 102, 241, 0.28)";
+  if (typeof window === "undefined") return FALLBACK_HIGHLIGHT;
   const value = getComputedStyle(document.documentElement)
     .getPropertyValue("--highlight")
     .trim();
-  return value || "rgba(99, 102, 241, 0.28)";
+  return value || FALLBACK_HIGHLIGHT;
 }
 
 export function StepCard({
@@ -79,7 +82,7 @@ export function StepCard({
   }, [index, play, register]);
 
   return (
-    <li class="step-card">
+    <li class={`step-card${playing ? " is-playing" : ""}`}>
       <div class="step-card__head">
         <span class="step-card__number" aria-hidden="true">
           {index + 1}

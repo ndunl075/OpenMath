@@ -39,6 +39,12 @@ const PATHS: Record<string, JSX.Element> = {
     </>
   ),
   close: <path d="m5 5 14 14M19 5 5 19" />,
+  backspace: (
+    <>
+      <path d="M8.5 5H19a1.5 1.5 0 0 1 1.5 1.5v11A1.5 1.5 0 0 1 19 19H8.5L3 12z" />
+      <path d="m11.5 9.5 5 5M16.5 9.5l-5 5" />
+    </>
+  ),
   chevronDown: <path d="m6 9.5 6 6 6-6" />,
   chevronUp: <path d="m6 14.5 6-6 6 6" />,
   chevronRight: <path d="m9.5 6 6 6-6 6" />,

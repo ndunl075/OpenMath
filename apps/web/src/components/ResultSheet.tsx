@@ -69,33 +69,37 @@ export function ResultSheet({
     }
   };
 
-  return (
-    <div class={`sheet sheet--${height}`} style={{ transform: `translateY(${dragOffset}px)` }}>
-      <div
-        class="sheet__grip"
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
-        onPointerCancel={onPointerUp}
-        role="separator"
-        aria-label="Drag to resize, or drag down to dismiss"
-      >
-        <span />
-      </div>
+  const sheetClass = `sheet sheet--${height}${showSteps ? " sheet--steps" : ""}`;
 
-      <div class="sheet__body">
+  return (
+    <div class={sheetClass} style={{ transform: `translateY(${dragOffset}px)` }}>
+      <div class="sheet__head">
+        <div
+          class="sheet__grip"
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+          onPointerCancel={onPointerUp}
+          role="separator"
+          aria-label="Drag to resize, or drag down to dismiss"
+        >
+          <span />
+        </div>
+
         <div class="sheet__problem">
           <div class="sheet__problem-math">
             <MathView latex={outcome.latex} label={`Problem: ${outcome.latex}`} />
           </div>
           <button type="button" class="icon-button icon-button--subtle" onClick={onEdit} aria-label="Edit the problem">
-            <Icon name="pencil" size={18} />
+            <Icon name="pencil" size={20} />
           </button>
           <button type="button" class="icon-button icon-button--subtle" onClick={onDismiss} aria-label="Close">
-            <Icon name="close" size={18} />
+            <Icon name="close" size={20} />
           </button>
         </div>
+      </div>
 
+      <div class="sheet__body">
         {outcome.error ? (
           <div class="result result--error">
             <h2>
@@ -136,42 +140,46 @@ export function ResultSheet({
           </div>
         ) : solution ? (
           <div class="result">
-            <p class="result__label">
-              {solution.intervals
-                ? solution.intervals.length > 1 ? "Solution set" : "Solution"
-                : solution.answers.length > 1 ? "Solutions" : "Answer"}
-            </p>
-            {/* Two roots stack rather than running off the edge of a phone. A
-                range stays on one line: its halves are one statement, not two
-                separate answers. */}
-            {solution.answers.length > 1 && !solution.intervals ? (
-              <ul class="result__answers">
-                {solution.answers.map((answer) => (
-                  <li key={answer}>
-                    <MathView latex={answer} display label={`Solution: ${answer}`} />
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <div class="result__answer">
-                <MathView latex={solution.answer} display label={`Answer: ${solution.answer}`} />
-              </div>
-            )}
-            {solution.note ? <p class="result__note">{solution.note}</p> : null}
-
-            {!solution.verified ? (
-              <p class="result__unverified">
-                <Icon name="alert" size={16} />
-                Some steps could not be checked, so they are hidden. The answer above is
-                still shown, but treat it with care and please report this.
+            <div class="result__answer-block">
+              <p class="result__label">
+                {solution.intervals
+                  ? solution.intervals.length > 1 ? "Solution set" : "Solution"
+                  : solution.answers.length > 1 ? "Solutions" : "Answer"}
               </p>
-            ) : null}
+              {/* Two roots stack rather than running off the edge of a phone. A
+                  range stays on one line: its halves are one statement, not two
+                  separate answers. */}
+              {solution.answers.length > 1 && !solution.intervals ? (
+                <ul class="result__answers">
+                  {solution.answers.map((answer) => (
+                    <li key={answer}>
+                      <MathView latex={answer} display label={`Solution: ${answer}`} />
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <div class="result__answer">
+                  <MathView latex={solution.answer} display label={`Answer: ${solution.answer}`} />
+                </div>
+              )}
+              {solution.note ? <p class="result__note">{solution.note}</p> : null}
+
+              {!solution.verified ? (
+                <p class="result__unverified">
+                  <Icon name="alert" size={16} />
+                  Some steps could not be checked, so they are hidden. The answer above is
+                  still shown, but treat it with care and please report this.
+                </p>
+              ) : null}
+            </div>
 
             {stepsAvailable && !showSteps ? (
-              <button type="button" class="button button--primary button--block" onClick={openSteps}>
-                Show solving steps
-                <Icon name="chevronUp" size={18} />
-              </button>
+              <div class="result__cta">
+                <button type="button" class="button button--primary button--block button--tall" onClick={openSteps}>
+                  Show solving steps
+                  <Icon name="chevronUp" size={18} />
+                </button>
+              </div>
             ) : null}
 
             {showSteps && solution ? (
@@ -201,7 +209,9 @@ export function ResultSheet({
           </div>
         ) : (
           <div class="result">
-            <p class="result__label">Working it out…</p>
+            <div class="result__answer-block">
+              <p class="result__label">Working it out…</p>
+            </div>
           </div>
         )}
       </div>
