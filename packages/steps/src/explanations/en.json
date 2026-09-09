@@ -710,5 +710,25 @@
   "EVALUATE_FACTORIAL": {
     "title": "Work out the factorial",
     "text": "{value} factorial is every whole number from 1 up to {value} multiplied together, which comes to {result}."
+  },
+  "INT_FACTOR_ROOT": {
+    "title": "Take the constant out of the root",
+    "text": "Pulling {scale} out of {root} leaves the square term with a coefficient of one, which is the shape a trigonometric substitution needs."
+  },
+  "SERIES_RADIUS": {
+    "title": "Find the radius with the ratio test",
+    "text": "The ratio of one term to the next settles at |{variable} minus {centre}| over {radius}, and the series converges while that is below 1. So it converges within {radius} of {centre}."
+  },
+  "SERIES_RADIUS_INFINITE": {
+    "title": "It converges everywhere",
+    "text": "The ratio of one term to the next shrinks to zero whatever {variable} is, so there is no value of {variable} that breaks it."
+  },
+  "SERIES_RADIUS_ZERO": {
+    "title": "It converges only at the centre",
+    "text": "The ratio runs away for any {variable} off the centre, so the only value that works is the centre itself."
+  },
+  "SERIES_ENDPOINTS": {
+    "title": "Check the two endpoints",
+    "text": "The ratio test says nothing at the ends, so each is put back in and settled on its own: at {lower} the series {lowerVerdict}, and at {upper} it {upperVerdict}."
   }
 }

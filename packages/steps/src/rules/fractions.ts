@@ -153,8 +153,14 @@ function factorize(n: MathNode): { coeff: Rational; factors: Factor[] } | null {
   const factors: Factor[] = [];
   for (const r of rest) {
     if (r.type === "pow") {
-      if (r.exp.type !== "num" || !r.exp.value.isInteger()) return null;
-      factors.push({ base: r.base, exp: r.exp.value });
+      if (r.exp.type === "num" && r.exp.value.isInteger()) {
+        factors.push({ base: r.base, exp: r.exp.value });
+      } else {
+        // A symbolic exponent has no number to subtract, but two of them that
+        // match still cancel. Kept whole and keyed on the entire power, so
+        // 3^n over 3^n comes to 1 instead of giving up on the fraction.
+        factors.push({ base: r, exp: Rational.ONE });
+      }
     } else {
       factors.push({ base: r, exp: Rational.ONE });
     }

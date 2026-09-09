@@ -104,10 +104,47 @@ describe("sums with a value", () => {
   }
 });
 
+/**
+ * A power series: one letter besides the index, so the question is where it
+ * converges rather than what it adds up to. Intervals written by hand.
+ */
+describe("power series", () => {
+  const CASES: Array<[string, string]> = [
+    ["\\sum_{n=0}^{\\infty} x^{n}", "\\left(-1, 1\\right)"],
+    // Converges at -1 by the alternating test, diverges at 1 as the harmonic.
+    ["\\sum_{n=1}^{\\infty} \\frac{x^{n}}{n}", "\\left[-1, 1\\right)"],
+    // p = 2 at both ends, so both are included.
+    ["\\sum_{n=1}^{\\infty} \\frac{x^{n}}{n^{2}}", "\\left[-1, 1\\right]"],
+    ["\\sum_{n=0}^{\\infty} \\frac{x^{n}}{2^{n}}", "\\left(-2, 2\\right)"],
+    ["\\sum_{n=1}^{\\infty} \\frac{x^{n}}{n 3^{n}}", "\\left[-3, 3\\right)"],
+    // Centred at 3 rather than 0.
+    ["\\sum_{n=1}^{\\infty} \\frac{(x-3)^{n}}{n}", "\\left[2, 4\\right)"],
+  ];
+  for (const [problem, interval] of CASES) {
+    it(problem, () => {
+      const r = trySolve(problem);
+      expect(r.ok, `declined: ${r.ok ? "" : r.message}`).toBe(true);
+      if (!r.ok) return;
+      expect(r.solution.answer).toBe(interval);
+    });
+  }
+
+  it("converges everywhere when the ratio dies away", () => {
+    const r = trySolve("\\sum_{n=0}^{\\infty} \\frac{x^{n}}{n!}");
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.solution.answer).toContain("\\infty");
+  });
+
+  it("converges only at the centre when the ratio runs away", () => {
+    const r = trySolve("\\sum_{n=0}^{\\infty} n! x^{n}");
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.solution.answer).toBe("x = 0");
+  });
+});
+
 describe("what it will not guess at", () => {
-  it("refuses a sum still carrying another letter", () => {
-    const r = trySolve("\\sum_{n=1}^{\\infty} \\frac{x^{n}}{n}");
+  it("refuses a sum carrying two unknowns", () => {
+    const r = trySolve("\\sum_{n=1}^{\\infty} \\frac{x^{n} y}{n}");
     expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.message).toContain("x");
   });
 });

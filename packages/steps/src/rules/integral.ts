@@ -1036,6 +1036,59 @@ function asRationalFunction(body: MathNode, v: string): { top: Poly; bottom: Pol
 }
 
 /** ∫(x^2/(x+1)) dx -> ∫(x - 1 + 1/(x+1)) dx: divide before decomposing. */
+/**
+ * sqrt(4x^2 + 1) -> 2 sqrt(x^2 + 1/4), so trig substitution can take it.
+ *
+ * The substitution rules want the square term to carry a coefficient of one,
+ * and arc length produces the other kind constantly: the length of a parabola
+ * is an integral of sqrt(1 + 4x^2). Pulling the constant out front is the step
+ * a student writes anyway, and it only fires when the constant comes out
+ * rational, so nothing irrational is invented on the way.
+ */
+export const intFactorRoot = integralRule(
+  "INT_FACTOR_ROOT",
+  ({ body, variable: v, node }) => {
+    let target: MathNode | null = null;
+    let scale: Rational | null = null;
+    let inner: MathNode | null = null;
+
+    walk(body, (n) => {
+      if (target) return;
+      if (n.type !== "fn" || n.name !== "sqrt" || n.args.length !== 1) return;
+      const p = toPolynomial(n.args[0]!, v);
+      if (!p || degree(p) !== 2 || !coeff(p, 1).isZero()) return;
+      const square = coeff(p, 2);
+      const constant = coeff(p, 0);
+      if (constant.isZero()) return;
+      // Already in standard form; the substitution rule owns those.
+      if (square.equals(Rational.ONE) || square.equals(Rational.ONE.neg())) return;
+
+      const magnitude = square.isNegative() ? square.neg() : square;
+      const root = magnitude.nthRoot(2n);
+      if (!root) return;
+      const sign = square.isNegative() ? Rational.ONE.neg() : Rational.ONE;
+      const reduced = constant.div(magnitude);
+
+      target = n;
+      scale = root;
+      inner = add([
+        makeTerm(sign, [pow(sym(v), num(Rational.of(2)))]),
+        num(reduced),
+      ]);
+    });
+    if (!target || !scale || !inner) return null;
+
+    const pulled = mul([num(scale), fn("sqrt", [inner])]);
+    const rebuilt = replaceSubtree(body, key(target), () => pulled);
+    const out = integral(rebuilt, sym(v));
+    return {
+      node: out,
+      changes: [{ kind: "replace", fromIds: [(target as MathNode).id], toIds: [pulled.id] }],
+      vars: { variable: v, scale: (scale as Rational).toLatex(), root: toLatex(target) },
+    };
+  },
+);
+
 // -------------------------------------------------------- trig substitution
 
 type TrigSubKind = "sine" | "tangent" | "secant";
@@ -1614,6 +1667,7 @@ export const integralRules: Rule[] = [
   intPartialFractions,
   intCyclicByParts,
   intByParts,
+  intFactorRoot,
   intTrigSubstitution,
   intExpand,
   intExpandPowers,

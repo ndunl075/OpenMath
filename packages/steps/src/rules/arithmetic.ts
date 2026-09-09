@@ -1,5 +1,5 @@
 import {
-  add, evaluateExact, type MathNode, mul, num, Rational, toLatex,
+  add, div, evaluateExact, fn, type MathNode, mul, num, Rational, toLatex,
 } from "@openmath/math-core";
 import type { Rule } from "../types.js";
 
@@ -184,7 +184,22 @@ export const simplifyRadical: Rule = {
     const r = n.args[0];
     if (!r || r.type !== "num") return null;
     const v = r.value;
-    if (!v.isInteger() || v.isNegative() || v.n < 2n) return null;
+    if (v.isNegative()) return null;
+    // sqrt(5/4) is sqrt(5)/2. Splitting the fraction first is what turns the
+    // arc length of a parabola from sqrt(5/4) into something readable.
+    if (!v.isInteger()) {
+      if (v.d < 2n) return null;
+      const bottom = Rational.of(v.d).nthRoot(2n);
+      if (!bottom) return null;
+      const top = fn("sqrt", [num(Rational.of(v.n))]);
+      const node = div(top, num(bottom));
+      return {
+        node,
+        changes: [{ kind: "replace", fromIds: [n.id], toIds: [node.id] }],
+        vars: { radicand: v.toLatex(), outside: bottom.toLatex(), inside: String(v.n) },
+      };
+    }
+    if (v.n < 2n) return null;
     let rest = v.n;
     let outside = 1n;
     for (let f = 2n; f * f <= rest; f++) {

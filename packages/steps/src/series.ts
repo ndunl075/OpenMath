@@ -1,7 +1,7 @@
 import {
   add, asSummation, cloneFresh, definiteIntegral as makeDefiniteIntegral, div,
   evaluateExact, evaluateNumeric, isConstantSymbol, limitNumerically,
-  type MathNode, num, Rational, substitute, sym, symbols, toLatex,
+  type MathNode, num, Rational, substitute, sym, symbols, toLatex, walk,
 } from "@openmath/math-core";
 import { run } from "./engine.js";
 import { normalize } from "./normalize.js";
@@ -162,7 +162,10 @@ function ratioTest(body: MathNode, index: string): RatioVerdict {
   for (const k of RATIO_LADDER) {
     const a = valueAt(body, index, k);
     const b = valueAt(body, index, k + 1);
-    if (!Number.isFinite(a) || !Number.isFinite(b) || a === 0) continue;
+    // Either one being exactly zero is underflow, not arithmetic: 1/(n*3^n)
+    // at n = 641 is smaller than the smallest double, and the ratio 0/a it
+    // produces would read as a sequence plunging to zero.
+    if (!Number.isFinite(a) || !Number.isFinite(b) || a === 0 || b === 0) continue;
     ratios.push(Math.abs(b / a));
   }
   if (ratios.length < 3) return { kind: "unknown" };
@@ -214,9 +217,9 @@ export function solveSeries(node: MathNode): Solution {
 
   const free = [...symbols(parts.body)]
     .filter((s) => s !== parts.index && !isConstantSymbol(s));
-  if (free.length > 0) {
+  if (free.length > 1) {
     throw new UnsupportedProblemError(
-      `this sum still contains ${free[0]}, so it has no single value`,
+      `this sum contains both ${free[0]} and ${free[1]}, which is more than one unknown`,
     );
   }
 
@@ -226,9 +229,251 @@ export function solveSeries(node: MathNode): Solution {
   }
   const from = Number(fromExact.toNumber());
 
+  // A letter other than the index makes this a power series, and the question
+  // is then where it converges rather than what it adds up to.
+  const variable = free[0];
+  if (variable) {
+    if (!parts.infinite) {
+      throw new UnsupportedProblemError(
+        `this sum still contains ${variable}, so it has no single value`,
+      );
+    }
+    return powerSeries(node, problem, parts.body, parts.index, from, variable);
+  }
+
   return parts.infinite
     ? infiniteSeries(node, problem, parts.body, parts.index, from)
     : finiteSum(node, problem, parts, from);
+}
+
+// --------------------------------------------------------------- power series
+
+/**
+ * Where the series is centred: the `a` in (x - a)^n. Zero when the variable
+ * appears bare, which is the usual case.
+ */
+function centreOf(body: MathNode, index: string, variable: string): Rational | null {
+  let centre: Rational | null = Rational.ZERO;
+  let seen = false;
+  walk(body, (n) => {
+    if (seen) return;
+    if (n.type !== "pow") return;
+    if (!(n.exp.type === "sym" && n.exp.name === index)) {
+      // Also (x-a)^(n+1) and friends: the exponent only has to involve n.
+      if (!symbols(n.exp).has(index)) return;
+    }
+    const base = n.base;
+    if (base.type === "sym" && base.name === variable) {
+      centre = Rational.ZERO;
+      seen = true;
+      return;
+    }
+    const p = toPolynomial(base, variable);
+    if (p && degree(p) === 1 && coeff(p, 1).equals(Rational.ONE)) {
+      centre = coeff(p, 0).neg();
+      seen = true;
+    }
+  });
+  return seen ? centre : null;
+}
+
+/**
+ * The radius and interval of convergence.
+ *
+ * The ratio test does the work, exactly as it does on paper: |a(n+1)/a(n)|
+ * tends to |x - a|/R, so measuring it at one point away from the centre gives
+ * R. The endpoints are then put back in one at a time and settled by the
+ * ordinary tests — which is the half of the question students lose marks on,
+ * and the half a radius alone does not answer.
+ */
+function powerSeries(
+  node: MathNode,
+  problem: string,
+  body: MathNode,
+  index: string,
+  from: number,
+  variable: string,
+): Solution {
+  const centre = centreOf(body, index, variable);
+  if (centre === null) {
+    throw new UnsupportedProblemError(
+      `could not tell where this series in ${variable} is centred`,
+    );
+  }
+
+  // L is |x - a| / R, so at one unit from the centre it is exactly 1/R.
+  const at = centre.toNumber() + 1;
+  const sampled: Array<{ n: number; r: number }> = [];
+  for (const k of RATIO_LADDER) {
+    const a = evaluateNumeric(body, { [index]: k, [variable]: at });
+    const b = evaluateNumeric(body, { [index]: k + 1, [variable]: at });
+    // Zero here means the term underflowed, not that it vanished. See the
+    // note in ratioTest: a ratio of 0/a would make the radius look infinite.
+    if (!Number.isFinite(a) || !Number.isFinite(b) || a === 0 || b === 0) continue;
+    sampled.push({ n: k, r: Math.abs(b / a) });
+  }
+  if (sampled.length < 3) {
+    throw new UnsupportedProblemError("could not measure the ratio for this series");
+  }
+
+  const last = extrapolateRatio(sampled);
+  const growing = sampled.every((s, i) => i === 0 || s.r > sampled[i - 1]!.r) &&
+    sampled[sampled.length - 1]!.r > 10;
+  const shrinking = sampled.every((s, i) => i === 0 || s.r < sampled[i - 1]!.r) &&
+    last !== null && last < 1e-3;
+  const settled = last !== null && Number.isFinite(last);
+  const L = last ?? 0;
+
+  const steps: Step[] = [];
+
+  // L = 0 means it converges wherever you put x.
+  if (shrinking || (settled && L < 1e-9)) {
+    steps.push(displayStep("SERIES_RADIUS_INFINITE", problem, "\\text{all } " + variable, node, {
+      variable, index,
+    }));
+    const answer = `R = \\infty`;
+    return {
+      kind: "series", problem, answer, answers: [answer], steps, verified: true,
+      note: `The ratio shrinks to zero whatever ${variable} is, so this converges for every ${variable}.`,
+    };
+  }
+  if (growing) {
+    const answer = `${variable} = ${centre.toLatex()}`;
+    steps.push(displayStep("SERIES_RADIUS_ZERO", problem, answer, node, { variable, index }));
+    return {
+      kind: "series", problem, answer, answers: [answer], steps, verified: true,
+      note: `The ratio runs away for any ${variable} off the centre, so only ${answer} works.`,
+    };
+  }
+
+  if (!settled || L <= 0) {
+    throw new UnsupportedProblemError("could not settle the radius of convergence");
+  }
+
+  // Snap to an exact value. These radii are rationals with small denominators
+  // and an extrapolated 0.9999999 is the number 1 with measurement noise on
+  // it; reporting the noise would be worse than useless in an answer.
+  const exactL = asRational(L);
+  const radius = exactL ? Rational.ONE.div(exactL).toNumber() : 1 / L;
+  const lower = centre.toNumber() - radius;
+  const upper = centre.toNumber() + radius;
+
+  steps.push(displayStep("SERIES_RADIUS", problem, `R = ${formatNumber(radius)}`, node, {
+    variable, index, radius: formatNumber(radius), centre: centre.toLatex(),
+  }));
+
+  // The endpoints, each settled on its own by the ordinary tests.
+  const ends = [lower, upper].map((end) => ({
+    at: end,
+    included: endpointConverges(body, index, from, variable, end),
+  }));
+  const [low, high] = ends as [{ at: number; included: boolean | null }, { at: number; included: boolean | null }];
+
+  if (low.included === null || high.included === null) {
+    const answer = `R = ${formatNumber(radius)}`;
+    return {
+      kind: "series", problem, answer, answers: [answer], steps, verified: true,
+      note: `The radius is ${formatNumber(radius)}. The endpoints need checking separately and none of the tests here settle them.`,
+    };
+  }
+
+  steps.push(displayStep(
+    "SERIES_ENDPOINTS",
+    `R = ${formatNumber(radius)}`,
+    intervalLatex(low.at, high.at, low.included, high.included),
+    node,
+    {
+      lower: formatNumber(low.at),
+      upper: formatNumber(high.at),
+      lowerVerdict: low.included ? "converges" : "diverges",
+      upperVerdict: high.included ? "converges" : "diverges",
+    },
+  ));
+
+  const answer = intervalLatex(low.at, high.at, low.included, high.included);
+  return {
+    kind: "series", problem, answer, answers: [answer], steps, verified: true,
+    note: `The radius of convergence is ${formatNumber(radius)}.`,
+  };
+}
+
+/**
+ * Where the ratios are heading, fitted rather than read off the last one.
+ *
+ * These ratios all approach their limit like L + c/n — n/(n+1) is the shape —
+ * and even at n = ten thousand that is still short by one part in ten
+ * thousand, which turns a radius of exactly 1 into 1.000098. Two points
+ * determine L and c, and solving for L removes the error instead of reporting
+ * it. Null when the fit is unusable.
+ */
+function extrapolateRatio(sampled: Array<{ n: number; r: number }>): number | null {
+  const a = sampled[sampled.length - 2];
+  const b = sampled[sampled.length - 1];
+  if (!a || !b || a.n === b.n) return null;
+  const slope = 1 / a.n - 1 / b.n;
+  if (Math.abs(slope) < 1e-15) return null;
+  const c = (a.r - b.r) / slope;
+  const L = a.r - c / a.n;
+  if (!Number.isFinite(L)) return null;
+  // The fit is only trusted when it lands near the measurements it came from.
+  return Math.abs(L - b.r) <= 0.5 * Math.max(1, Math.abs(b.r)) ? L : b.r;
+}
+
+/** A double back as an exact rational, when it is one with a small denominator. */
+function asRational(x: number): Rational | null {
+  // The tolerance is loose because the input is an extrapolated measurement,
+  // not a computed value: fitting the ratios of 1/(n 3^n) lands on 0.33333
+  // rather than a third. Radii of convergence in practice are rationals with
+  // small denominators, so snapping to the nearest one is right, and a radius
+  // that genuinely sat a ten-thousandth away from 1/3 is not a question
+  // anybody sets.
+  for (const d of [1, 2, 3, 4, 5, 6, 8, 10, 12, 16, 20, 25, 32, 50, 100]) {
+    const n = x * d;
+    if (Math.abs(n - Math.round(n)) < 2e-4 * d) return Rational.of(Math.round(n), d);
+  }
+  return null;
+}
+
+/** Does the series converge at this endpoint? Null when nothing settles it. */
+function endpointConverges(
+  body: MathNode,
+  index: string,
+  from: number,
+  variable: string,
+  at: number,
+): boolean | null {
+  // The endpoint has to go in exactly, or a p-series at x = -1 turns into a
+  // decimal and stops looking like one. Radii here are rationals with small
+  // denominators, so reading the decimal back as a fraction is safe.
+  const exact = asRational(at);
+  if (!exact) return null;
+  // Simplified properly, not merely tidied: putting x = 1 into x^n/n leaves
+  // 1^n/n, and until the one-to-a-power is gone this does not look like the
+  // p-series it is.
+  const put = normalize(substitute(cloneFresh(body), variable, num(exact)));
+  const fixed = run(put, expressionRules, {}, { verify: false, maxSteps: 40 }).node;
+
+  const heading = termLimit(fixed, index);
+  if (heading !== null && Math.abs(heading) > 1e-6) return false;
+
+  const geometric = asGeometric(fixed, index, from);
+  if (geometric) return Math.abs(geometric.ratio.toNumber()) < 1;
+
+  const p = asPSeries(fixed, index);
+  if (p) return p.toNumber() > 1;
+
+  if (alternates(fixed, index, from) && magnitudesDecrease(fixed, index, from)) return true;
+
+  const compared = limitComparison(fixed, index, from);
+  if (compared) return compared.p.toNumber() > 1;
+
+  return null;
+}
+
+function intervalLatex(lower: number, upper: number, lowIn: boolean, highIn: boolean): string {
+  const open = lowIn ? "\\left[" : "\\left(";
+  const close = highIn ? "\\right]" : "\\right)";
+  return `${open}${formatNumber(lower)}, ${formatNumber(upper)}${close}`;
 }
 
 // ------------------------------------------------------------------ finite sums
