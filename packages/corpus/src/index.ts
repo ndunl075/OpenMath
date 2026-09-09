@@ -15,7 +15,8 @@ export interface CorpusProblem {
     | "differentiate"
     | "factor"
     | "limit"
-    | "integrate";
+    | "integrate"
+    | "series";
   /** Exact expected answer LaTeX. */
   answer?: string;
   /**
@@ -296,7 +297,10 @@ export const problems: CorpusProblem[] = [
   { latex: "\\frac{dy}{dx}", kind: "differentiate", unsupported: true, tags: ["derivative", "implicit"] },
   { latex: "\\frac{d}{dx}(y^{2})", kind: "differentiate", unsupported: true, tags: ["derivative", "implicit"] },
   { latex: "f'(x)", kind: "differentiate", unsupported: true, tags: ["derivative", "prime", "undefined-function"] },
-  { latex: "\\frac{d}{dx}\\arctan(x)", kind: "differentiate", unsupported: true, tags: ["derivative", "no-rule"] },
+  { latex: "\\frac{d}{dx}\\arctan(x)", kind: "differentiate", answer: "\\frac{1}{1 + x^{2}}", tags: ["derivative", "inverse-trig"] },
+  { latex: "\\frac{d}{dx}\\arcsin(x)", kind: "differentiate", answer: "\\frac{1}{\\sqrt{1 - x^{2}}}", tags: ["derivative", "inverse-trig"] },
+  { latex: "\\frac{d}{dx}\\sec(x)", kind: "differentiate", answer: "\\sec\\left(x\\right) \\tan\\left(x\\right)", tags: ["derivative", "trig"] },
+  { latex: "\\frac{d}{dx}(x^{\\frac{1}{3}})", kind: "differentiate", answer: "\\frac{1}{3} x^{-\\frac{2}{3}}", tags: ["derivative", "fractional-power"] },
   { latex: "\\frac{d}{dx}\\left|x\\right|", kind: "differentiate", unsupported: true, tags: ["derivative", "no-rule"] },
   { latex: "\\frac{d}{dx}(x^{2})=2x", kind: "differentiate", unsupported: true, tags: ["derivative", "equation"] },
 
@@ -327,6 +331,8 @@ export const problems: CorpusProblem[] = [
   { latex: "\\arcsin(1)", kind: "evaluate", answer: "\\frac{\\pi}{2}", tags: ["trig", "inverse"] },
   { latex: "\\arcsin(\\frac{1}{2})", kind: "evaluate", answer: "\\frac{\\pi}{6}", tags: ["trig", "inverse"] },
   { latex: "\\arctan(1)", kind: "evaluate", answer: "\\frac{\\pi}{4}", tags: ["trig", "inverse"] },
+  { latex: "\\lim_{x \\to \\infty} \\frac{x}{e^{x}}", kind: "limit", answer: "0", tags: ["limit", "lhopital", "exponential"] },
+  { latex: "\\lim_{x \\to \\infty} \\frac{x^{2}}{e^{x}}", kind: "limit", answer: "0", tags: ["limit", "lhopital", "exponential"] },
   { latex: "\\arccos(0)", kind: "evaluate", answer: "\\frac{\\pi}{2}", tags: ["trig", "inverse"] },
   { latex: "\\arccos(-1)", kind: "evaluate", answer: "\\pi", tags: ["trig", "inverse"] },
 
@@ -419,6 +425,22 @@ export const problems: CorpusProblem[] = [
   { latex: "\\int \\cos(x) \\, dx", kind: "integrate", answer: "\\sin\\left(x\\right) + C", upToConstant: true, tags: ["integral", "trig"] },
   { latex: "\\int \\sec(x)^{2} \\, dx", kind: "integrate", answer: "\\tan\\left(x\\right) + C", upToConstant: true, tags: ["integral", "trig"] },
   { latex: "\\int \\frac{1}{1+x^{2}} \\, dx", kind: "integrate", answer: "\\arctan\\left(x\\right) + C", upToConstant: true, tags: ["integral", "arctan"] },
+  { latex: "\\int \\tan(x) \\, dx", kind: "integrate", answer: "-\\ln\\left|\\cos\\left(x\\right)\\right| + C", upToConstant: true, tags: ["integral", "trig"] },
+  { latex: "\\int \\sec(x) \\, dx", kind: "integrate", answer: "\\ln\\left|\\sec\\left(x\\right) + \\tan\\left(x\\right)\\right| + C", upToConstant: true, tags: ["integral", "trig"] },
+  { latex: "\\sum_{n=1}^{10} n", kind: "series", answer: "55", tags: ["series", "finite"] },
+  { latex: "\\sum_{n=1}^{\\infty} \\frac{1}{2^{n}}", kind: "series", answer: "1", tags: ["series", "geometric"] },
+  { latex: "\\sum_{n=0}^{\\infty} \\frac{1}{3^{n}}", kind: "series", answer: "\\frac{3}{2}", tags: ["series", "geometric"] },
+  { latex: "5!", kind: "evaluate", answer: "120", tags: ["factorial"] },
+  { latex: "\\int e^{x}\\sin(x) \\, dx", kind: "integrate", answer: "\\frac{e^{x} \\sin\\left(x\\right) - e^{x} \\cos\\left(x\\right)}{2} + C", upToConstant: true, tags: ["integral", "cyclic-parts"] },
+  { latex: "\\int \\sqrt{1-x^{2}} \\, dx", kind: "integrate", answer: "\\frac{\\arcsin\\left(x\\right) + x \\sqrt{1 - x^{2}}}{2} + C", upToConstant: true, tags: ["integral", "trig-substitution"] },
+  { latex: "\\int x\\sqrt{x+1} \\, dx", kind: "integrate", answer: "\\frac{2}{5} \\left(x + 1\\right)^{\\frac{5}{2}} - \\frac{2}{3} \\left(x + 1\\right)^{\\frac{3}{2}} + C", upToConstant: true, tags: ["integral", "back-substitution"] },
+  { latex: "\\int \\frac{1}{x^{2}+2x+5} \\, dx", kind: "integrate", answer: "\\frac{\\arctan\\left(\\frac{x + 1}{2}\\right)}{2} + C", upToConstant: true, tags: ["integral", "complete-square"] },
+  // sqrt(3/4) is irrational, so there is no exact answer to give.
+  { latex: "\\int \\frac{1}{x^{2}+x+1} \\, dx", kind: "integrate", unsupported: true, declineReason: "unsupported", tags: ["integral", "irrational"] },
+  { latex: "\\int \\sin(x)^{2} \\, dx", kind: "integrate", answer: "\\frac{x - \\frac{1}{2} \\sin\\left(2 x\\right)}{2} + C", upToConstant: true, tags: ["integral", "trig", "power-reduction"] },
+  { latex: "\\int \\cos(x)^{3} \\, dx", kind: "integrate", answer: "\\sin\\left(x\\right) - \\frac{\\sin\\left(x\\right)^{3}}{3} + C", upToConstant: true, tags: ["integral", "trig", "odd-power"] },
+  { latex: "\\int \\frac{1}{x^{2}+4} \\, dx", kind: "integrate", answer: "\\frac{\\arctan\\left(\\frac{x}{2}\\right)}{2} + C", upToConstant: true, tags: ["integral", "arctan"] },
+  { latex: "\\int_{1}^{e} \\frac{1}{x} \\, dx", kind: "integrate", answer: "1", tags: ["integral", "definite"] },
   { latex: "\\int \\frac{1}{\\sqrt{1-x^{2}}} \\, dx", kind: "integrate", answer: "\\arcsin\\left(x\\right) + C", upToConstant: true, tags: ["integral", "arcsin"] },
 
   // ---- integrals: sums and constant multiples
@@ -470,7 +492,11 @@ export const problems: CorpusProblem[] = [
   { latex: "\\int e^{x^{2}} \\, dx", kind: "integrate", unsupported: true, tags: ["integral", "no-elementary-antiderivative"] },
   { latex: "\\int \\sin(x^{2}) \\, dx", kind: "integrate", unsupported: true, tags: ["integral", "no-elementary-antiderivative"] },
   { latex: "\\int \\frac{1}{\\ln(x)} \\, dx", kind: "integrate", unsupported: true, tags: ["integral", "no-elementary-antiderivative"] },
-  { latex: "\\int_{1}^{\\infty} \\frac{1}{x^{2}} \\, dx", kind: "integrate", unsupported: true, declineReason: "parse", tags: ["integral", "improper"] },
+  // The convergent improper integrals live in integral-independent.test.ts:
+  // every answer here is confirmed by measuring the problem, and quadrature
+  // has no way to measure an area running out to infinity.
+  // Divergent: there is no number to report, and saying so is the answer.
+  { latex: "\\int_{1}^{\\infty} \\frac{1}{x} \\, dx", kind: "integrate", unsupported: true, declineReason: "unsupported", tags: ["integral", "improper", "divergent"] },
   { latex: "\\int_{-1}^{1} \\frac{1}{x} \\, dx", kind: "integrate", unsupported: true, tags: ["integral", "improper", "pole-inside"] },
   { latex: "\\int_{0}^{1} \\frac{1}{x} \\, dx", kind: "integrate", unsupported: true, tags: ["integral", "improper", "pole-at-limit"] },
   { latex: "\\int ax \\, dx", kind: "integrate", unsupported: true, tags: ["integral", "ambiguous"] },

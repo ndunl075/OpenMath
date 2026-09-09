@@ -1,4 +1,6 @@
-import { asLimit, children, INFINITY, key, type MathNode, num } from "./ast.js";
+import {
+  asLimit, asSummation, children, INFINITY, key, type MathNode, num,
+} from "./ast.js";
 
 const GREEK = new Set([
   "alpha", "beta", "gamma", "delta", "epsilon", "theta", "lambda", "mu",
@@ -167,6 +169,28 @@ class Serializer {
             // The body is always bracketed for the same reason a derivative's
             // is: nothing written after the limit can be read back into it.
             return `\\lim_{${this.render(n.args[1]!)} \\to ${this.render(l.point)}${marker}}\\left(${this.render(l.body)}\\right)`;
+          }
+        }
+        if (n.name === "taylor" && n.args.length === 4) {
+          const [f, v, centre, order] = n.args as [MathNode, MathNode, MathNode, MathNode];
+          const at = this.render(centre);
+          return at === "0"
+            ? `\\maclaurin\\left(${this.render(f)}, ${this.render(order)}\\right)`
+            : `\\taylor\\left(${this.render(f)}, ${at}, ${this.render(order)}\\right)`;
+          void v;
+        }
+        if (n.name === "factorial" && a0) {
+          // Bracketed unless the operand is a single symbol or number, so
+          // (n+1)! does not come back as n+1!.
+          const bare = a0.type === "sym" || a0.type === "num";
+          return bare ? `${this.render(a0)}!` : `\\left(${this.render(a0)}\\right)!`;
+        }
+        if (n.name === "sum") {
+          const sum = asSummation(n);
+          if (sum) {
+            // Bracketed for the same reason a limit's body is: nothing written
+            // after the sum can be read back inside it.
+            return `\\sum_{${this.render(n.args[1]!)}=${this.render(sum.from)}}^{${this.render(sum.to)}}\\left(${this.render(sum.body)}\\right)`;
           }
         }
         if (n.name === "diff" && a0 && a1) {

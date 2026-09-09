@@ -264,7 +264,64 @@ const ELEMENTARY: Elementary[] = [
     direct: (u) => div(num(Rational.ONE), mul([TWO(), fn("sqrt", [u])])),
     chained: (u, chain) => div(chain, mul([TWO(), fn("sqrt", [u])])),
   },
+  // The rest of the trig family. sec appeared in answers long before it could
+  // be differentiated, since d/dx(tan u) produces it.
+  {
+    id: "DIFF_SEC",
+    name: "sec",
+    direct: (u) => mul([fn("sec", [u]), fn("tan", [cloneFresh(u)])]),
+  },
+  {
+    id: "DIFF_CSC",
+    name: "csc",
+    direct: (u) => neg(mul([fn("csc", [u]), fn("cot", [cloneFresh(u)])])),
+  },
+  { id: "DIFF_COT", name: "cot", direct: (u) => neg(pow(fn("csc", [u]), TWO())) },
+  // The inverse trig pair. Like ln, the chain factor belongs on the numerator.
+  {
+    id: "DIFF_ARCSIN",
+    name: "arcsin",
+    direct: (u) => div(num(Rational.ONE), oneMinusSquare(u)),
+    chained: (u, chain) => div(chain, oneMinusSquare(u)),
+  },
+  {
+    id: "DIFF_ARCCOS",
+    name: "arccos",
+    direct: (u) => neg(div(num(Rational.ONE), oneMinusSquare(u))),
+    chained: (u, chain) => neg(div(chain, oneMinusSquare(u))),
+  },
+  {
+    id: "DIFF_ARCTAN",
+    name: "arctan",
+    direct: (u) => div(num(Rational.ONE), onePlusSquare(u)),
+    chained: (u, chain) => div(chain, onePlusSquare(u)),
+  },
+  { id: "DIFF_SINH", name: "sinh", direct: (u) => fn("cosh", [u]) },
+  { id: "DIFF_COSH", name: "cosh", direct: (u) => fn("sinh", [u]) },
+  {
+    id: "DIFF_TANH",
+    name: "tanh",
+    direct: (u) => div(num(Rational.ONE), pow(fn("cosh", [u]), TWO())),
+    chained: (u, chain) => div(chain, pow(fn("cosh", [u]), TWO())),
+  },
+  // log is base 10 here, matching the parser and evaluate.
+  {
+    id: "DIFF_LOG",
+    name: "log",
+    direct: (u) => div(num(Rational.ONE), mul([u, fn("ln", [num(Rational.of(10))])])),
+    chained: (u, chain) => div(chain, mul([u, fn("ln", [num(Rational.of(10))])])),
+  },
 ];
+
+/** sqrt(1 - u^2), the denominator both inverse sine and cosine sit over. */
+function oneMinusSquare(u: MathNode): MathNode {
+  return fn("sqrt", [add([num(Rational.ONE), neg(pow(cloneFresh(u), TWO()))])]);
+}
+
+/** 1 + u^2, the denominator of the inverse tangent. */
+function onePlusSquare(u: MathNode): MathNode {
+  return add([num(Rational.ONE), pow(cloneFresh(u), TWO())]);
+}
 
 function elementaryRule(spec: Elementary): Rule {
   return diffRule(spec.id, (body, v, node) => {

@@ -1,8 +1,11 @@
 import {
-  add, asDiff, asIntegral, asLimit, containsDiff, containsInfinity, containsIntegral,
-  containsLimit, evaluateNumeric, firstDiff, firstIntegral, firstLimit, freeSymbols,
-  hasDivisionByZero, integral, key, type MathNode, neg, num, parseLatex, Rational, rel,
-  splitCoefficient, substitute, sym, symbols, toLatex, undefinedReason, walk,
+  add, asDiff, asIntegral, asLimit, asSummation, cloneFresh, containsDiff,
+  containsInfinity, containsIntegral, containsLimit, containsSummation,
+  definiteIntegral as makeDefiniteIntegral,
+  evaluateNumeric, firstDiff, firstIntegral, firstLimit, firstSummation, freeSymbols,
+  hasDivisionByZero, integral, isInfinity, key, limit, type MathNode, neg, num,
+  parseLatex, Rational, rel, splitCoefficient, substitute, sym, symbols, toLatex,
+  undefinedReason, walk,
 } from "@openmath/math-core";
 import { run } from "./engine.js";
 import { explain } from "./explain.js";
@@ -14,6 +17,8 @@ import {
   isAbsoluteValueProblem, solveAbsoluteValueProblem, solveQuadraticInequality,
 } from "./inequality.js";
 import { solveLimit } from "./limit.js";
+import { connectSeriesToSolver, solveSeries } from "./series.js";
+import { solveTaylor } from "./taylor.js";
 import { normalize } from "./normalize.js";
 import { chooseVariable } from "./rules/equation.js";
 import {
@@ -38,7 +43,8 @@ export type ProblemKind =
   | "differentiate"
   | "factor"
   | "limit"
-  | "integrate";
+  | "integrate"
+  | "series";
 
 export interface Classification {
   kind: ProblemKind;
@@ -106,6 +112,19 @@ export function isFactoringProblem(n: MathNode): boolean {
 
 /** Decide what kind of problem this is before trying to solve it. */
 export function classify(node: MathNode): Classification {
+  // A Taylor expansion is asked for by name, so it is unambiguous and comes
+  // first.
+  if (node.type === "fn" && node.name === "taylor") {
+    const v = node.args[1];
+    return { kind: "series", ...(v && v.type === "sym" ? { variable: v.name } : {}) };
+  }
+  // A summation anywhere makes this a series problem, checked first because a
+  // convergence test may put a limit or an integral inside one.
+  if (containsSummation(node)) {
+    const top = firstSummation(node);
+    const parts = top ? asSummation(top) : null;
+    return { kind: "series", ...(parts ? { variable: parts.index } : {}) };
+  }
   // An integral anywhere makes this an integration problem. It is checked first
   // because an integrand may contain a derivative, and the integral is the
   // outer question in that case.
@@ -597,6 +616,9 @@ function definiteIntegral(
   limits: { lower: MathNode; upper: MathNode },
 ): Solution {
   const problem = toLatex(node);
+  if (isInfinity(limits.lower) || isInfinity(limits.upper)) {
+    return improperIntegral(node, body, variable, limits);
+  }
   const from = evaluateNumeric(limits.lower);
   const to = evaluateNumeric(limits.upper);
   if (!Number.isFinite(from) || !Number.isFinite(to)) {
@@ -645,6 +667,144 @@ function definiteIntegral(
     verified: stepsVerified(steps) && verifyEquivalent(node, evaluated.node) === "ok",
     ...(found.incomplete || evaluated.incomplete ? { incomplete: true } : {}),
   };
+}
+
+/**
+ * An integral with an infinite bound, answered the way it is defined: replace
+ * the infinity with a letter, integrate between finite bounds, and see where
+ * the result goes as that letter runs off.
+ *
+ * Nothing new is needed to do this. The antiderivative comes from the same
+ * search as any other integral, and where it heads is a question the limit
+ * engine already answers, l'Hopital and all. Only one bound may be infinite:
+ * an integral infinite at both ends has to be split at a point of the
+ * student's choosing, and picking one for them would be putting words in
+ * their mouth.
+ */
+function improperIntegral(
+  node: MathNode,
+  body: MathNode,
+  variable: string,
+  limits: { lower: MathNode; upper: MathNode },
+): Solution {
+  const problem = toLatex(node);
+  if (isInfinity(limits.lower) && isInfinity(limits.upper)) {
+    throw new UnsupportedProblemError(
+      "an integral infinite at both ends has to be split in two first",
+    );
+  }
+
+  const upperIsInfinite = isInfinity(limits.upper);
+  const finiteBound = upperIsInfinite ? limits.lower : limits.upper;
+  const infiniteBound = upperIsInfinite ? limits.upper : limits.lower;
+  const bound = boundName(body, variable);
+
+  const proper = makeDefiniteIntegral(
+    cloneFresh(body),
+    sym(variable),
+    upperIsInfinite ? cloneFresh(finiteBound) : sym(bound),
+    upperIsInfinite ? sym(bound) : cloneFresh(finiteBound),
+  );
+  const asLimitOfProper = limit(proper, sym(bound), cloneFresh(infiniteBound));
+
+  const steps: Step[] = [
+    displayStep("INT_IMPROPER_SETUP", problem, toLatex(asLimitOfProper), node, {
+      bound,
+      infinite: toLatex(infiniteBound),
+      variable,
+    }),
+  ];
+
+  // The antiderivative first, then the bounds, then where the result heads.
+  const indefinite = integral(cloneFresh(body), sym(variable));
+  const found = findAntiderivative(indefinite, variable);
+  steps.push(...found.steps);
+
+  const upperNode = upperIsInfinite ? sym(bound) : cloneFresh(finiteBound);
+  const lowerNode = upperIsInfinite ? cloneFresh(finiteBound) : sym(bound);
+  const difference = normalize(
+    add([
+      substitute(found.node, variable, upperNode),
+      neg(substitute(found.node, variable, lowerNode)),
+    ]),
+  );
+  const target = limit(difference, sym(bound), cloneFresh(infiniteBound));
+  steps.push({
+    ...displayStep("INT_EVALUATE_LIMITS", toLatex(found.node), toLatex(target), found.node, {
+      lower: toLatex(lowerNode),
+      upper: toLatex(upperNode),
+    }),
+    display: false,
+    changes: [{ kind: "replace", fromIds: [found.node.id], toIds: [target.id] }],
+  });
+
+  // A divergent one has no number to report, and "diverges" is the answer a
+  // student is after rather than a complaint about the rules. Said here, in
+  // the language of the integral, instead of leaving the limit engine to
+  // report that it could not settle ln|b|.
+  if (divergesAt(difference, bound, isInfinity(infiniteBound) && !upperIsInfinite ? -1 : 1)) {
+    throw new UnsupportedProblemError(
+      "this integral diverges: the area keeps growing without settling on a value",
+    );
+  }
+  const settled = solveLimit(target);
+  steps.push(...settled.steps);
+
+  return {
+    kind: "integrate",
+    problem,
+    variable,
+    answer: settled.answer,
+    answers: settled.answers,
+    steps,
+    verified: stepsVerified(steps) && settled.verified,
+    ...(found.incomplete || settled.incomplete ? { incomplete: true } : {}),
+  };
+}
+
+/**
+ * Does this keep climbing as the bound runs off, rather than settling?
+ *
+ * The limit engine reports an unsettled limit as "could not do it", which is
+ * the wrong thing to tell someone evaluating an improper integral: for
+ * integral 1 to infinity of 1/x, that it diverges *is* the answer.
+ */
+function divergesAt(expression: MathNode, bound: string, sign: number): boolean {
+  // The ladder reaches absurdly far out on purpose. ln(ln b) diverges, and at
+  // b = a trillion it has only reached 3.3; anything judging it against a
+  // fixed threshold nearer than 1e200 would call it settled and report a
+  // finite area under a curve whose area is infinite.
+  const magnitudes = [1e3, 1e12, 1e30, 1e80, 1e200].map((t) =>
+    Math.abs(evaluateNumeric(expression, { [bound]: sign * t })),
+  );
+  if (magnitudes.some((m) => Number.isNaN(m))) return false;
+  if (magnitudes.some((m) => !Number.isFinite(m))) return true;
+  for (let i = 1; i < magnitudes.length; i++) {
+    if (magnitudes[i]! <= magnitudes[i - 1]!) return false;
+  }
+  return magnitudes[magnitudes.length - 1]! > 5;
+}
+
+/** An integral whose infinity sits in a bound, where it is allowed to be. */
+function isImproperIntegral(node: MathNode): boolean {
+  const found = firstIntegral(node);
+  if (!found) return false;
+  const parts = asIntegral(found);
+  if (!parts?.bounds) return false;
+  // Only in the bounds. Infinity inside the integrand is still refused.
+  return (
+    (isInfinity(parts.bounds.lower) || isInfinity(parts.bounds.upper)) &&
+    !containsInfinity(parts.body)
+  );
+}
+
+/** A letter for the moving bound that does not collide with anything in scope. */
+function boundName(body: MathNode, variable: string): string {
+  const taken = symbols(body);
+  for (const candidate of ["b", "t", "R", "M", "N"]) {
+    if (candidate !== variable && !taken.has(candidate)) return candidate;
+  }
+  return "b";
 }
 
 /**
@@ -705,14 +865,21 @@ export function solveNode(node: MathNode): Solution {
 
   const c = classify(node);
   // Infinity is a place a limit heads towards, not a quantity to compute with,
-  // so it is refused everywhere else rather than folded into arithmetic.
-  if (c.kind !== "limit" && containsInfinity(node)) {
+  // so it is refused everywhere else rather than folded into arithmetic. The
+  // bound of an improper integral is the other place it may legitimately
+  // stand, and that is answered by rewriting it as a limit.
+  if (
+    c.kind !== "limit" && c.kind !== "series" &&
+    !isImproperIntegral(node) && containsInfinity(node)
+  ) {
     throw new UnsupportedProblemError(
       "infinity is only supported as the point a limit approaches",
     );
   }
   const solution =
-    c.kind === "limit" ? solveLimit(node)
+    c.kind === "series"
+      ? (node.type === "fn" && node.name === "taylor" ? solveTaylor(node) : solveSeries(node))
+    : c.kind === "limit" ? solveLimit(node)
     : c.kind === "solve" ? solveEquation(node)
     : c.kind === "differentiate" ? differentiate(node)
     : c.kind === "factor" ? factorExpression(node)
@@ -727,6 +894,11 @@ export function solveNode(node: MathNode): Solution {
   }
   return solution;
 }
+
+// The integral test in series.ts needs to ask for an integral, and this module
+// routes summations there. Handing over the two functions here rather than
+// importing them the other way keeps the cycle out of module initialisation.
+connectSeriesToSolver(solveNode, parseLatex);
 
 /** Parse LaTeX and solve it. Throws ParseError or UnsupportedProblemError. */
 export function solve(latex: string): Solution {

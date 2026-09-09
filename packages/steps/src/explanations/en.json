@@ -1,140 +1,762 @@
 {
-  "ADD_NUMBERS": { "title": "Add the numbers", "text": "Add {values} to get {result}." },
-  "MULTIPLY_NUMBERS": { "title": "Multiply the numbers", "text": "Multiply {values} to get {result}." },
-  "SIMPLIFY_FRACTION": { "title": "Simplify the fraction", "text": "Divide the top and bottom by their greatest common factor to get {result}." },
-  "EVALUATE_POWER": { "title": "Work out the power", "text": "{base} raised to the power {exponent} is {result}." },
-  "EVALUATE_ROOT": { "title": "Take the root", "text": "The root of {radicand} is exactly {result}." },
-  "EVALUATE_ABS": { "title": "Take the absolute value", "text": "The absolute value of {value} is {result}." },
-  "POWER_OF_POWER": { "title": "Multiply the exponents", "text": "Raising a power of {base} to another power means multiplying the exponents." },
-  "SIMPLIFY_RADICAL": { "title": "Simplify the square root", "text": "{radicand} has a square factor, so the root becomes {outside} times the root of {inside}." },
-  "MULTIPLY_BY_ZERO": { "title": "Multiply by zero", "text": "Anything multiplied by zero is zero." },
-  "ZERO_NUMERATOR": { "title": "Zero divided by something", "text": "Zero divided by anything other than zero is zero." },
-  "REMOVE_ADDITIVE_IDENTITY": { "title": "Drop the zero", "text": "Adding zero changes nothing, so it can be removed." },
-  "REMOVE_MULTIPLICATIVE_IDENTITY": { "title": "Drop the one", "text": "Multiplying by one changes nothing, so it can be removed." },
-  "POWER_OF_ZERO": { "title": "Power of zero", "text": "Anything except zero raised to the power zero is one." },
-  "POWER_OF_ONE": { "title": "Power of one", "text": "Raising to the power one leaves the value unchanged." },
-  "ONE_TO_ANY_POWER": { "title": "One to any power", "text": "One raised to any power is one." },
-  "DIVIDE_BY_ONE": { "title": "Divide by one", "text": "Dividing by one leaves the value unchanged." },
-  "COMBINE_LIKE_TERMS": { "title": "Combine like terms", "text": "{terms} have the same variable part, so add their coefficients to get {result}." },
-  "COLLECT_LIKE_FACTORS": { "title": "Collect the powers", "text": "Multiplying powers of {base} means adding the exponents." },
-  "DISTRIBUTE": { "title": "Multiply out the brackets", "text": "Multiply {factor} by each term inside {sum}." },
-  "DISTRIBUTE_NEGATIVE": { "title": "Distribute the minus sign", "text": "A minus sign in front of {sum} flips the sign of every term inside." },
-  "EXPAND_POWER": { "title": "Write out the power", "text": "{base} to the power {exponent} means {exponent} copies multiplied together." },
-  "MULTIPLY_FRACTIONS": { "title": "Multiply the fractions", "text": "Multiply the numerators together and the denominators together." },
-  "DIVIDE_BY_FRACTION": { "title": "Divide by a fraction", "text": "Dividing by {divisor} is the same as multiplying by its reciprocal." },
-  "ADD_FRACTIONS": { "title": "Use a common denominator", "text": "Rewrite both fractions over {denominator}, then add the numerators." },
-  "CANCEL_FRACTION_FACTORS": { "title": "Cancel common factors", "text": "The top and bottom share factors, so cancel them." },
-  "SWAP_SIDES": { "title": "Swap the sides", "text": "Put the side containing the variable on the left." },
-  "CLEAR_DENOMINATORS": { "title": "Multiply both sides by {by}", "text": "Multiplying both sides by {by} clears the fraction." },
-  "MOVE_VARIABLE_TERMS": { "title": "Move the variable terms left", "text": "Move {terms} to the {side} side and change the sign. This is the same as subtracting it from both sides." },
-  "MOVE_CONSTANT_TERMS": { "title": "Move the numbers right", "text": "Move {terms} to the {side} side and change the sign. This is the same as subtracting it from both sides." },
-  "DIVIDE_BOTH_SIDES": { "title": "Divide both sides by {by}", "text": "Divide both sides by {by} to leave the variable on its own." },
-  "MOVE_ALL_TO_LEFT": { "title": "Bring everything to one side", "text": "Move every term to the left so the equation reads: something equals zero." },
-  "FACTOR_QUADRATIC": { "title": "Factor the quadratic", "text": "Find two numbers that multiply to {product} and add to {sum}, then write the quadratic as a product." },
-  "ZERO_PRODUCT": { "title": "Set each factor to zero", "text": "A product is zero only when one of its factors is zero, so solve each bracket separately." },
-  "QUADRATIC_FORMULA": { "title": "Apply the quadratic formula", "text": "With a = {a}, b = {b} and c = {c}, substitute into the quadratic formula." },
-  "DISCRIMINANT": { "title": "Work out the discriminant", "text": "b squared minus 4ac is {discriminant}." },
-  "QUADRATIC_ROOTS": { "title": "Read off the solutions", "text": "Taking the plus and the minus gives the two solutions." },
-  "NO_REAL_SOLUTIONS": { "title": "No real solutions", "text": "The discriminant is negative, so this equation has no real solutions." },
-  "IDENTITY_TRUE": { "title": "Always true", "text": "Both sides are identical, so every value of the variable works." },
-  "IDENTITY_FALSE": { "title": "Never true", "text": "The two sides can never be equal, so there is no solution." },
-  "DIFF_SUM": { "title": "Differentiate each term separately", "text": "A sum changes at the combined rate of its parts, so the {count} terms can be handled one at a time." },
-  "DIFF_NEGATIVE": { "title": "Take the minus sign outside", "text": "Subtracting a quantity subtracts its rate of change too, so the sign can wait outside the derivative." },
-  "DIFF_CONSTANT_MULTIPLE": { "title": "Move {constant} outside the derivative", "text": "Multiplying a function by {constant} stretches it by that factor, and stretching it stretches its slope by the same factor." },
-  "DIFF_CONSTANT_DENOMINATOR": { "title": "Divide the derivative by {constant}", "text": "Dividing by {constant} shrinks the function by a fixed factor, so it shrinks the slope by that same factor." },
-  "DIFF_PRODUCT": { "title": "Use the product rule", "text": "Both {first} and {second} change with {variable}, so neither one can be held still while the other moves; each contributes a term." },
-  "DIFF_QUOTIENT": { "title": "Use the quotient rule", "text": "The bottom changes with {variable} as well as the top, so the two effects work against each other and the denominator gets squared." },
-  "DIFF_CONSTANT": { "title": "The derivative of {constant} is zero", "text": "{constant} is the same number whatever {variable} does, so it has no rate of change." },
-  "DIFF_VARIABLE": { "title": "Differentiate {variable}", "text": "{variable} keeps exact pace with itself, so its rate of change is 1." },
-  "DIFF_POWER": { "title": "Use the power rule", "text": "Bring the exponent {exponent} down in front and drop the power by one; that is the rate at which a power grows." },
-  "DIFF_CHAIN_POWER": { "title": "Use the chain rule on the power", "text": "The bracket is not just {variable}, so the power rule gives the outside rate and it has to be scaled by how fast the inside is moving." },
-  "DIFF_EXPONENTIAL": { "title": "Differentiate the exponential", "text": "An exponential grows in proportion to its own size, and the constant of proportionality for base {base} is the natural log of {base}." },
-  "DIFF_EXPONENTIAL_E": { "title": "Differentiate the exponential", "text": "e is the base whose exponential grows at exactly its own value, so only the rate of the exponent is left to account for." },
-  "DIFF_SIN": { "title": "Differentiate the sine", "text": "Sine is rising fastest where cosine is largest, so cosine measures its rate of change." },
-  "DIFF_SIN_CHAIN": { "title": "Use the chain rule on the sine", "text": "The angle {inside} is itself moving, so the usual cosine has to be scaled by how fast the angle changes." },
-  "DIFF_COS": { "title": "Differentiate the cosine", "text": "Cosine falls while sine rises, so its rate of change is sine with a minus sign." },
-  "DIFF_COS_CHAIN": { "title": "Use the chain rule on the cosine", "text": "The angle {inside} is itself moving, so the usual minus sine has to be scaled by how fast the angle changes." },
-  "DIFF_TAN": { "title": "Differentiate the tangent", "text": "Tangent steepens as it approaches a vertical asymptote, and secant squared is exactly how fast it steepens." },
-  "DIFF_TAN_CHAIN": { "title": "Use the chain rule on the tangent", "text": "The angle {inside} is itself moving, so secant squared has to be scaled by how fast the angle changes." },
-  "DIFF_EXP": { "title": "Differentiate the exponential", "text": "The exponential function is the one that grows at exactly its own value, so it is unchanged." },
-  "DIFF_EXP_CHAIN": { "title": "Use the chain rule on the exponential", "text": "The exponential still grows at its own value, but the exponent {inside} is moving too, so that rate multiplies in." },
-  "DIFF_LN": { "title": "Differentiate the logarithm", "text": "The natural log climbs more slowly the bigger {variable} gets, at a rate of exactly one over {variable}." },
-  "DIFF_LN_CHAIN": { "title": "Use the chain rule on the logarithm", "text": "The log measures relative change, so the rate is how fast {inside} moves compared with how big it already is." },
-  "DIFF_SQRT": { "title": "Differentiate the square root", "text": "A square root flattens out as it grows, and the rate works out as one over twice the root." },
-  "DIFF_SQRT_CHAIN": { "title": "Use the chain rule on the square root", "text": "The square root gives the outside rate, and it has to be scaled by how fast {inside} underneath is changing." },
-  "EVALUATE_TRIG": { "title": "Read the exact value of {function}({angle})", "text": "{angle} is one of the angles whose {function} is known exactly, and it is {result} — not a rounded decimal." },
-  "EVALUATE_INVERSE_TRIG": { "title": "Read the angle back", "text": "{result} is the angle in the principal range whose {function} counterpart gives {value}." },
-  "PYTHAGOREAN_IDENTITY": { "title": "Use the Pythagorean identity", "text": "Sine and cosine of {angle} are the two legs of a right triangle with hypotenuse 1, so their squares always add to 1." },
-  "EVALUATE_LOG": { "title": "Work out the logarithm", "text": "A logarithm asks what power of {base} gives {argument}, and the answer here is exactly {result}." },
-  "LOG_PRODUCT": { "title": "Add the logarithms", "text": "Adding logarithms multiplies what is inside them, so {first} and {second} join into one logarithm." },
-  "LOG_QUOTIENT": { "title": "Subtract the logarithms", "text": "Subtracting logarithms divides what is inside them, so {first} over {second} becomes a single logarithm." },
-  "LOG_POWER": { "title": "Bring the exponent down", "text": "A power inside a logarithm is repeated multiplication, which a logarithm turns into repeated addition, so the {exponent} moves out in front." },
-  "LIMIT_SUBSTITUTE": { "title": "Substitute {variable} = {point}", "text": "The expression is continuous here, so where it is heading is simply its value at {point}." },
-  "LIMIT_CONSTANT": { "title": "The expression does not depend on {variable}", "text": "Nothing inside changes as {variable} moves, so the limit is just {expression}." },
-  "LIMIT_INDETERMINATE": { "title": "Substituting gives {form}", "text": "{form} is indeterminate: it does not say the limit is 1, or 0, or anything at all. The expression has to be rewritten before {variable} = {point} can go in." },
-  "LIMIT_FACTOR": { "title": "Factor out {factor}", "text": "Top and bottom are both zero at that point, which is exactly what it means for {factor} to divide into each of them; writing it out is what makes the cancelling visible." },
-  "LIMIT_AT_INFINITY": { "title": "Compare the degrees", "text": "The bottom is degree {bottom} and the top only degree {top}, so the denominator outgrows the numerator and the fraction is squeezed to zero." },
-  "LIMIT_AT_INFINITY_RATIO": { "title": "Compare the degrees", "text": "Top and bottom are both degree {top}, so far out only the leading terms matter and the fraction settles at {result}." },
-  "LIMIT_LHOPITAL": { "title": "Apply l'Hopital's rule", "text": "With the form {form}, what decides the limit is how fast {top} and {bottom} are changing, so differentiate each of them and ask again." },
-  "LIMIT_DOES_NOT_EXIST": { "title": "The limit does not exist", "text": "The expression does not settle on any value as {variable} approaches {point}, so there is no limit to report." },
-  "FACTOR_COMMON_FACTOR": { "title": "Take out the common factor", "text": "Every term is divisible by {factor}, so it can come outside a bracket." },
-  "FACTOR_DIFFERENCE_OF_SQUARES": { "title": "Use the difference of two squares", "text": "This is {first} squared minus {second} squared, and a difference of squares always splits into a sum times a difference." },
-  "FACTOR_DIFFERENCE_OF_CUBES": { "title": "Use the difference of two cubes", "text": "This is {first} cubed minus {second} cubed, and the middle terms of the long bracket cancel when it is multiplied back out." },
-  "FACTOR_SUM_OF_CUBES": { "title": "Use the sum of two cubes", "text": "This is {first} cubed plus {second} cubed, and the middle terms of the long bracket cancel when it is multiplied back out." },
-  "FACTOR_TRINOMIAL": { "title": "Factor the trinomial", "text": "Find two numbers that multiply to {product} and add to {sum}; they are the numbers that go in the brackets." },
-  "FACTOR_BY_GROUPING": { "title": "Factor in pairs", "text": "Neither pair factors on its own, but taking a factor out of each leaves the same bracket {shared} in both." },
-  "FACTOR_RATIONAL_ROOT": { "title": "Divide out the factor for {variable} = {root}", "text": "The expression is zero at {variable} = {root}, so that bracket divides into it exactly." },
-  "FACTOR_OUT_VARIABLE": { "title": "Take out {factor}", "text": "There is no constant term, so {factor} is a factor of every term and one solution is zero." },
-  "RATIONAL_ROOT_CANDIDATES": { "title": "List the possible whole-number roots", "text": "Any rational root is a factor of {constant} divided by a factor of {leading}, so only {candidates} are worth testing." },
-  "SYNTHETIC_DIVISION": { "title": "Divide out the factor for {variable} = {root}", "text": "Substituting {root} gives zero, so that bracket is a factor and dividing by it drops the degree by one." },
-  "LINEAR_FACTOR": { "title": "Read off the last factor", "text": "What is left is linear, so it gives the remaining solution straight away." },
-  "ISOLATE_RADICAL": { "title": "Get the root on its own", "text": "Move {terms} across first; squaring only removes the root while it stands alone." },
-  "SQUARE_BOTH_SIDES": { "title": "Square both sides", "text": "Squaring undoes the square root, but it can also create answers that do not fit the original, so they will have to be checked." },
-  "RAISE_BOTH_SIDES": { "title": "Raise both sides to the power {index}", "text": "Taking the power {index} undoes the root, at the cost of possibly creating answers the original does not have." },
-  "CHECK_EXTRANEOUS": { "title": "Check each answer in the original equation", "text": "Squaring is not reversible, so every candidate goes back in: {kept} works and {rejected} does not." },
-  "CHECK_NO_EXTRANEOUS": { "title": "Check each answer in the original equation", "text": "Squaring can invent answers, so {candidates} goes back into the original, and it holds." },
-  "EXPONENTIAL_ALWAYS_POSITIVE": { "title": "No solution", "text": "A positive number raised to any power stays positive, so it can never equal a number that is zero or negative." },
-  "MATCH_BASES": { "title": "Write both sides as a power of {base}", "text": "The right-hand side is {base} to the power {exponent}, so both sides can be compared directly." },
-  "EQUATE_EXPONENTS": { "title": "Equate the exponents", "text": "Powers of {base} never repeat a value, so the two sides can only be equal when the exponents are." },
-  "TAKE_LOGARITHM": { "title": "Take the logarithm of both sides", "text": "The logarithm to base {base} is what undoes that power, and it brings the exponent down to where it can be solved for." },
-  "EXPONENTIATE_BOTH_SIDES": { "title": "Write it without the logarithm", "text": "A logarithm to base {base} says what power {base} is raised to, so raising {base} to each side removes it." },
-  "REJECT_LOG_DOMAIN": { "title": "Check each answer against the logarithms", "text": "A logarithm is only defined for a positive number, so {rejected} has to be thrown out and {kept} is left." },
-  "CHECK_LOG_DOMAIN": { "title": "Check each answer against the logarithms", "text": "A logarithm is only defined for a positive number, and {kept} keeps every argument positive." },
-  "LOG_COEFFICIENT_TO_POWER": { "title": "Move the multiplier into the logarithm", "text": "A multiple of a logarithm is the logarithm of that power, so {exponent} becomes the exponent of {argument}." },
-  "COMBINE_LOG_SUM": { "title": "Combine the logarithms", "text": "Adding logarithms multiplies what is inside them, so {first} and {second} become one logarithm of their product." },
-  "COMBINE_LOG_DIFFERENCE": { "title": "Combine the logarithms", "text": "Subtracting logarithms divides what is inside them, so {first} and {second} become one logarithm of their quotient." },
-  "LOG_OF_POWER": { "title": "Cancel the logarithm and the power", "text": "A logarithm to base {base} of a power of {base} is just the exponent." },
-  "ABSOLUTE_NEVER_NEGATIVE": { "title": "No solution", "text": "An absolute value measures distance, so it can never be negative." },
-  "ABSOLUTE_ALWAYS_GREATER": { "title": "Every value works", "text": "An absolute value is never negative, so it is greater than {value} wherever it is defined." },
-  "SPLIT_ABSOLUTE_VALUE": { "title": "Split into two equations", "text": "{inner} is {value} away from zero, which happens on either side of it." },
-  "ABSOLUTE_LESS_THAN": { "title": "Write it as one double inequality", "text": "{inner} is less than {value} away from zero, so it lies between the two." },
-  "ABSOLUTE_GREATER_THAN": { "title": "Split into two inequalities", "text": "{inner} is more than {value} away from zero, so it is beyond one end or the other and nothing in between works." },
-  "SOLVE_COMPOUND_INEQUALITY": { "title": "Solve for {variable}", "text": "The same operation applies to every part of the inequality at once." },
-  "MULTIPLY_BY_NEGATIVE": { "title": "Multiply both sides by {by}", "text": "Multiplying by a negative number reverses which side is larger, so the inequality turns round." },
-  "INEQUALITY_CRITICAL_POINTS": { "title": "Find where the expression is zero", "text": "A polynomial can only change sign where it crosses zero, so {roots} divides the number line into the pieces to test." },
-  "INEQUALITY_TEST_INTERVALS": { "title": "Test each interval", "text": "Testing one value from each piece shows which of them satisfy the inequality." },
-  "INEQUALITY_ALWAYS_TRUE": { "title": "Every value works", "text": "The parabola opens upwards and never dips below the axis, so nothing can fail the inequality." },
-  "INEQUALITY_NEVER_TRUE": { "title": "No solution", "text": "The parabola opens upwards and never dips below the axis, so no value can make it negative." },
-  "INT_SUM": { "title": "Integrate each term separately", "text": "Area adds up term by term, so the {count} terms can be integrated one at a time." },
-  "INT_NEGATIVE": { "title": "Take the minus sign outside", "text": "Subtracting a quantity subtracts its area too, so the sign can wait outside the integral." },
-  "INT_CONSTANT_MULTIPLE": { "title": "Move {constant} outside the integral", "text": "Stretching a function by {constant} stretches the area under it by the same factor, so the factor can come out." },
-  "INT_CONSTANT_DENOMINATOR": { "title": "Divide the integral by {constant}", "text": "Dividing the function by {constant} divides the area under it by {constant}, so the denominator can wait outside." },
-  "INT_CONSTANT": { "title": "Integrate the constant {constant}", "text": "{constant} never changes, so the area under it grows in step with {variable}." },
-  "INT_POWER": { "title": "Use the power rule", "text": "Undo the power rule: raise the exponent from {exponent} to {raised} and divide by the new exponent." },
-  "INT_RECIPROCAL": { "title": "Integrate one over {variable}", "text": "No power of {variable} differentiates to one over {variable}; the natural log does, and the absolute value covers the negative side too." },
-  "INT_EXPONENTIAL_E": { "title": "Integrate the exponential", "text": "e to the {variable} is its own derivative, so it is its own integral as well." },
-  "INT_EXPONENTIAL": { "title": "Integrate the exponential", "text": "Differentiating {base} to the {variable} multiplies it by the natural log of {base}, so integrating divides by it." },
-  "INT_SIN": { "title": "Integrate the sine", "text": "Cosine differentiates to minus sine, so sine integrates to minus cosine." },
-  "INT_COS": { "title": "Integrate the cosine", "text": "Sine differentiates to cosine, so cosine integrates back to sine." },
-  "INT_SEC_SQUARED": { "title": "Integrate secant squared", "text": "Secant squared is exactly the derivative of the tangent, so it integrates straight back to it." },
-  "INT_ARCTAN": { "title": "Recognise the arctangent", "text": "One over one plus {variable} squared is the derivative of the arctangent, so that is the area function." },
-  "INT_ARCSIN": { "title": "Recognise the arcsine", "text": "One over the root of one minus {variable} squared is the derivative of the arcsine, so that is the area function." },
-  "INT_SUBSTITUTION": { "title": "Substitute {placeholder} = {u}", "text": "With {placeholder} = {u} the factor {rate} is exactly what d{placeholder} needs, and the integral becomes {inner} d{placeholder}, which integrates directly. Then {placeholder} goes back to {u}." },
-  "INT_LONG_DIVISION": { "title": "Divide out the fraction first", "text": "The top has at least the degree of the bottom, so divide to get {quotient} plus a smaller fraction, which is the part that needs work." },
-  "INT_PARTIAL_FRACTIONS": { "title": "Split into partial fractions", "text": "The bottom factorises, so the fraction splits into {pieces} simpler ones, each of which integrates to a logarithm or a power." },
-  "INT_BY_PARTS": { "title": "Integrate by parts", "text": "Taking u = {u} and dv = {dv} gives v = {v} and du = {du}. The product rule run backwards trades this integral for {v} du, which is the easier one." },
-  "INT_EVALUATE_LIMITS": { "title": "Evaluate at the limits", "text": "The area from {lower} to {upper} is the antiderivative at {upper} minus its value at {lower}." },
-  "INT_ADD_CONSTANT": { "title": "Add the constant of integration", "text": "Every function differing by a constant has the same derivative, so the antiderivative is a whole family and C stands for which one." },
-  "INT_DEFINITE_SETUP": { "title": "Find the antiderivative first", "text": "Set the limits {lower} and {upper} aside, integrate as usual, and bring them back at the end." },
-  "INT_EXPAND": { "title": "Multiply the brackets out first", "text": "A polynomial has no shortcut worth keeping here, so expand it and integrate one term at a time." }
+  "ADD_NUMBERS": {
+    "title": "Add the numbers",
+    "text": "Add {values} to get {result}."
+  },
+  "MULTIPLY_NUMBERS": {
+    "title": "Multiply the numbers",
+    "text": "Multiply {values} to get {result}."
+  },
+  "SIMPLIFY_FRACTION": {
+    "title": "Simplify the fraction",
+    "text": "Divide the top and bottom by their greatest common factor to get {result}."
+  },
+  "EVALUATE_POWER": {
+    "title": "Work out the power",
+    "text": "{base} raised to the power {exponent} is {result}."
+  },
+  "EVALUATE_ROOT": {
+    "title": "Take the root",
+    "text": "The root of {radicand} is exactly {result}."
+  },
+  "EVALUATE_ABS": {
+    "title": "Take the absolute value",
+    "text": "The absolute value of {value} is {result}."
+  },
+  "POWER_OF_POWER": {
+    "title": "Multiply the exponents",
+    "text": "Raising a power of {base} to another power means multiplying the exponents."
+  },
+  "SIMPLIFY_RADICAL": {
+    "title": "Simplify the square root",
+    "text": "{radicand} has a square factor, so the root becomes {outside} times the root of {inside}."
+  },
+  "MULTIPLY_BY_ZERO": {
+    "title": "Multiply by zero",
+    "text": "Anything multiplied by zero is zero."
+  },
+  "ZERO_NUMERATOR": {
+    "title": "Zero divided by something",
+    "text": "Zero divided by anything other than zero is zero."
+  },
+  "REMOVE_ADDITIVE_IDENTITY": {
+    "title": "Drop the zero",
+    "text": "Adding zero changes nothing, so it can be removed."
+  },
+  "REMOVE_MULTIPLICATIVE_IDENTITY": {
+    "title": "Drop the one",
+    "text": "Multiplying by one changes nothing, so it can be removed."
+  },
+  "POWER_OF_ZERO": {
+    "title": "Power of zero",
+    "text": "Anything except zero raised to the power zero is one."
+  },
+  "POWER_OF_ONE": {
+    "title": "Power of one",
+    "text": "Raising to the power one leaves the value unchanged."
+  },
+  "ONE_TO_ANY_POWER": {
+    "title": "One to any power",
+    "text": "One raised to any power is one."
+  },
+  "DIVIDE_BY_ONE": {
+    "title": "Divide by one",
+    "text": "Dividing by one leaves the value unchanged."
+  },
+  "COMBINE_LIKE_TERMS": {
+    "title": "Combine like terms",
+    "text": "{terms} have the same variable part, so add their coefficients to get {result}."
+  },
+  "COLLECT_LIKE_FACTORS": {
+    "title": "Collect the powers",
+    "text": "Multiplying powers of {base} means adding the exponents."
+  },
+  "DISTRIBUTE": {
+    "title": "Multiply out the brackets",
+    "text": "Multiply {factor} by each term inside {sum}."
+  },
+  "DISTRIBUTE_NEGATIVE": {
+    "title": "Distribute the minus sign",
+    "text": "A minus sign in front of {sum} flips the sign of every term inside."
+  },
+  "EXPAND_POWER": {
+    "title": "Write out the power",
+    "text": "{base} to the power {exponent} means {exponent} copies multiplied together."
+  },
+  "MULTIPLY_FRACTIONS": {
+    "title": "Multiply the fractions",
+    "text": "Multiply the numerators together and the denominators together."
+  },
+  "DIVIDE_BY_FRACTION": {
+    "title": "Divide by a fraction",
+    "text": "Dividing by {divisor} is the same as multiplying by its reciprocal."
+  },
+  "ADD_FRACTIONS": {
+    "title": "Use a common denominator",
+    "text": "Rewrite both fractions over {denominator}, then add the numerators."
+  },
+  "CANCEL_FRACTION_FACTORS": {
+    "title": "Cancel common factors",
+    "text": "The top and bottom share factors, so cancel them."
+  },
+  "SWAP_SIDES": {
+    "title": "Swap the sides",
+    "text": "Put the side containing the variable on the left."
+  },
+  "CLEAR_DENOMINATORS": {
+    "title": "Multiply both sides by {by}",
+    "text": "Multiplying both sides by {by} clears the fraction."
+  },
+  "MOVE_VARIABLE_TERMS": {
+    "title": "Move the variable terms left",
+    "text": "Move {terms} to the {side} side and change the sign. This is the same as subtracting it from both sides."
+  },
+  "MOVE_CONSTANT_TERMS": {
+    "title": "Move the numbers right",
+    "text": "Move {terms} to the {side} side and change the sign. This is the same as subtracting it from both sides."
+  },
+  "DIVIDE_BOTH_SIDES": {
+    "title": "Divide both sides by {by}",
+    "text": "Divide both sides by {by} to leave the variable on its own."
+  },
+  "MOVE_ALL_TO_LEFT": {
+    "title": "Bring everything to one side",
+    "text": "Move every term to the left so the equation reads: something equals zero."
+  },
+  "FACTOR_QUADRATIC": {
+    "title": "Factor the quadratic",
+    "text": "Find two numbers that multiply to {product} and add to {sum}, then write the quadratic as a product."
+  },
+  "ZERO_PRODUCT": {
+    "title": "Set each factor to zero",
+    "text": "A product is zero only when one of its factors is zero, so solve each bracket separately."
+  },
+  "QUADRATIC_FORMULA": {
+    "title": "Apply the quadratic formula",
+    "text": "With a = {a}, b = {b} and c = {c}, substitute into the quadratic formula."
+  },
+  "DISCRIMINANT": {
+    "title": "Work out the discriminant",
+    "text": "b squared minus 4ac is {discriminant}."
+  },
+  "QUADRATIC_ROOTS": {
+    "title": "Read off the solutions",
+    "text": "Taking the plus and the minus gives the two solutions."
+  },
+  "NO_REAL_SOLUTIONS": {
+    "title": "No real solutions",
+    "text": "The discriminant is negative, so this equation has no real solutions."
+  },
+  "IDENTITY_TRUE": {
+    "title": "Always true",
+    "text": "Both sides are identical, so every value of the variable works."
+  },
+  "IDENTITY_FALSE": {
+    "title": "Never true",
+    "text": "The two sides can never be equal, so there is no solution."
+  },
+  "DIFF_SUM": {
+    "title": "Differentiate each term separately",
+    "text": "A sum changes at the combined rate of its parts, so the {count} terms can be handled one at a time."
+  },
+  "DIFF_NEGATIVE": {
+    "title": "Take the minus sign outside",
+    "text": "Subtracting a quantity subtracts its rate of change too, so the sign can wait outside the derivative."
+  },
+  "DIFF_CONSTANT_MULTIPLE": {
+    "title": "Move {constant} outside the derivative",
+    "text": "Multiplying a function by {constant} stretches it by that factor, and stretching it stretches its slope by the same factor."
+  },
+  "DIFF_CONSTANT_DENOMINATOR": {
+    "title": "Divide the derivative by {constant}",
+    "text": "Dividing by {constant} shrinks the function by a fixed factor, so it shrinks the slope by that same factor."
+  },
+  "DIFF_PRODUCT": {
+    "title": "Use the product rule",
+    "text": "Both {first} and {second} change with {variable}, so neither one can be held still while the other moves; each contributes a term."
+  },
+  "DIFF_QUOTIENT": {
+    "title": "Use the quotient rule",
+    "text": "The bottom changes with {variable} as well as the top, so the two effects work against each other and the denominator gets squared."
+  },
+  "DIFF_CONSTANT": {
+    "title": "The derivative of {constant} is zero",
+    "text": "{constant} is the same number whatever {variable} does, so it has no rate of change."
+  },
+  "DIFF_VARIABLE": {
+    "title": "Differentiate {variable}",
+    "text": "{variable} keeps exact pace with itself, so its rate of change is 1."
+  },
+  "DIFF_POWER": {
+    "title": "Use the power rule",
+    "text": "Bring the exponent {exponent} down in front and drop the power by one; that is the rate at which a power grows."
+  },
+  "DIFF_CHAIN_POWER": {
+    "title": "Use the chain rule on the power",
+    "text": "The bracket is not just {variable}, so the power rule gives the outside rate and it has to be scaled by how fast the inside is moving."
+  },
+  "DIFF_EXPONENTIAL": {
+    "title": "Differentiate the exponential",
+    "text": "An exponential grows in proportion to its own size, and the constant of proportionality for base {base} is the natural log of {base}."
+  },
+  "DIFF_EXPONENTIAL_E": {
+    "title": "Differentiate the exponential",
+    "text": "e is the base whose exponential grows at exactly its own value, so only the rate of the exponent is left to account for."
+  },
+  "DIFF_SIN": {
+    "title": "Differentiate the sine",
+    "text": "Sine is rising fastest where cosine is largest, so cosine measures its rate of change."
+  },
+  "DIFF_SIN_CHAIN": {
+    "title": "Use the chain rule on the sine",
+    "text": "The angle {inside} is itself moving, so the usual cosine has to be scaled by how fast the angle changes."
+  },
+  "DIFF_COS": {
+    "title": "Differentiate the cosine",
+    "text": "Cosine falls while sine rises, so its rate of change is sine with a minus sign."
+  },
+  "DIFF_COS_CHAIN": {
+    "title": "Use the chain rule on the cosine",
+    "text": "The angle {inside} is itself moving, so the usual minus sine has to be scaled by how fast the angle changes."
+  },
+  "DIFF_TAN": {
+    "title": "Differentiate the tangent",
+    "text": "Tangent steepens as it approaches a vertical asymptote, and secant squared is exactly how fast it steepens."
+  },
+  "DIFF_TAN_CHAIN": {
+    "title": "Use the chain rule on the tangent",
+    "text": "The angle {inside} is itself moving, so secant squared has to be scaled by how fast the angle changes."
+  },
+  "DIFF_EXP": {
+    "title": "Differentiate the exponential",
+    "text": "The exponential function is the one that grows at exactly its own value, so it is unchanged."
+  },
+  "DIFF_EXP_CHAIN": {
+    "title": "Use the chain rule on the exponential",
+    "text": "The exponential still grows at its own value, but the exponent {inside} is moving too, so that rate multiplies in."
+  },
+  "DIFF_LN": {
+    "title": "Differentiate the logarithm",
+    "text": "The natural log climbs more slowly the bigger {variable} gets, at a rate of exactly one over {variable}."
+  },
+  "DIFF_LN_CHAIN": {
+    "title": "Use the chain rule on the logarithm",
+    "text": "The log measures relative change, so the rate is how fast {inside} moves compared with how big it already is."
+  },
+  "DIFF_SQRT": {
+    "title": "Differentiate the square root",
+    "text": "A square root flattens out as it grows, and the rate works out as one over twice the root."
+  },
+  "DIFF_SQRT_CHAIN": {
+    "title": "Use the chain rule on the square root",
+    "text": "The square root gives the outside rate, and it has to be scaled by how fast {inside} underneath is changing."
+  },
+  "EVALUATE_TRIG": {
+    "title": "Read the exact value of {function}({angle})",
+    "text": "{angle} is one of the angles whose {function} is known exactly, and it is {result} — not a rounded decimal."
+  },
+  "EVALUATE_INVERSE_TRIG": {
+    "title": "Read the angle back",
+    "text": "{result} is the angle in the principal range whose {function} counterpart gives {value}."
+  },
+  "PYTHAGOREAN_IDENTITY": {
+    "title": "Use the Pythagorean identity",
+    "text": "Sine and cosine of {angle} are the two legs of a right triangle with hypotenuse 1, so their squares always add to 1."
+  },
+  "EVALUATE_LOG": {
+    "title": "Work out the logarithm",
+    "text": "A logarithm asks what power of {base} gives {argument}, and the answer here is exactly {result}."
+  },
+  "LOG_PRODUCT": {
+    "title": "Add the logarithms",
+    "text": "Adding logarithms multiplies what is inside them, so {first} and {second} join into one logarithm."
+  },
+  "LOG_QUOTIENT": {
+    "title": "Subtract the logarithms",
+    "text": "Subtracting logarithms divides what is inside them, so {first} over {second} becomes a single logarithm."
+  },
+  "LOG_POWER": {
+    "title": "Bring the exponent down",
+    "text": "A power inside a logarithm is repeated multiplication, which a logarithm turns into repeated addition, so the {exponent} moves out in front."
+  },
+  "LIMIT_SUBSTITUTE": {
+    "title": "Substitute {variable} = {point}",
+    "text": "The expression is continuous here, so where it is heading is simply its value at {point}."
+  },
+  "LIMIT_CONSTANT": {
+    "title": "The expression does not depend on {variable}",
+    "text": "Nothing inside changes as {variable} moves, so the limit is just {expression}."
+  },
+  "LIMIT_INDETERMINATE": {
+    "title": "Substituting gives {form}",
+    "text": "{form} is indeterminate: it does not say the limit is 1, or 0, or anything at all. The expression has to be rewritten before {variable} = {point} can go in."
+  },
+  "LIMIT_FACTOR": {
+    "title": "Factor out {factor}",
+    "text": "Top and bottom are both zero at that point, which is exactly what it means for {factor} to divide into each of them; writing it out is what makes the cancelling visible."
+  },
+  "LIMIT_AT_INFINITY": {
+    "title": "Compare the degrees",
+    "text": "The bottom is degree {bottom} and the top only degree {top}, so the denominator outgrows the numerator and the fraction is squeezed to zero."
+  },
+  "LIMIT_AT_INFINITY_RATIO": {
+    "title": "Compare the degrees",
+    "text": "Top and bottom are both degree {top}, so far out only the leading terms matter and the fraction settles at {result}."
+  },
+  "LIMIT_LHOPITAL": {
+    "title": "Apply l'Hopital's rule",
+    "text": "With the form {form}, what decides the limit is how fast {top} and {bottom} are changing, so differentiate each of them and ask again."
+  },
+  "LIMIT_DOES_NOT_EXIST": {
+    "title": "The limit does not exist",
+    "text": "The expression does not settle on any value as {variable} approaches {point}, so there is no limit to report."
+  },
+  "FACTOR_COMMON_FACTOR": {
+    "title": "Take out the common factor",
+    "text": "Every term is divisible by {factor}, so it can come outside a bracket."
+  },
+  "FACTOR_DIFFERENCE_OF_SQUARES": {
+    "title": "Use the difference of two squares",
+    "text": "This is {first} squared minus {second} squared, and a difference of squares always splits into a sum times a difference."
+  },
+  "FACTOR_DIFFERENCE_OF_CUBES": {
+    "title": "Use the difference of two cubes",
+    "text": "This is {first} cubed minus {second} cubed, and the middle terms of the long bracket cancel when it is multiplied back out."
+  },
+  "FACTOR_SUM_OF_CUBES": {
+    "title": "Use the sum of two cubes",
+    "text": "This is {first} cubed plus {second} cubed, and the middle terms of the long bracket cancel when it is multiplied back out."
+  },
+  "FACTOR_TRINOMIAL": {
+    "title": "Factor the trinomial",
+    "text": "Find two numbers that multiply to {product} and add to {sum}; they are the numbers that go in the brackets."
+  },
+  "FACTOR_BY_GROUPING": {
+    "title": "Factor in pairs",
+    "text": "Neither pair factors on its own, but taking a factor out of each leaves the same bracket {shared} in both."
+  },
+  "FACTOR_RATIONAL_ROOT": {
+    "title": "Divide out the factor for {variable} = {root}",
+    "text": "The expression is zero at {variable} = {root}, so that bracket divides into it exactly."
+  },
+  "FACTOR_OUT_VARIABLE": {
+    "title": "Take out {factor}",
+    "text": "There is no constant term, so {factor} is a factor of every term and one solution is zero."
+  },
+  "RATIONAL_ROOT_CANDIDATES": {
+    "title": "List the possible whole-number roots",
+    "text": "Any rational root is a factor of {constant} divided by a factor of {leading}, so only {candidates} are worth testing."
+  },
+  "SYNTHETIC_DIVISION": {
+    "title": "Divide out the factor for {variable} = {root}",
+    "text": "Substituting {root} gives zero, so that bracket is a factor and dividing by it drops the degree by one."
+  },
+  "LINEAR_FACTOR": {
+    "title": "Read off the last factor",
+    "text": "What is left is linear, so it gives the remaining solution straight away."
+  },
+  "ISOLATE_RADICAL": {
+    "title": "Get the root on its own",
+    "text": "Move {terms} across first; squaring only removes the root while it stands alone."
+  },
+  "SQUARE_BOTH_SIDES": {
+    "title": "Square both sides",
+    "text": "Squaring undoes the square root, but it can also create answers that do not fit the original, so they will have to be checked."
+  },
+  "RAISE_BOTH_SIDES": {
+    "title": "Raise both sides to the power {index}",
+    "text": "Taking the power {index} undoes the root, at the cost of possibly creating answers the original does not have."
+  },
+  "CHECK_EXTRANEOUS": {
+    "title": "Check each answer in the original equation",
+    "text": "Squaring is not reversible, so every candidate goes back in: {kept} works and {rejected} does not."
+  },
+  "CHECK_NO_EXTRANEOUS": {
+    "title": "Check each answer in the original equation",
+    "text": "Squaring can invent answers, so {candidates} goes back into the original, and it holds."
+  },
+  "EXPONENTIAL_ALWAYS_POSITIVE": {
+    "title": "No solution",
+    "text": "A positive number raised to any power stays positive, so it can never equal a number that is zero or negative."
+  },
+  "MATCH_BASES": {
+    "title": "Write both sides as a power of {base}",
+    "text": "The right-hand side is {base} to the power {exponent}, so both sides can be compared directly."
+  },
+  "EQUATE_EXPONENTS": {
+    "title": "Equate the exponents",
+    "text": "Powers of {base} never repeat a value, so the two sides can only be equal when the exponents are."
+  },
+  "TAKE_LOGARITHM": {
+    "title": "Take the logarithm of both sides",
+    "text": "The logarithm to base {base} is what undoes that power, and it brings the exponent down to where it can be solved for."
+  },
+  "EXPONENTIATE_BOTH_SIDES": {
+    "title": "Write it without the logarithm",
+    "text": "A logarithm to base {base} says what power {base} is raised to, so raising {base} to each side removes it."
+  },
+  "REJECT_LOG_DOMAIN": {
+    "title": "Check each answer against the logarithms",
+    "text": "A logarithm is only defined for a positive number, so {rejected} has to be thrown out and {kept} is left."
+  },
+  "CHECK_LOG_DOMAIN": {
+    "title": "Check each answer against the logarithms",
+    "text": "A logarithm is only defined for a positive number, and {kept} keeps every argument positive."
+  },
+  "LOG_COEFFICIENT_TO_POWER": {
+    "title": "Move the multiplier into the logarithm",
+    "text": "A multiple of a logarithm is the logarithm of that power, so {exponent} becomes the exponent of {argument}."
+  },
+  "COMBINE_LOG_SUM": {
+    "title": "Combine the logarithms",
+    "text": "Adding logarithms multiplies what is inside them, so {first} and {second} become one logarithm of their product."
+  },
+  "COMBINE_LOG_DIFFERENCE": {
+    "title": "Combine the logarithms",
+    "text": "Subtracting logarithms divides what is inside them, so {first} and {second} become one logarithm of their quotient."
+  },
+  "LOG_OF_POWER": {
+    "title": "Cancel the logarithm and the power",
+    "text": "A logarithm to base {base} of a power of {base} is just the exponent."
+  },
+  "ABSOLUTE_NEVER_NEGATIVE": {
+    "title": "No solution",
+    "text": "An absolute value measures distance, so it can never be negative."
+  },
+  "ABSOLUTE_ALWAYS_GREATER": {
+    "title": "Every value works",
+    "text": "An absolute value is never negative, so it is greater than {value} wherever it is defined."
+  },
+  "SPLIT_ABSOLUTE_VALUE": {
+    "title": "Split into two equations",
+    "text": "{inner} is {value} away from zero, which happens on either side of it."
+  },
+  "ABSOLUTE_LESS_THAN": {
+    "title": "Write it as one double inequality",
+    "text": "{inner} is less than {value} away from zero, so it lies between the two."
+  },
+  "ABSOLUTE_GREATER_THAN": {
+    "title": "Split into two inequalities",
+    "text": "{inner} is more than {value} away from zero, so it is beyond one end or the other and nothing in between works."
+  },
+  "SOLVE_COMPOUND_INEQUALITY": {
+    "title": "Solve for {variable}",
+    "text": "The same operation applies to every part of the inequality at once."
+  },
+  "MULTIPLY_BY_NEGATIVE": {
+    "title": "Multiply both sides by {by}",
+    "text": "Multiplying by a negative number reverses which side is larger, so the inequality turns round."
+  },
+  "INEQUALITY_CRITICAL_POINTS": {
+    "title": "Find where the expression is zero",
+    "text": "A polynomial can only change sign where it crosses zero, so {roots} divides the number line into the pieces to test."
+  },
+  "INEQUALITY_TEST_INTERVALS": {
+    "title": "Test each interval",
+    "text": "Testing one value from each piece shows which of them satisfy the inequality."
+  },
+  "INEQUALITY_ALWAYS_TRUE": {
+    "title": "Every value works",
+    "text": "The parabola opens upwards and never dips below the axis, so nothing can fail the inequality."
+  },
+  "INEQUALITY_NEVER_TRUE": {
+    "title": "No solution",
+    "text": "The parabola opens upwards and never dips below the axis, so no value can make it negative."
+  },
+  "INT_SUM": {
+    "title": "Integrate each term separately",
+    "text": "Area adds up term by term, so the {count} terms can be integrated one at a time."
+  },
+  "INT_NEGATIVE": {
+    "title": "Take the minus sign outside",
+    "text": "Subtracting a quantity subtracts its area too, so the sign can wait outside the integral."
+  },
+  "INT_CONSTANT_MULTIPLE": {
+    "title": "Move {constant} outside the integral",
+    "text": "Stretching a function by {constant} stretches the area under it by the same factor, so the factor can come out."
+  },
+  "INT_CONSTANT_DENOMINATOR": {
+    "title": "Divide the integral by {constant}",
+    "text": "Dividing the function by {constant} divides the area under it by {constant}, so the denominator can wait outside."
+  },
+  "INT_CONSTANT": {
+    "title": "Integrate the constant {constant}",
+    "text": "{constant} never changes, so the area under it grows in step with {variable}."
+  },
+  "INT_POWER": {
+    "title": "Use the power rule",
+    "text": "Undo the power rule: raise the exponent from {exponent} to {raised} and divide by the new exponent."
+  },
+  "INT_RECIPROCAL": {
+    "title": "Integrate one over {variable}",
+    "text": "No power of {variable} differentiates to one over {variable}; the natural log does, and the absolute value covers the negative side too."
+  },
+  "INT_EXPONENTIAL_E": {
+    "title": "Integrate the exponential",
+    "text": "e to the {variable} is its own derivative, so it is its own integral as well."
+  },
+  "INT_EXPONENTIAL": {
+    "title": "Integrate the exponential",
+    "text": "Differentiating {base} to the {variable} multiplies it by the natural log of {base}, so integrating divides by it."
+  },
+  "INT_SIN": {
+    "title": "Integrate the sine",
+    "text": "Cosine differentiates to minus sine, so sine integrates to minus cosine."
+  },
+  "INT_COS": {
+    "title": "Integrate the cosine",
+    "text": "Sine differentiates to cosine, so cosine integrates back to sine."
+  },
+  "INT_SEC_SQUARED": {
+    "title": "Integrate secant squared",
+    "text": "Secant squared is exactly the derivative of the tangent, so it integrates straight back to it."
+  },
+  "INT_ARCTAN": {
+    "title": "Recognise the arctangent",
+    "text": "One over one plus {variable} squared is the derivative of the arctangent, so that is the area function."
+  },
+  "INT_ARCSIN": {
+    "title": "Recognise the arcsine",
+    "text": "One over the root of one minus {variable} squared is the derivative of the arcsine, so that is the area function."
+  },
+  "INT_SUBSTITUTION": {
+    "title": "Substitute {placeholder} = {u}",
+    "text": "With {placeholder} = {u} the factor {rate} is exactly what d{placeholder} needs, and the integral becomes {inner} d{placeholder}, which integrates directly. Then {placeholder} goes back to {u}."
+  },
+  "INT_LONG_DIVISION": {
+    "title": "Divide out the fraction first",
+    "text": "The top has at least the degree of the bottom, so divide to get {quotient} plus a smaller fraction, which is the part that needs work."
+  },
+  "INT_PARTIAL_FRACTIONS": {
+    "title": "Split into partial fractions",
+    "text": "The bottom factorises, so the fraction splits into {pieces} simpler ones, each of which integrates to a logarithm or a power."
+  },
+  "INT_BY_PARTS": {
+    "title": "Integrate by parts",
+    "text": "Taking u = {u} and dv = {dv} gives v = {v} and du = {du}. The product rule run backwards trades this integral for {v} du, which is the easier one."
+  },
+  "INT_EVALUATE_LIMITS": {
+    "title": "Evaluate at the limits",
+    "text": "The area from {lower} to {upper} is the antiderivative at {upper} minus its value at {lower}."
+  },
+  "INT_ADD_CONSTANT": {
+    "title": "Add the constant of integration",
+    "text": "Every function differing by a constant has the same derivative, so the antiderivative is a whole family and C stands for which one."
+  },
+  "INT_DEFINITE_SETUP": {
+    "title": "Find the antiderivative first",
+    "text": "Set the limits {lower} and {upper} aside, integrate as usual, and bring them back at the end."
+  },
+  "INT_EXPAND": {
+    "title": "Multiply the brackets out first",
+    "text": "A polynomial has no shortcut worth keeping here, so expand it and integrate one term at a time."
+  },
+  "DIFF_SEC": {
+    "title": "Differentiate the secant",
+    "text": "Secant is one over cosine, so it blows up exactly where cosine vanishes, and it climbs at secant times tangent."
+  },
+  "DIFF_CSC": {
+    "title": "Differentiate the cosecant",
+    "text": "Cosecant is one over sine, and it falls where sine rises, which is the minus sign in front of cosecant times cotangent."
+  },
+  "DIFF_COT": {
+    "title": "Differentiate the cotangent",
+    "text": "Cotangent runs downhill everywhere it is defined, so its rate is minus cosecant squared."
+  },
+  "DIFF_ARCSIN": {
+    "title": "Differentiate the inverse sine",
+    "text": "Inverse sine is steepest at the ends of its domain, where one minus {variable} squared is smallest, and that root is what sits underneath."
+  },
+  "DIFF_ARCCOS": {
+    "title": "Differentiate the inverse cosine",
+    "text": "Inverse cosine falls wherever inverse sine rises, so it is the same rate with a minus sign in front."
+  },
+  "DIFF_ARCTAN": {
+    "title": "Differentiate the inverse tangent",
+    "text": "Inverse tangent flattens out as {variable} grows, and one over one plus {variable} squared is exactly how quickly it settles."
+  },
+  "DIFF_SINH": {
+    "title": "Differentiate the hyperbolic sine",
+    "text": "The hyperbolic pair swap into each other, and sinh differentiates to cosh with no sign change."
+  },
+  "DIFF_COSH": {
+    "title": "Differentiate the hyperbolic cosine",
+    "text": "cosh differentiates to sinh, and unlike the circular cosine it picks up no minus sign."
+  },
+  "DIFF_TANH": {
+    "title": "Differentiate the hyperbolic tangent",
+    "text": "tanh settles towards its horizontal asymptotes, at a rate of one over cosh squared."
+  },
+  "DIFF_LOG": {
+    "title": "Differentiate the base-ten logarithm",
+    "text": "A base-ten log is the natural log scaled down by ln 10, so its rate carries that same factor."
+  },
+  "LIMIT_BOUNDED_OVER_UNBOUNDED": {
+    "title": "The bottom runs away, so the fraction goes to zero",
+    "text": "{bottom} grows without any ceiling while the top stays put, so the fraction is a fixed amount shared among ever more, and it thins away to nothing."
+  },
+  "INT_TAN": {
+    "title": "Integrate the tangent",
+    "text": "Tangent is sine over cosine, and the top is exactly what the bottom differentiates to apart from a sign, so the integral is minus the log of the cosine."
+  },
+  "INT_COT": {
+    "title": "Integrate the cotangent",
+    "text": "Cotangent is cosine over sine, and the top is what the bottom differentiates to, so the integral is the log of the sine."
+  },
+  "INT_SIN_SQUARED": {
+    "title": "Use the half-angle identity on the square",
+    "text": "A squared sine has no antiderivative in the table, but sin squared equals one minus cos of twice the angle, over two — and that is a sum of things which do."
+  },
+  "INT_COS_SQUARED": {
+    "title": "Use the half-angle identity on the square",
+    "text": "A squared cosine has no antiderivative in the table, but cos squared equals one plus cos of twice the angle, over two — and that is a sum of things which do."
+  },
+  "INT_SIN_ODD": {
+    "title": "Split off one sine and convert the rest",
+    "text": "An odd power leaves a single sine over once the rest is paired up, and the pairs become cosines through the Pythagorean identity, which sets up a substitution."
+  },
+  "INT_COS_ODD": {
+    "title": "Split off one cosine and convert the rest",
+    "text": "An odd power leaves a single cosine over once the rest is paired up, and the pairs become sines through the Pythagorean identity, which sets up a substitution."
+  },
+  "INT_ARCTAN_SCALED": {
+    "title": "A scaled inverse tangent",
+    "text": "This is the inverse tangent form with {a} in place of one, so the answer carries a factor of one over {a} both inside and out."
+  },
+  "ABS_OF_POSITIVE": {
+    "title": "Drop the absolute value",
+    "text": "{value} is positive wherever it is defined, so the bars around it change nothing and can come off."
+  },
+  "INT_IMPROPER_SETUP": {
+    "title": "Rewrite the infinite limit as a limit",
+    "text": "An area stretching out for ever is not something you can substitute into, so put {bound} where {infinite} was, work out the area up to {bound}, and then see where that total heads as {bound} runs off."
+  },
+  "LIMIT_VANISHING_TERM": {
+    "title": "That term dies away to nothing",
+    "text": "{term} shrinks towards zero as {variable} goes to {point}, so in the limit it contributes nothing and the rest of the sum is the whole answer."
+  },
+  "INT_SEC": {
+    "title": "Integrate the secant",
+    "text": "Multiplying secant by (sec + tan) over itself makes the top the derivative of the bottom, and the integral falls out as the log of that sum."
+  },
+  "INT_CSC": {
+    "title": "Integrate the cosecant",
+    "text": "The same trick as the secant, with (csc + cot), and the minus sign comes from cosecant falling where secant rises."
+  },
+  "INT_COMPLETE_THE_SQUARE": {
+    "title": "Complete the square, then read the inverse tangent",
+    "text": "The bottom has no real roots, so it never vanishes. Writing it as {square} squared plus {a} squared puts it in the inverse tangent form, shifted along by {shift}."
+  },
+  "INT_SQRT_AS_POWER": {
+    "title": "Write the root as a power",
+    "text": "{root} is {power}, and written that way the power rule can take it along with everything else it is multiplied by."
+  },
+  "INT_EXPAND_POWERS": {
+    "title": "Multiply out first",
+    "text": "Written as {expanded} this is a sum of separate powers, and the power rule takes each one on its own."
+  },
+  "INT_CYCLIC_BY_PARTS": {
+    "title": "Integrate by parts twice and solve for the integral",
+    "text": "Parts turns {integrand} into another integral of the same shape, and doing it again brings back the one you started with. So call the integral I, and the two rounds give an equation in I — rearranging it is what produces this answer, without ever integrating directly."
+  },
+  "INT_TRIG_SUBSTITUTION": {
+    "title": "Substitute to clear the square root",
+    "text": "Putting {substitution} turns {root} into {becomes}, because the Pythagorean identity collapses the root exactly. Integrate in {angle}, then read each function back off the right triangle the substitution describes."
+  },
+  "INT_CSC_SQUARED": {
+    "title": "Integrate the cosecant squared",
+    "text": "Cotangent differentiates to minus cosecant squared, so cosecant squared integrates to minus cotangent."
+  },
+  "INT_SEC_CUBED": {
+    "title": "The standard secant-cubed integral",
+    "text": "Parts on secant cubed produces secant cubed again, so it is solved for rather than integrated — the same trick as a cyclic integration by parts, and this is the result."
+  },
+  "INT_CSC_CUBED": {
+    "title": "The standard cosecant-cubed integral",
+    "text": "The cosecant mirror of the secant-cubed result, reached the same way: parts brings the integral back and it is solved for."
+  },
+  "SUM_WRITE_OUT": {
+    "title": "Write the terms out",
+    "text": "The index {index} runs from {from} to {to}, so put each value in turn and add what comes out."
+  },
+  "SUM_ADD_TERMS": {
+    "title": "Add all the terms",
+    "text": "There are {count} terms, too many to write out one by one, so they are added exactly as {index} runs through its range."
+  },
+  "SERIES_NTH_TERM_DIVERGES": {
+    "title": "The terms do not go to zero",
+    "text": "{term} heads towards {limit} rather than 0. A sum can only settle if what is being added dies away, so this one cannot — no further test is needed."
+  },
+  "SERIES_GEOMETRIC": {
+    "title": "A geometric series",
+    "text": "Each term is {ratio} times the one before, starting at {first}. That ratio is less than 1 in size, so the total closes in on the first term divided by one minus the ratio, which is {result}."
+  },
+  "SERIES_GEOMETRIC_DIVERGES": {
+    "title": "A geometric series that grows",
+    "text": "Each term is {ratio} times the one before, and that is at least 1 in size, so the terms never shrink and the total runs away."
+  },
+  "SERIES_P_TEST": {
+    "title": "A p-series",
+    "text": "This is one over {index} to the power {p}. A p-series converges exactly when that power is greater than 1."
+  },
+  "SERIES_ALTERNATING": {
+    "title": "The alternating series test",
+    "text": "The signs alternate and the sizes shrink steadily towards zero, so each partial sum overshoots by less than the one before and they close in on a single value."
+  },
+  "SERIES_RATIO_TEST": {
+    "title": "The ratio test",
+    "text": "Comparing each term with the one before, the ratio settles at about {L}. Below 1 the terms shrink geometrically and the series converges; above 1 they grow and it cannot."
+  },
+  "EVALUATE_FACTORIAL": {
+    "title": "Work out the factorial",
+    "text": "{value} factorial is every whole number from 1 up to {value} multiplied together, which comes to {result}."
+  },
+  "INT_FACTOR_ROOT": {
+    "title": "Take the constant out of the root",
+    "text": "Pulling {scale} out of {root} leaves the square term with a coefficient of one, which is the shape a trigonometric substitution needs."
+  },
+  "SERIES_RADIUS": {
+    "title": "Find the radius with the ratio test",
+    "text": "The ratio of one term to the next settles at |{variable} minus {centre}| over {radius}, and the series converges while that is below 1. So it converges within {radius} of {centre}."
+  },
+  "SERIES_RADIUS_INFINITE": {
+    "title": "It converges everywhere",
+    "text": "The ratio of one term to the next shrinks to zero whatever {variable} is, so there is no value of {variable} that breaks it."
+  },
+  "SERIES_RADIUS_ZERO": {
+    "title": "It converges only at the centre",
+    "text": "The ratio runs away for any {variable} off the centre, so the only value that works is the centre itself."
+  },
+  "SERIES_ENDPOINTS": {
+    "title": "Check the two endpoints",
+    "text": "The ratio test says nothing at the ends, so each is put back in and settled on its own: at {lower} the series {lowerVerdict}, and at {upper} it {upperVerdict}."
+  },
+  "SERIES_KNOWN": {
+    "title": "This is a series you know",
+    "text": "These terms are the Maclaurin series of {sum}, so wherever the series converges that is exactly what it adds up to."
+  },
+  "TAYLOR_SETUP": {
+    "title": "Write down the Taylor formula",
+    "text": "Every term is a derivative of {f} at {centre}, divided by that many factorials, times {variable} minus {centre} to the matching power. So the work is a column of derivatives, each one read off at {centre}."
+  },
+  "TAYLOR_TERM_FIRST": {
+    "title": "The function itself at the centre",
+    "text": "Before any differentiating, {f} at {centre} is {value}. That is the constant the series starts from."
+  },
+  "TAYLOR_TERM": {
+    "title": "Derivative {order}, read off at the centre",
+    "text": "Differentiating {order} times gives {derivative}, and at {centre} that is {value}. Divided by {factorial} it becomes the coefficient of the power {order} term."
+  },
+  "TAYLOR_ASSEMBLE": {
+    "title": "Put the terms together",
+    "text": "Each coefficient sits on its own power of {variable}, and the terms whose derivative vanished at the centre drop out."
+  },
+  "CANCEL_FACTORIALS": {
+    "title": "Cancel the factorials",
+    "text": "{top} is {bottom} multiplied by the next {gap} whole numbers up, so everything below cancels and only those are left."
+  },
+  "CANCEL_SAME_BASE_POWERS": {
+    "title": "Subtract the exponents",
+    "text": "Both powers are of {base}, so dividing one by the other leaves {base} raised to the difference of the exponents."
+  }
 }

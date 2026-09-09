@@ -1,7 +1,8 @@
 import {
-  add, asIntegral, containsIntegral, diff, div, evaluateNumeric, type Env,
-  freeSymbols, type MathNode, mul, neg, sym, symbols,
+  add, asDiff, asIntegral, asLimit, containsDiff, containsIntegral, diff, div,
+  evaluateNumeric, type Env, freeSymbols, key, type MathNode, mul, neg, sym, symbols,
 } from "@openmath/math-core";
+import { resolveDerivatives } from "./symbolic-diff.js";
 
 export type Verdict = "ok" | "unknown" | "mismatch";
 
@@ -9,7 +10,14 @@ const REL_TOLERANCE = 1e-7;
 
 /** Deterministic sample points, so a test that passes today passes tomorrow. */
 function samplePoints(count: number): number[] {
-  const fixed = [0.5, 1.5, -2.25, 3.125, -0.75, 7.5, -4.5, 2.375, 11.25, -9.125];
+  // The tail of small values matters: arcsin, arccos and anything else defined
+  // only on (-1, 1) is undefined at almost every point above, and a check that
+  // cannot gather enough usable samples reports "unknown", which reads to the
+  // UI as unverified and hides a correct answer's working.
+  const fixed = [
+    0.5, 1.5, -2.25, 3.125, -0.75, 7.5, -4.5, 2.375, 11.25, -9.125,
+    0.25, -0.375, 0.125, -0.625, 0.875, -0.125,
+  ];
   const out: number[] = [];
   let seed = 20260908;
   for (let i = 0; i < count; i++) {
@@ -42,6 +50,26 @@ function close(a: number, b: number): boolean {
 }
 
 /**
+ * Swap any derivative operator still standing in either expression for its
+ * exact value, so the sampling below never has to finite-difference one.
+ *
+ * `evaluateNumeric` resolves a derivative with a difference quotient, which is
+ * accurate for one and hopeless for two nested: d/dx(d/dx(d/dx(x^5))) sampled
+ * that way disagreed with itself well outside tolerance, so a correct step was
+ * marked unverified and the UI hid the working. l'Hopital steps hit the same
+ * thing, since they leave d/dx un-evaluated inside a limit by construction.
+ *
+ * Both sides have to resolve or neither is replaced: comparing an exact value
+ * against a finite difference just puts the error back.
+ */
+function exactDerivatives(a: MathNode, b: MathNode): [MathNode, MathNode] {
+  if (!containsDiff(a) && !containsDiff(b)) return [a, b];
+  const ra = resolveDerivatives(a);
+  const rb = resolveDerivatives(b);
+  return ra !== null && rb !== null ? [ra, rb] : [a, b];
+}
+
+/**
  * Are these two expressions equal for every value of their variables?
  *
  * Sampling cannot prove equality, but it reliably catches the rewrites a rule
@@ -49,6 +77,7 @@ function close(a: number, b: number): boolean {
  * zero, say) and the caller should not claim the step was checked.
  */
 export function verifyEquivalent(a: MathNode, b: MathNode, samples = 12): Verdict {
+  [a, b] = exactDerivatives(a, b);
   const vars = [...new Set([...freeSymbols(a), ...freeSymbols(b)])];
   const envs = vars.length === 0 ? [{}] : environments(vars, samples);
   let compared = 0;
@@ -138,10 +167,14 @@ export function verifyDerivative(
   variable: string,
   samples = 16,
 ): Verdict {
+  // A second or third derivative is a difference quotient of a difference
+  // quotient once evaluateNumeric gets hold of it, which returns NaN rather
+  // than a slope; d^3/dx^3(x^5) = 60x^2 was correct and reported unchecked.
+  const exact = resolveDerivatives(problem) ?? problem;
   const envs = environments([variable], samples);
   let compared = 0;
   for (const env of envs) {
-    const slope = evaluateNumeric(problem, env);
+    const slope = evaluateNumeric(exact, env);
     const claimed = evaluateNumeric(answer, env);
     if (!Number.isFinite(slope) || !Number.isFinite(claimed)) continue;
     compared++;
@@ -167,6 +200,67 @@ function closeLimit(a: number, b: number): boolean {
 }
 
 /**
+ * Recognise a l'Hopital step and check it structurally instead of numerically.
+ *
+ * Comparing the two limits by measurement is the wrong instrument here. The
+ * whole point of the rule is that the original quotient is indeterminate, and
+ * the ones that are hardest to measure are exactly the ones it is used on:
+ * lim (1-cos x)/x^2 loses every significant digit to cancellation as x walks in
+ * towards 0, so the measured "limit" misses 1/2 by more than any sane tolerance
+ * and a correct step came back a mismatch.
+ *
+ * l'Hopital is a theorem, so nothing about the limits needs re-deriving. What
+ * can actually go wrong is mechanical: differentiating the wrong part, or
+ * differentiating with respect to the wrong variable. That is what this checks,
+ * by identity, with no arithmetic involved.
+ */
+function verifyLHopital(a: MathNode, b: MathNode): Verdict | null {
+  const before = asLimit(a);
+  const after = asLimit(b);
+  if (!before || !after) return null;
+  if (before.variable !== after.variable) return null;
+  if (key(before.point) !== key(after.point) || before.side !== after.side) return null;
+  if (before.body.type !== "div" || after.body.type !== "div") return null;
+
+  const dNum = asDiff(after.body.num);
+  const dDen = asDiff(after.body.den);
+  if (!dNum || !dDen) return null;
+  if (dNum.variable !== before.variable || dDen.variable !== before.variable) return null;
+
+  // Both halves must be the ones the original quotient was built from.
+  if (key(dNum.body) !== key(before.body.num)) return "mismatch";
+  if (key(dDen.body) !== key(before.body.den)) return "mismatch";
+
+  // The rule is only valid on 0/0 or infinity/infinity. Checking the shape
+  // alone would let it through on, say, lim x->0 of (x+1)/(x+2), where it
+  // gives 1/1 instead of 1/2. Evaluated at the point rather than near it,
+  // so the cancellation that makes these limits hard to measure never arises.
+  return indeterminateQuotient(before.body.num, before.body.den, before.variable, before.point)
+    ? "ok"
+    : "mismatch";
+}
+
+function indeterminateQuotient(
+  f: MathNode,
+  g: MathNode,
+  variable: string,
+  point: MathNode,
+): boolean {
+  const at = evaluateNumeric(point, {});
+  const env: Env = { [variable]: at };
+  const a = evaluateNumeric(f, env);
+  const b = evaluateNumeric(g, env);
+  const isZero = (x: number): boolean => Number.isFinite(x) && Math.abs(x) < 1e-12;
+  if (isZero(a) && isZero(b)) return true;
+  if (!Number.isFinite(a) && !Number.isFinite(b) && !Number.isNaN(a) && !Number.isNaN(b)) {
+    return true;
+  }
+  // Anything else — a finite non-zero value, or a NaN we cannot read — is not
+  // a form l'Hopital applies to.
+  return false;
+}
+
+/**
  * Do these two expressions, one or both of them a limit, come out the same?
  *
  * Used instead of `verifyEquivalent` for a step that rewrites a limit. Sampling
@@ -175,6 +269,9 @@ function closeLimit(a: number, b: number): boolean {
  * side is heading rather than what each side is.
  */
 export function verifyLimitEquivalent(a: MathNode, b: MathNode, samples = 4): Verdict {
+  const lhopital = verifyLHopital(a, b);
+  if (lhopital !== null) return lhopital;
+  [a, b] = exactDerivatives(a, b);
   const vars = [...new Set([...freeSymbols(a), ...freeSymbols(b)])];
   const envs = vars.length === 0 ? [{}] : environments(vars, samples);
   let compared = 0;

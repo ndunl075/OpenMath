@@ -15,10 +15,10 @@ function item(file: string, latex: string, answer?: string): CorpusItem {
 
 describe("auditing the labels before blaming a model", () => {
   it("counts the ground truths the solver can answer", () => {
-    const audit = auditCorpus([item("001.jpg", "2x + 3 = 7"), item("002.jpg", "\\sum_{i=1}^{n} i")]);
+    const audit = auditCorpus([item("001.jpg", "2x + 3 = 7"), item("002.jpg", "\\prod_{i=1}^{n} i")]);
     expect(audit.scorable).toBe(1);
     expect(audit.unscorable).toEqual([
-      { file: "002.jpg", reason: "out-of-scope", message: "sums and products" },
+      { file: "002.jpg", reason: "out-of-scope", message: "products" },
     ]);
   });
 

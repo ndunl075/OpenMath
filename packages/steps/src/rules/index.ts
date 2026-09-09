@@ -5,6 +5,7 @@ import { derivativeRules } from "./derivative.js";
 import { distribute, distributeNegative, distributeRules } from "./distribute.js";
 import { equationRules } from "./equation.js";
 import { factorRules } from "./factor.js";
+import { factorialRules } from "./factorial.js";
 import { fractionRules } from "./fractions.js";
 import { identityRules } from "./identities.js";
 import { integralRules } from "./integral.js";
@@ -19,6 +20,7 @@ export * from "./derivative.js";
 export * from "./distribute.js";
 export * from "./equation.js";
 export * from "./factor.js";
+export * from "./factorial.js";
 export * from "./fractions.js";
 export * from "./identities.js";
 export * from "./integral.js";
@@ -44,6 +46,7 @@ export const exactValueRules: Rule[] = [...trigRules, ...logRules];
 export const expressionRules: Rule[] = [
   ...identityRules,
   ...arithmeticRules,
+  ...factorialRules,
   ...exactValueRules,
   ...collectRules,
   ...fractionRules,
@@ -66,6 +69,7 @@ export const differentiationRules: Rule[] = [
   ...derivativeRules,
   ...identityRules,
   ...arithmeticRules,
+  ...factorialRules,
   ...exactValueRules,
   ...collectRules,
   ...fractionRules,

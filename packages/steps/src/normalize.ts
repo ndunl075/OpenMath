@@ -1,5 +1,5 @@
 import {
-  add, children, div, type MathNode, mul, neg, num, Rational, withChildren,
+  add, children, div, type MathNode, mul, neg, num, pow, Rational, withChildren,
 } from "@openmath/math-core";
 
 /**
@@ -29,6 +29,19 @@ function once(n: MathNode): MathNode {
     return num(node.arg.value.neg(), node.id);
   }
 
+  // x^{1/3}: the exponent parses as a division, and both the power rule and the
+  // integral power rule want a single number there, so they were declining a
+  // fractional exponent outright. Folded only in exponent position — folding
+  // 8/2 into 4 everywhere would delete the "simplify the fraction" step that
+  // solving 2x = 8 is supposed to show.
+  if (
+    node.type === "pow" && node.exp.type === "div" &&
+    node.exp.num.type === "num" && node.exp.den.type === "num" &&
+    !node.exp.den.value.isZero()
+  ) {
+    return pow(node.base, num(node.exp.num.value.div(node.exp.den.value), node.exp.id), node.id);
+  }
+
   if (node.type === "div") {
     // -1/x^2 reads as a negative fraction, not a fraction of a negative.
     if (node.num.type === "neg") {
@@ -36,6 +49,19 @@ function once(n: MathNode): MathNode {
     }
     if (node.num.type === "num" && node.num.value.isNegative()) {
       return neg(div(num(node.num.value.neg()), node.den, node.id));
+    }
+    // Same again when the sign is on the leading coefficient of a product, so
+    // an odd power of sine does not finish as "- (-2 cos^3 x)/3".
+    if (node.num.type === "mul") {
+      const factors = node.num.args;
+      const lead = factors[0];
+      if (lead && lead.type === "num" && lead.value.isNegative()) {
+        const flipped = mul(
+          [num(lead.value.neg(), lead.id), ...factors.slice(1)],
+          node.num.id,
+        );
+        return neg(div(flipped, node.den, node.id));
+      }
     }
   }
 

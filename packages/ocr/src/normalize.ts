@@ -198,6 +198,103 @@ function braceExponents(s: string, notes: string[]): string {
   return out;
 }
 
+/**
+ * Rejoin numbers that the model split into separate digits.
+ *
+ * Recognition models tokenise digit by digit, so eleven comes back as "1 1"
+ * and 123 as "1 2 3". The parser reads adjacent numbers as implicit
+ * multiplication, so an unrepaired scan of "123 + 456" answers 126 rather
+ * than 579 — confidently, with a full set of working. Juxtaposing two
+ * numerals never means multiplication in real notation (that needs \cdot or
+ * brackets), so a run of space-separated digits is always one number.
+ *
+ * Runs on the raw spacing, before \quad and friends are stripped, so that
+ * digits genuinely held apart by a spacing command are left alone. A thin
+ * space between digits is a thousands separator and joins.
+ */
+function joinSplitDigits(s: string, notes: string[]): string {
+  let out = s;
+  for (let pass = 0; pass < 20; pass++) {
+    // 1 1 -> 11, and 1\,000 -> 1000.
+    const next = out
+      .replace(/(\d)[ \t]+(?=\d)/g, "$1")
+      .replace(/(\d)\s*\\[,;:]\s*(?=\d)/g, "$1");
+    if (next === out) break;
+    out = next;
+  }
+  // 3 . 1 4 -> 3.14, once the digit runs on each side are whole.
+  out = out.replace(/(\d)\s*\.\s*(?=\d)/g, "$1.");
+  if (out !== s) notes.push("joined digits the scan had split apart");
+  return out;
+}
+
+/** `\operatorname{s i n}` and `\mathrm{l o g}` come back spaced out too. */
+function joinSpacedNames(s: string, notes: string[]): string {
+  const out = s.replace(
+    /\\(operatorname|mathrm|mathit|text)\s*\{([^{}]*)\}/g,
+    (whole, cmd: string, body: string) => {
+      const tight = body.replace(/\s+/g, "");
+      return /^[a-zA-Z]+$/.test(tight) ? `\\${cmd}{${tight}}` : whole;
+    },
+  );
+  if (out !== s) notes.push("closed up a spaced-out function name");
+  return out;
+}
+
+/**
+ * Function names the parser knows as commands. A scan that drops the backslash
+ * turns `cos(0)` into c*o*s*(0), which is not a parse error — it is the answer
+ * 0, shown with working, where the truth is 1. Restoring the backslash is the
+ * difference between a right answer and a confidently wrong one.
+ */
+const FUNCTION_NAMES = [
+  "arcsin", "arccos", "arctan", "sinh", "cosh", "tanh",
+  "sin", "cos", "tan", "sec", "csc", "cot", "log", "ln", "exp",
+  // Named operations rather than functions, but they reach the parser the
+  // same way and a student types them without the backslash just the same.
+  "maclaurin", "taylor",
+];
+
+function restoreFunctionNames(s: string, notes: string[]): string {
+  // Longest first, so arcsin is not read as arc followed by sin. Neither a
+  // preceding backslash (already a command) nor an adjacent letter (part of a
+  // longer name, or a run of variables) may match.
+  const pattern = new RegExp(
+    `(?<![\\\\a-zA-Z])(${FUNCTION_NAMES.join("|")})(?![a-zA-Z])`,
+    "g",
+  );
+  let out = s.replace(pattern, "\\$1");
+  // sqrt takes a braced argument, so its parentheses have to become braces.
+  out = out.replace(/(?<![\\a-zA-Z])sqrt\s*\(/g, "\\sqrt{");
+  if (/\\sqrt\{/.test(out) && !/\\sqrt\{/.test(s)) {
+    out = rebracketSqrt(out);
+  }
+  if (out !== s) notes.push("restored function names the scan had flattened");
+  return out;
+}
+
+/** Close the brace that replaced `sqrt(`'s opening parenthesis. */
+function rebracketSqrt(s: string): string {
+  let out = "";
+  for (let i = 0; i < s.length; i++) {
+    if (s.startsWith("\\sqrt{", i)) {
+      out += "\\sqrt{";
+      i += "\\sqrt{".length;
+      let depth = 1;
+      for (; i < s.length && depth > 0; i++) {
+        const c = s[i]!;
+        if (c === "(") depth++;
+        else if (c === ")") { depth--; if (depth === 0) break; }
+        out += c;
+      }
+      out += "}";
+      continue;
+    }
+    out += s[i]!;
+  }
+  return out;
+}
+
 function balanceBraces(s: string, notes: string[]): string {
   let depth = 0;
   let out = "";
@@ -250,7 +347,12 @@ export function normalizeWithReport(raw: string): NormalizeReport {
   out = replaceUnicode(out, notes);
   // Balance first: every later pass reads balanced groups.
   out = balanceBraces(out, notes);
+  // Before stripNoise, so \quad still separates digits it was meant to.
+  out = joinSpacedNames(out, notes);
+  out = joinSplitDigits(out, notes);
   out = unwrapTransparent(out, notes);
+  // After unwrapping, so \operatorname{sin} has become a bare sin by now.
+  out = restoreFunctionNames(out, notes);
   out = stripNoise(out, notes);
   out = braceFractionArguments(out, notes);
   out = braceExponents(out, notes);
@@ -276,11 +378,18 @@ export function normalizeLatex(raw: string): string {
 const OUT_OF_SCOPE = [
   { pattern: /\\begin\s*\{/, label: "matrices and aligned environments" },
   { pattern: /\\oint/, label: "contour integrals" },
-  { pattern: /\\sum|\\prod/, label: "sums and products" },
+  // \sum came off this list when the series engine landed; \prod has no
+  // rules yet, so it stays.
+  { pattern: /\\prod/, label: "products" },
   { pattern: /\\pm|\\mp/, label: "plus-or-minus" },
   // Deleting the sign would silently turn "20\\%" into "20", which is a
   // different problem with a different answer.
   { pattern: /\\%|%/, label: "percentages" },
+  // Leibniz notation with no function attached. Left alone the parser reads
+  // dy/dx as d*y/(d*x) and cancels to y*x, which is a wrong answer rather
+  // than a refusal. d/dx(...) is the form that carries something to
+  // differentiate, and it parses.
+  { pattern: /(?<![a-zA-Z])d[a-zA-Z]\s*\/\s*d[a-zA-Z]/, label: "dy/dx notation (write d/dx(...) instead)" },
 ];
 
 export function detectOutOfScope(latex: string): string | null {

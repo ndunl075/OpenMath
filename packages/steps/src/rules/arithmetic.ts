@@ -1,5 +1,5 @@
 import {
-  add, evaluateExact, type MathNode, mul, num, Rational,
+  add, div, evaluateExact, fn, type MathNode, mul, num, Rational, toLatex,
 } from "@openmath/math-core";
 import type { Rule } from "../types.js";
 
@@ -184,7 +184,22 @@ export const simplifyRadical: Rule = {
     const r = n.args[0];
     if (!r || r.type !== "num") return null;
     const v = r.value;
-    if (!v.isInteger() || v.isNegative() || v.n < 2n) return null;
+    if (v.isNegative()) return null;
+    // sqrt(5/4) is sqrt(5)/2. Splitting the fraction first is what turns the
+    // arc length of a parabola from sqrt(5/4) into something readable.
+    if (!v.isInteger()) {
+      if (v.d < 2n) return null;
+      const bottom = Rational.of(v.d).nthRoot(2n);
+      if (!bottom) return null;
+      const top = fn("sqrt", [num(Rational.of(v.n))]);
+      const node = div(top, num(bottom));
+      return {
+        node,
+        changes: [{ kind: "replace", fromIds: [n.id], toIds: [node.id] }],
+        vars: { radicand: v.toLatex(), outside: bottom.toLatex(), inside: String(v.n) },
+      };
+    }
+    if (v.n < 2n) return null;
     let rest = v.n;
     let outside = 1n;
     for (let f = 2n; f * f <= rest; f++) {
@@ -230,6 +245,76 @@ export const evaluateAbsoluteValue: Rule = {
   },
 };
 
+/**
+ * Is this expression positive whatever its variables do?
+ *
+ * Conservative on purpose: it only says yes where the sign is structural. Used
+ * to drop absolute-value bars that an antiderivative put there for safety —
+ * the integral of 1/x is ln|x|, so evaluating it between 1 and e produced
+ * ln|e|, which is 1 but does not say so.
+ */
+function knownPositive(n: MathNode): boolean {
+  switch (n.type) {
+    case "num":
+      return !n.value.isNegative() && !n.value.isZero();
+    case "sym":
+      return n.name === "e" || n.name === "pi";
+    case "fn":
+      return n.name === "exp" || n.name === "cosh";
+    case "pow":
+      return knownPositive(n.base);
+    case "mul":
+      return n.args.every(knownPositive);
+    case "add":
+      return n.args.every(knownPositive);
+    case "div":
+      return knownPositive(n.num) && knownPositive(n.den);
+    default:
+      return false;
+  }
+}
+
+/** 5! -> 120 */
+export const evaluateFactorial: Rule = {
+  id: "EVALUATE_FACTORIAL",
+  apply(n) {
+    if (n.type !== "fn" || n.name !== "factorial") return null;
+    const arg = n.args[0];
+    if (!arg) return null;
+    const value = evaluateExact(arg);
+    if (!value || !value.isInteger() || value.isNegative()) return null;
+    const times = Number(value.toNumber());
+    // Past twenty or so the exact answer is a very long integer that no
+    // student wrote down on purpose, and printing it helps nobody.
+    if (times > 20) return null;
+    let total = Rational.ONE;
+    for (let k = 2; k <= times; k++) total = total.mul(Rational.of(k));
+    const result = num(total);
+    return {
+      node: result,
+      changes: [{ kind: "replace", fromIds: [n.id], toIds: [result.id] }],
+      vars: { value: value.toLatex(), result: total.toLatex() },
+    };
+  },
+};
+
+/** |e| -> e, for anything whose sign is not in doubt. */
+export const absoluteValueOfPositive: Rule = {
+  id: "ABS_OF_POSITIVE",
+  apply(n) {
+    if (n.type !== "fn" || n.name !== "abs") return null;
+    const arg = n.args[0];
+    if (!arg || !knownPositive(arg)) return null;
+    // A plain number is EVALUATE_ABS's, which words it better.
+    if (arg.type === "num") return null;
+    return {
+      node: arg,
+      changes: [{ kind: "replace", fromIds: [n.id], toIds: [arg.id] }],
+      vars: { value: toLatex(arg) },
+    };
+  },
+};
+
 export const arithmeticRules: Rule[] = [
   addNumbers,
   multiplyNumbers,
@@ -238,4 +323,6 @@ export const arithmeticRules: Rule[] = [
   evaluateRoot,
   simplifyRadical,
   evaluateAbsoluteValue,
+  absoluteValueOfPositive,
+  evaluateFactorial,
 ];

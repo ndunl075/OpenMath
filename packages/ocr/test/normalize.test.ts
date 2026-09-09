@@ -38,7 +38,9 @@ describe("normalizeLatex", () => {
   it("unwraps text and font commands", () => {
     expect(n("\\mathrm{x} + 1")).toBe("x + 1");
     expect(n("\\text{x}^{2}")).toBe("x^{2}");
-    expect(n("\\operatorname{sin}")).toBe("sin");
+    // Unwrapped to a bare "sin", the parser reads s*i*n; the backslash is
+    // restored so it stays a function.
+    expect(n("\\operatorname{sin}")).toBe("\\sin");
     expect(n("\\mathbf{\\mathrm{y}}")).toBe("y");
   });
 
@@ -90,7 +92,9 @@ describe("normalizeLatex", () => {
 describe("detectOutOfScope", () => {
   it("names the structure the solver cannot handle", () => {
     expect(detectOutOfScope("\\oint E dl")).toBe("contour integrals");
-    expect(detectOutOfScope("\\sum_{i=1}^{n} i")).toBe("sums and products");
+    // \sum came off the out-of-scope list when the series engine landed.
+    expect(detectOutOfScope("\\sum_{i=1}^{n} i")).toBeNull();
+    expect(detectOutOfScope("\\prod_{i=1}^{n} i")).toBe("products");
     expect(detectOutOfScope("\\begin{matrix}1&2\\end{matrix}")).toBe(
       "matrices and aligned environments",
     );

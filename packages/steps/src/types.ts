@@ -69,7 +69,8 @@ export type SolutionKind =
   | "differentiate"
   | "factor"
   | "limit"
-  | "integrate";
+  | "integrate"
+  | "series";
 
 /**
  * One end of an interval. The bound is kept as an expression rather than a

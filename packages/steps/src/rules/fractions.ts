@@ -1,6 +1,6 @@
 import {
-  add, div, isOne, key, makeTerm, type MathNode, mul, num, pow, Rational,
-  splitCoefficient, toLatex,
+  add, cloneFresh, div, isOne, key, makeTerm, type MathNode, mul, neg, num, pow,
+  Rational, splitCoefficient, toLatex,
 } from "@openmath/math-core";
 import type { Rule } from "../types.js";
 
@@ -153,8 +153,14 @@ function factorize(n: MathNode): { coeff: Rational; factors: Factor[] } | null {
   const factors: Factor[] = [];
   for (const r of rest) {
     if (r.type === "pow") {
-      if (r.exp.type !== "num" || !r.exp.value.isInteger()) return null;
-      factors.push({ base: r.base, exp: r.exp.value });
+      if (r.exp.type === "num" && r.exp.value.isInteger()) {
+        factors.push({ base: r.base, exp: r.exp.value });
+      } else {
+        // A symbolic exponent has no number to subtract, but two of them that
+        // match still cancel. Kept whole and keyed on the entire power, so
+        // 3^n over 3^n comes to 1 instead of giving up on the fraction.
+        factors.push({ base: r, exp: Rational.ONE });
+      }
     } else {
       factors.push({ base: r, exp: Rational.ONE });
     }
@@ -172,6 +178,52 @@ function rebuild(coeff: Rational, factors: Factor[]): MathNode {
   if (parts.length === 0) return num(Rational.ONE);
   return parts.length === 1 ? parts[0]! : mul(parts);
 }
+
+/**
+ * a^(n+1)/a^n -> a, for exponents that are expressions rather than numbers.
+ *
+ * CANCEL_FRACTION_FACTORS subtracts exponents only when both are numbers, and
+ * treats a symbolic power as one opaque thing that cancels against an
+ * identical one. That leaves 2^(n+1) over 2^n untouched, which is exactly the
+ * shape the ratio test produces on every geometric-flavoured series.
+ */
+export const cancelSameBasePowers: Rule = {
+  id: "CANCEL_SAME_BASE_POWERS",
+  apply(n) {
+    if (n.type !== "div") return null;
+    const top = n.num.type === "mul" ? [...n.num.args] : [n.num];
+    const bottom = n.den.type === "mul" ? [...n.den.args] : [n.den];
+
+    for (let i = 0; i < top.length; i++) {
+      const a = top[i]!;
+      if (a.type !== "pow") continue;
+      for (let j = 0; j < bottom.length; j++) {
+        const b = bottom[j]!;
+        if (b.type !== "pow") continue;
+        if (key(a.base) !== key(b.base)) continue;
+        // Both numeric is the other rule's, and it words it better.
+        if (a.exp.type === "num" && b.exp.type === "num") continue;
+
+        const exponent = add([a.exp, neg(b.exp)]);
+        const merged = pow(cloneFresh(a.base), exponent, a.id);
+        const newTop = top.map((t, k) => (k === i ? merged : t));
+        const newBottom = bottom.filter((_, k) => k !== j);
+
+        const numerator = newTop.length === 1 ? newTop[0]! : mul(newTop);
+        const denominator = newBottom.length === 0
+          ? num(Rational.ONE)
+          : newBottom.length === 1 ? newBottom[0]! : mul(newBottom);
+        const node = isOne(denominator) ? numerator : div(numerator, denominator);
+        return {
+          node,
+          changes: [{ kind: "cancel", fromIds: [a.id, b.id], toIds: [merged.id] }],
+          vars: { base: toLatex(a.base) },
+        };
+      }
+    }
+    return null;
+  },
+};
 
 /** (2x^3)/(4x) -> x^2/2 */
 export const cancelFractionFactors: Rule = {
@@ -271,6 +323,7 @@ export const reduceFractionByCommonFactor: Rule = {
 export const fractionRules: Rule[] = [
   divideByFraction,
   cancelFractionFactors,
+  cancelSameBasePowers,
   reduceFractionByCommonFactor,
   multiplyFractions,
   addFractions,

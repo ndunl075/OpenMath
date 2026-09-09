@@ -1,5 +1,5 @@
 import {
-  add, asLimit, diff, div, evaluateExact, evaluateNumeric, isInfinity,
+  add, asLimit, diff, div, evaluateExact, evaluateNumeric, isInfinity, isZero,
   type LimitParts, limitNumerically, makeTerm, type MathNode, mul, num, pow,
   Rational, substitute, sym, symbols, toLatex, undefinedReason, withLimitBody,
 } from "@openmath/math-core";
@@ -121,11 +121,23 @@ function growsWithoutBound(l: LimitParts, expr: MathNode): boolean {
   const f = bodyAt(l, expr);
   const sign = at > 0 ? 1 : -1;
   const values = GROWTH_LADDER.map((t) => f(sign * t));
-  if (values.some((v) => !Number.isFinite(v))) return false;
-  for (let i = 1; i < values.length; i++) {
-    if (Math.abs(values[i]!) <= Math.abs(values[i - 1]!)) return false;
+
+  // Overflowing a double is evidence of growth, not a reason to abstain.
+  // e^x passes 1.8e308 somewhere around x = 710, so climbing the ladder to
+  // 1e6 always ran it off the top and lim x->inf x/e^x was refused for want
+  // of a form, while ln(x)/x — which stays in range — was answered. NaN is
+  // the genuinely unreadable case and still gives up.
+  let climbed = 0;
+  for (const v of values) {
+    if (Number.isNaN(v)) return false;
+    if (!Number.isFinite(v)) break;
+    if (climbed > 0 && Math.abs(v) <= Math.abs(values[climbed - 1]!)) return false;
+    climbed++;
   }
-  if (Math.abs(values[values.length - 1]!) < 5) return false;
+  const overflowed = climbed < values.length;
+  if (climbed === 0) return false;
+  if (!overflowed && Math.abs(values[values.length - 1]!) < 5) return false;
+  if (overflowed) return true;
   return !Number.isFinite(limitNumerically(f, at, l.side));
 }
 
@@ -257,6 +269,85 @@ export const limitAtInfinity = limitRule("LIMIT_AT_INFINITY", (l): RuleResult | 
   };
 });
 
+/**
+ * A bounded top over a bottom that runs away is zero.
+ *
+ * The degree comparison above only reads rational functions, so it had nothing
+ * to say about 1/e^x — which is exactly what l'Hopital leaves behind when it
+ * is used on x/e^x, so that limit was worked most of the way out and then
+ * refused on the last step.
+ */
+export const limitBoundedOverUnbounded = limitRule(
+  "LIMIT_BOUNDED_OVER_UNBOUNDED",
+  (l): RuleResult | null => {
+    if (l.body.type !== "div") return null;
+    if (!growsWithoutBound(l, l.body.den)) return null;
+
+    // The top must settle somewhere finite. A top that also runs away is an
+    // indeterminate form for l'Hopital, and one that oscillates for ever, as
+    // sin x does, is not something to answer by claiming a value.
+    const top = limitNumerically(bodyAt(l, l.body.num), pointValue(l), l.side);
+    if (!Number.isFinite(top)) return null;
+
+    const node = num(Rational.ZERO);
+    return {
+      node,
+      changes: [{ kind: "replace", fromIds: [l.node.id], toIds: [node.id] }],
+      vars: { bottom: toLatex(l.body.den), variable: l.variable },
+    };
+  },
+);
+
+/**
+ * A term inside a sum that dies away to nothing becomes nothing.
+ *
+ * lim b->inf (1 - e^-b) is 1, but nothing here could say so: substitution
+ * cannot put infinity in, the degree comparison only reads fractions, and
+ * l'Hopital needs a quotient. Zeroing the vanishing term leaves 1 - 0, which
+ * every remaining rule handles, and it is how the step is read aloud anyway.
+ *
+ * Only ever fires on one term of a sum, never on the whole body, so it cannot
+ * answer a limit by asserting the thing being asked.
+ */
+/** Does this expression involve the variable at all? */
+function dependsOn(n: MathNode, v: string): boolean {
+  return symbols(n).has(v);
+}
+
+export const limitVanishingTerm = limitRule(
+  "LIMIT_VANISHING_TERM",
+  (l): RuleResult | null => {
+    if (l.body.type !== "add" || l.body.args.length < 2) return null;
+    const at = pointValue(l);
+    if (Number.isFinite(at)) return null;
+
+    const terms = l.body.args;
+    for (let i = 0; i < terms.length; i++) {
+      const term = terms[i]!;
+      if (!dependsOn(term, l.variable)) continue;
+      if (isZero(term)) continue;
+      const value = limitNumerically(bodyAt(l, term), at, l.side);
+      if (!Number.isFinite(value) || Math.abs(value) > 1e-9) continue;
+
+      // Something else has to survive, or this is the whole answer and the
+      // rule would be asserting it rather than reasoning to it.
+      const survives = terms.some((other, j) => j !== i && !isZero(other));
+      if (!survives) continue;
+
+      const zero = num(Rational.ZERO);
+      const rebuilt = add(terms.map((t, j) => (j === i ? zero : t)), l.body.id);
+      const node = withLimitBody(l, rebuilt);
+      return {
+        node,
+        changes: [{ kind: "replace", fromIds: [term.id], toIds: [zero.id] }],
+        vars: { term: toLatex(term), variable: l.variable, point: toLatex(l.point) },
+      };
+    }
+    return null;
+  },
+);
+
+
 // ---------------------------------------------------------------- l'Hopital
 
 /**
@@ -306,5 +397,7 @@ export const limitTransformRules: Rule[] = [
   limitSubstitute,
   limitFactorAndCancel,
   limitAtInfinity,
+  limitBoundedOverUnbounded,
+  limitVanishingTerm,
   limitLHopital,
 ];

@@ -1,7 +1,7 @@
 import {
   add, asIntegral, children, cloneFresh, containsDiff, containsIntegral, countNodes, diff,
   div, fn, integral, type IntegralParts, isOne, isZero, key, makeTerm, type MathNode,
-  mul, neg, num, pow, Rational, sym, symbols, toLatex, walk, withChildren,
+  mul, neg, num, pow, Rational, substitute, sym, symbols, toLatex, walk, withChildren,
 } from "@openmath/math-core";
 import { run } from "../engine.js";
 import {
@@ -281,12 +281,70 @@ export const intCos = tableRule(
   (v) => fn("sin", [sym(v)]),
 );
 
+/**
+ * `f(v)^k`, also reading the reciprocal form: 1/sin(t)^2 is csc(t)^2.
+ *
+ * Trig substitution produces the reciprocal shape constantly — dividing by
+ * sin^2 t is what int 1/(x^2 sqrt(1-x^2)) dx turns into — and matching only
+ * the named function would decline it for the sake of how it is written.
+ */
+function isTrigPower(body: MathNode, name: string, power: number, v: string): boolean {
+  const co = { sin: "csc", csc: "sin", cos: "sec", sec: "cos", tan: "cot", cot: "tan" }[name];
+  const wanted = Rational.of(power);
+  if (
+    body.type === "pow" && body.exp.type === "num" &&
+    body.exp.value.equals(wanted) && isCall(body.base, name, v)
+  ) return true;
+  if (!co) return false;
+  if (body.type !== "div" || !isOne(body.num)) return false;
+  const den = body.den;
+  return den.type === "pow" && den.exp.type === "num" &&
+    den.exp.value.equals(wanted) && isCall(den.base, co, v);
+}
+
 export const intSecSquared = tableRule(
   "INT_SEC_SQUARED",
-  (body, v) =>
-    body.type === "pow" && body.exp.type === "num" &&
-    body.exp.value.equals(Rational.of(2)) && isCall(body.base, "sec", v),
+  (body, v) => isTrigPower(body, "sec", 2, v),
   (v) => fn("tan", [sym(v)]),
+);
+
+export const intCscSquared = tableRule(
+  "INT_CSC_SQUARED",
+  (body, v) => isTrigPower(body, "csc", 2, v),
+  (v) => neg(fn("cot", [sym(v)])),
+);
+
+/**
+ * int sec^3 = (sec tan + ln|sec + tan|)/2, and the cosecant mirror.
+ *
+ * The odd one out among the trig integrals: parts on sec^3 produces sec^3
+ * again, so it is solved for rather than integrated, the same trick as
+ * INT_CYCLIC_BY_PARTS. Worth having as an entry because the tangent
+ * substitution lands on it constantly — int sqrt(x^2+1) dx is exactly
+ * int sec^3 t dt in disguise.
+ */
+export const intSecCubed = tableRule(
+  "INT_SEC_CUBED",
+  (body, v) => isTrigPower(body, "sec", 3, v),
+  (v) => div(
+    add([
+      mul([fn("sec", [sym(v)]), fn("tan", [sym(v)])]),
+      fn("ln", [fn("abs", [add([fn("sec", [sym(v)]), fn("tan", [sym(v)])])])]),
+    ]),
+    num(Rational.of(2)),
+  ),
+);
+
+export const intCscCubed = tableRule(
+  "INT_CSC_CUBED",
+  (body, v) => isTrigPower(body, "csc", 3, v),
+  (v) => div(
+    add([
+      neg(mul([fn("csc", [sym(v)]), fn("cot", [sym(v)])])),
+      fn("ln", [fn("abs", [add([fn("csc", [sym(v)]), neg(fn("cot", [sym(v)]))])])]),
+    ]),
+    num(Rational.of(2)),
+  ),
 );
 
 export const intArctan = tableRule(
@@ -303,6 +361,195 @@ export const intArcsin = tableRule(
     body.den.type === "fn" && body.den.name === "sqrt" && body.den.args.length === 1 &&
     polynomialIs(body.den.args[0]!, v, [[0, 1], [2, -1]]),
   (v) => fn("arcsin", [sym(v)]),
+);
+
+// ------------------------------------------------------------- the trig family
+
+/** The argument of a trig call, when the call is of the given function. */
+function trigArg(n: MathNode, name: string): MathNode | null {
+  if (n.type !== "fn" || n.name !== name || n.args.length !== 1) return null;
+  return n.args[0]!;
+}
+
+/** `f(u)^k` for a named trig function, returning the argument and the power. */
+function trigPower(n: MathNode, name: string): { arg: MathNode; power: number } | null {
+  if (n.type === "pow" && n.exp.type === "num" && n.exp.value.isInteger()) {
+    const arg = trigArg(n.base, name);
+    if (arg) return { arg, power: Number(n.exp.value.toNumber()) };
+    return null;
+  }
+  const arg = trigArg(n, name);
+  return arg ? { arg, power: 1 } : null;
+}
+
+export const intTan = tableRule(
+  "INT_TAN",
+  (body, v) => isCall(body, "tan", v),
+  (v) => neg(fn("ln", [fn("abs", [fn("cos", [sym(v)])])])),
+);
+
+/**
+ * A square root inside a product or sum becomes a half power.
+ *
+ * The power rule reads `pow` nodes and sqrt is a function node, so
+ * int (u-1)sqrt(u) du was declined while the identical
+ * int (u-1)u^(1/2) du was integrated term by term. Only fires where the root
+ * is mixed in with something else: a bare int sqrt(x) dx is already handled,
+ * and rewriting it would replace a step that reads well with one that does
+ * not.
+ */
+export const intSqrtAsPower = integralRule(
+  "INT_SQRT_AS_POWER",
+  ({ body, variable: v, node }) => {
+    if (body.type !== "mul" && body.type !== "add" && body.type !== "div") return null;
+    let found: MathNode | null = null;
+    walk(body, (n) => {
+      if (found) return;
+      if (n.type !== "fn" || n.name !== "sqrt" || n.args.length !== 1) return;
+      if (!dependsOn(n, v)) return;
+      // Only a root of something linear. A root of a quadratic is trig
+      // substitution's, and flattening it to a half power here would take the
+      // sqrt node that rule looks for out from under it.
+      const p = toPolynomial(n.args[0]!, v);
+      if (!p || degree(p) !== 1) return;
+      found = n;
+    });
+    if (!found) return null;
+    const root = found as MathNode & { type: "fn" };
+    const half = pow(cloneFresh(root.args[0]!), num(Rational.of(1, 2)), root.id);
+    const rebuilt = replaceSubtree(body, key(root), () => half);
+    const out = integral(rebuilt, sym(v));
+    return {
+      node: out,
+      changes: [{ kind: "replace", fromIds: [root.id], toIds: [half.id] }],
+      vars: { variable: v, root: toLatex(root), power: toLatex(half) },
+    };
+  },
+);
+
+export const intSec = tableRule(
+  "INT_SEC",
+  (body, v) => isCall(body, "sec", v),
+  (v) => fn("ln", [fn("abs", [add([fn("sec", [sym(v)]), fn("tan", [sym(v)])])])]),
+);
+
+export const intCsc = tableRule(
+  "INT_CSC",
+  (body, v) => isCall(body, "csc", v),
+  (v) => neg(fn("ln", [fn("abs", [add([fn("csc", [sym(v)]), fn("cot", [sym(v)])])])])),
+);
+
+export const intCot = tableRule(
+  "INT_COT",
+  (body, v) => isCall(body, "cot", v),
+  (v) => fn("ln", [fn("abs", [fn("sin", [sym(v)])])]),
+);
+
+/**
+ * sin^2 u -> (1 - cos 2u)/2, and cos^2 u -> (1 + cos 2u)/2.
+ *
+ * A rewrite rather than a table entry, because the identity *is* the lesson.
+ * Once the square is gone the existing sum, constant-multiple and cosine rules
+ * finish the job on their own, and the working reads the way it is taught.
+ */
+function powerReduction(id: string, name: "sin" | "cos"): Rule {
+  return integralRule(id, ({ body, variable: v, node }) => {
+    const found = trigPower(body, name);
+    if (!found || found.power !== 2) return null;
+    const doubled = mul([num(Rational.of(2)), cloneFresh(found.arg)]);
+    const cos2u = fn("cos", [doubled]);
+    const inner = name === "sin"
+      ? add([num(Rational.ONE), neg(cos2u)])
+      : add([num(Rational.ONE), cos2u]);
+    const out = integral(div(inner, num(Rational.of(2))), sym(v));
+    return {
+      node: out,
+      changes: [{ kind: "replace", fromIds: [node.id], toIds: [out.id] }],
+      vars: { variable: v, argument: toLatex(found.arg) },
+    };
+  });
+}
+
+export const intSinSquared = powerReduction("INT_SIN_SQUARED", "sin");
+export const intCosSquared = powerReduction("INT_COS_SQUARED", "cos");
+
+/**
+ * An odd power of sine or cosine: peel one factor off and turn the rest into
+ * the other function, which leaves something u-substitution can take.
+ *
+ *   sin^3 u -> sin u (1 - cos^2 u)
+ *   cos^5 u -> cos u (1 - sin^2 u)^2
+ *
+ * Only fires on an odd power of three or more; the power-reduction rules above
+ * own the even ones, and a bare first power is already in the table.
+ */
+function oddPower(id: string, name: "sin" | "cos"): Rule {
+  const other = name === "sin" ? "cos" : "sin";
+  return integralRule(id, ({ body, variable: v, node }) => {
+    const found = trigPower(body, name);
+    if (!found || found.power < 3 || found.power % 2 === 0) return null;
+    const half = (found.power - 1) / 2;
+    const pythag = add([
+      num(Rational.ONE),
+      neg(pow(fn(other, [cloneFresh(found.arg)]), num(Rational.of(2)))),
+    ]);
+    const rest = half === 1 ? pythag : pow(pythag, num(Rational.of(half)));
+    const out = integral(mul([fn(name, [cloneFresh(found.arg)]), rest]), sym(v));
+    return {
+      node: out,
+      changes: [{ kind: "replace", fromIds: [node.id], toIds: [out.id] }],
+      vars: { variable: v, power: String(found.power), other },
+    };
+  });
+}
+
+export const intSinOdd = oddPower("INT_SIN_ODD", "sin");
+export const intCosOdd = oddPower("INT_COS_ODD", "cos");
+
+/**
+ * 1/(x^2 + a^2) -> (1/a) arctan(x/a), and 1/sqrt(a^2 - x^2) -> arcsin(x/a).
+ *
+ * The table entries above only match a = 1, so the integral of 1/(x^2+4) was
+ * refused while 1/(x^2+1) was answered.
+ */
+export const intArctanScaled = integralRule(
+  "INT_ARCTAN_SCALED",
+  ({ body, variable: v, node }) => {
+    if (body.type !== "div" || !isOne(body.num)) return null;
+    const p = toPolynomial(body.den, v);
+    if (!p || degree(p) !== 2) return null;
+    if (!coeff(p, 2).equals(Rational.ONE)) return null;
+    const b = coeff(p, 1);
+    const c = coeff(p, 0);
+
+    // Completing the square turns x^2 + bx + c into (x + b/2)^2 + k. A
+    // positive k means no real roots, so the quadratic never vanishes and
+    // this is an inverse tangent; a negative one is partial fractions' job.
+    const half = b.div(Rational.of(2));
+    const k = c.sub(half.mul(half));
+    if (k.isNegative() || k.isZero()) return null;
+    if (b.isZero() && k.equals(Rational.ONE)) return null; // plain arctan's
+
+    const a = k.nthRoot(2n);
+    if (!a) return null;
+
+    const shifted = b.isZero() ? sym(v) : add([sym(v), num(half)]);
+    const out = mul([
+      div(num(Rational.ONE), num(a)),
+      fn("arctan", [div(shifted, num(a))]),
+    ]);
+    return {
+      node: out,
+      changes: [{ kind: "replace", fromIds: [node.id], toIds: [out.id] }],
+      vars: {
+        variable: v,
+        a: a.toLatex(),
+        shift: half.toLatex(),
+        square: toLatex(shifted),
+      },
+      ...(b.isZero() ? {} : { explanationKey: "INT_COMPLETE_THE_SQUARE" }),
+    };
+  },
 );
 
 // ------------------------------------------------------------ running the rules
@@ -506,8 +753,58 @@ function integrandInU(
   for (const attempt of attempts) {
     const substituted = replaceSubtree(attempt, target, () => sym(placeholder));
     if (!dependsOn(substituted, v)) return substituted;
+    // Something of the original variable is left over. When the substitution
+    // is linear it can be inverted and put in: for int x*sqrt(x+1) dx with
+    // u = x+1, the stray x becomes u-1 and the integrand turns into
+    // (u-1)*sqrt(u), which is a polynomial in u. Without this the whole
+    // problem was declined for the sake of one leftover x.
+    if (!appearsWrapped(body, candidate)) continue;
+    const inverted = invertLinear(candidate, v, placeholder);
+    if (!inverted) continue;
+    const rewritten = run(
+      substitute(substituted, v, inverted), tidyRules, {},
+      { verify: false, maxSteps: 30 },
+    ).node;
+    if (!dependsOn(rewritten, v)) return rewritten;
   }
   return null;
+}
+
+/**
+ * Does the candidate sit inside something — a root, an exponential, a bracket
+ * raised to a power — rather than standing on its own?
+ *
+ * Substituting only earns its place when it unwraps something. Without this
+ * check, inverting a linear substitution lets *any* linear part of the
+ * integrand absorb the whole problem: int (5x-3)/(x^2-2x-3) dx took u = 5x-3
+ * and came back with 2ln|5x+5| + 3ln|5x-15|, which is right — it differs from
+ * 3ln|x-3| + 2ln|x+1| by a constant, and the constant of integration swallows
+ * it — but it is not the answer anyone wants, and it walks straight past the
+ * partial fractions the question was set to practise.
+ */
+function appearsWrapped(body: MathNode, candidate: MathNode): boolean {
+  const target = key(candidate);
+  let wrapped = false;
+  walk(body, (n) => {
+    if (wrapped) return;
+    if (n.type === "fn" && n.args.some((a) => key(a) === target)) wrapped = true;
+    else if (n.type === "pow" && key(n.base) === target) wrapped = true;
+  });
+  return wrapped;
+}
+
+/**
+ * `u = ax + b` read backwards as `x = (u - b)/a`, or null when the
+ * substitution is not linear and so has no single inverse to offer.
+ */
+function invertLinear(candidate: MathNode, v: string, placeholder: string): MathNode | null {
+  const p = toPolynomial(candidate, v);
+  if (!p || degree(p) !== 1) return null;
+  const a = coeff(p, 1);
+  const b = coeff(p, 0);
+  if (a.isZero()) return null;
+  const shifted = b.isZero() ? sym(placeholder) : add([sym(placeholder), num(b.neg())]);
+  return a.equals(Rational.ONE) ? shifted : div(shifted, num(a));
 }
 
 /**
@@ -549,6 +846,83 @@ export const intSubstitution = integralRule(
       };
     }
     return null;
+  },
+);
+
+/** The slope of a linear expression in v, or null when it is not linear. */
+function linearSlope(n: MathNode, v: string): Rational | null {
+  const p = toPolynomial(n, v);
+  if (!p || degree(p) !== 1) return null;
+  const a = coeff(p, 1);
+  return a.isZero() ? null : a;
+}
+
+/** `e^u` or `exp(u)`, returning the exponent. */
+function exponentialArgument(n: MathNode): MathNode | null {
+  if (n.type === "fn" && n.name === "exp" && n.args.length === 1) return n.args[0]!;
+  if (n.type === "pow" && n.base.type === "sym" && n.base.name === "e") return n.exp;
+  return null;
+}
+
+/**
+ * int e^(ax) sin(bx) dx, where by parts comes back to where it started.
+ *
+ * This one is not like the others. Parts applied twice does not reduce the
+ * integral, it reproduces it: you end up with I = (something) - (b^2/a^2)I,
+ * and the way out is algebra, not another round of integration. intByParts
+ * refuses a trig or exponential u precisely because that pairing loops, so
+ * without this rule the problem was declined outright.
+ *
+ * The closed form below is what solving for I gives. Differentiating it back
+ * confirms it the same way every other antiderivative here is confirmed.
+ */
+export const intCyclicByParts = integralRule(
+  "INT_CYCLIC_BY_PARTS",
+  ({ body, variable: v, node }) => {
+    if (body.type !== "mul" || body.args.length !== 2) return null;
+    const [first, second] = body.args as [MathNode, MathNode];
+
+    let exponential: MathNode | null = null;
+    let trig: (MathNode & { type: "fn" }) | null = null;
+    for (const [a, b] of [[first, second], [second, first]] as const) {
+      if (exponentialArgument(a) === null) continue;
+      if (b.type !== "fn" || (b.name !== "sin" && b.name !== "cos")) continue;
+      if (b.args.length !== 1) continue;
+      exponential = a;
+      trig = b as MathNode & { type: "fn" };
+      break;
+    }
+    if (!exponential || !trig) return null;
+
+    const exponent = exponentialArgument(exponential)!;
+    const a = linearSlope(exponent, v);
+    const b = linearSlope(trig.args[0]!, v);
+    if (!a || !b) return null;
+
+    const denominator = a.mul(a).add(b.mul(b));
+    if (denominator.isZero()) return null;
+
+    const angle = trig.args[0]!;
+    const sine = (): MathNode => fn("sin", [cloneFresh(angle)]);
+    const cosine = (): MathNode => fn("cos", [cloneFresh(angle)]);
+
+    // int e^E sin T = e^E (a sin T - b cos T)/(a^2+b^2)
+    // int e^E cos T = e^E (a cos T + b sin T)/(a^2+b^2)
+    const bracket = trig.name === "sin"
+      ? add([makeTerm(a, [sine()]), neg(makeTerm(b, [cosine()]))])
+      : add([makeTerm(a, [cosine()]), makeTerm(b, [sine()])]);
+
+    const result = div(mul([cloneFresh(exponential), bracket]), num(denominator));
+    return {
+      node: result,
+      changes: [{ kind: "replace", fromIds: [node.id], toIds: [result.id] }],
+      vars: {
+        variable: v,
+        integrand: toLatex(body),
+        exponential: toLatex(exponential),
+        trig: toLatex(trig),
+      },
+    };
   },
 );
 
@@ -662,6 +1036,285 @@ function asRationalFunction(body: MathNode, v: string): { top: Poly; bottom: Pol
 }
 
 /** ∫(x^2/(x+1)) dx -> ∫(x - 1 + 1/(x+1)) dx: divide before decomposing. */
+/**
+ * sqrt(4x^2 + 1) -> 2 sqrt(x^2 + 1/4), so trig substitution can take it.
+ *
+ * The substitution rules want the square term to carry a coefficient of one,
+ * and arc length produces the other kind constantly: the length of a parabola
+ * is an integral of sqrt(1 + 4x^2). Pulling the constant out front is the step
+ * a student writes anyway, and it only fires when the constant comes out
+ * rational, so nothing irrational is invented on the way.
+ */
+export const intFactorRoot = integralRule(
+  "INT_FACTOR_ROOT",
+  ({ body, variable: v, node }) => {
+    let target: MathNode | null = null;
+    let scale: Rational | null = null;
+    let inner: MathNode | null = null;
+
+    walk(body, (n) => {
+      if (target) return;
+      if (n.type !== "fn" || n.name !== "sqrt" || n.args.length !== 1) return;
+      const p = toPolynomial(n.args[0]!, v);
+      if (!p || degree(p) !== 2 || !coeff(p, 1).isZero()) return;
+      const square = coeff(p, 2);
+      const constant = coeff(p, 0);
+      if (constant.isZero()) return;
+      // Already in standard form; the substitution rule owns those.
+      if (square.equals(Rational.ONE) || square.equals(Rational.ONE.neg())) return;
+
+      const magnitude = square.isNegative() ? square.neg() : square;
+      const root = magnitude.nthRoot(2n);
+      if (!root) return;
+      const sign = square.isNegative() ? Rational.ONE.neg() : Rational.ONE;
+      const reduced = constant.div(magnitude);
+
+      target = n;
+      scale = root;
+      inner = add([
+        makeTerm(sign, [pow(sym(v), num(Rational.of(2)))]),
+        num(reduced),
+      ]);
+    });
+    if (!target || !scale || !inner) return null;
+
+    const pulled = mul([num(scale), fn("sqrt", [inner])]);
+    const rebuilt = replaceSubtree(body, key(target), () => pulled);
+    const out = integral(rebuilt, sym(v));
+    return {
+      node: out,
+      changes: [{ kind: "replace", fromIds: [(target as MathNode).id], toIds: [pulled.id] }],
+      vars: { variable: v, scale: (scale as Rational).toLatex(), root: toLatex(target) },
+    };
+  },
+);
+
+// -------------------------------------------------------- trig substitution
+
+type TrigSubKind = "sine" | "tangent" | "secant";
+
+interface TrigSubForm {
+  kind: TrigSubKind;
+  /** The `a` in a^2 - x^2, a^2 + x^2 or x^2 - a^2. */
+  a: Rational;
+  /** The sqrt node in the integrand that named the form. */
+  root: MathNode;
+}
+
+/** Read a sqrt of a quadratic as one of the three trig-substitution shapes. */
+function trigSubForm(body: MathNode, v: string): TrigSubForm | null {
+  let found: TrigSubForm | null = null;
+  walk(body, (n) => {
+    if (found) return;
+    if (n.type !== "fn" || n.name !== "sqrt" || n.args.length !== 1) return;
+    const p = toPolynomial(n.args[0]!, v);
+    if (!p || degree(p) !== 2 || !coeff(p, 1).isZero()) return;
+    const square = coeff(p, 2);
+    const constant = coeff(p, 0);
+    if (constant.isZero()) return;
+
+    // a^2 - x^2, a^2 + x^2, or x^2 - a^2, with a rational.
+    let kind: TrigSubKind;
+    let squared: Rational;
+    if (square.equals(Rational.ONE.neg()) && !constant.isNegative()) {
+      kind = "sine";
+      squared = constant;
+    } else if (square.equals(Rational.ONE) && !constant.isNegative()) {
+      kind = "tangent";
+      squared = constant;
+    } else if (square.equals(Rational.ONE) && constant.isNegative()) {
+      kind = "secant";
+      squared = constant.neg();
+    } else return;
+
+    const a = squared.nthRoot(2n);
+    if (!a) return;
+    found = { kind, a, root: n };
+  });
+  return found;
+}
+
+/**
+ * x = a sin t, a tan t or a sec t, for an integrand carrying a square root of
+ * a quadratic that will not yield to anything simpler.
+ *
+ * The substitution is applied structurally rather than by substituting and
+ * hoping the engine notices: the root *becomes* a cos t (or a sec t, or
+ * a tan t) by the Pythagorean identity, which is the whole point of choosing
+ * that substitution, and asking the simplifier to rediscover
+ * sqrt(a^2 - a^2 sin^2 t) = a cos t would be a much harder problem than the
+ * integral.
+ *
+ * Coming back is the part students find fiddly, and it is done here with the
+ * triangle relations. Any slip is caught: the answer is differentiated back
+ * against the original integrand before the step is offered, so a wrong
+ * back-substitution is declined rather than shown.
+ */
+export const intTrigSubstitution = integralRule(
+  "INT_TRIG_SUBSTITUTION",
+  ({ body, variable: v, node }) => {
+    if (nesting >= MAX_NESTING) return null;
+    const form = trigSubForm(body, v);
+    if (!form) return null;
+
+    const t = v === "t" ? "w" : "t";
+    const a = num(form.a);
+    const angle = (): MathNode => sym(t);
+    const call = (name: string): MathNode => fn(name, [angle()]);
+
+    // What x, the root, and dx become under the substitution.
+    let xInT: MathNode;
+    let rootInT: MathNode;
+    let dx: MathNode;
+    switch (form.kind) {
+      case "sine":
+        xInT = mul([cloneFresh(a), call("sin")]);
+        rootInT = mul([cloneFresh(a), call("cos")]);
+        dx = mul([cloneFresh(a), call("cos")]);
+        break;
+      case "tangent":
+        xInT = mul([cloneFresh(a), call("tan")]);
+        rootInT = mul([cloneFresh(a), call("sec")]);
+        dx = mul([cloneFresh(a), pow(call("sec"), num(Rational.of(2)))]);
+        break;
+      case "secant":
+        xInT = mul([cloneFresh(a), call("sec")]);
+        rootInT = mul([cloneFresh(a), call("tan")]);
+        dx = mul([cloneFresh(a), call("sec"), call("tan")]);
+        break;
+    }
+
+    const withoutRoot = replaceSubtree(body, key(form.root), () => cloneFresh(rootInT));
+    const integrand = run(
+      mul([substitute(withoutRoot, v, xInT), dx]), tidyRules, {},
+      { verify: false, maxSteps: 40 },
+    ).node;
+    if (dependsOn(integrand, v)) return null;
+
+    const inT = antiderivativeOf(integrand, t);
+    if (!inT) return null;
+
+    const back = backFromTrigSub(inT, t, form, v);
+    if (!back) return null;
+    const result = run(back, tidyRules, {}, { verify: false, maxSteps: 40 }).node;
+    if (dependsOn(result, t)) return null;
+    if (verifyAntiderivative(result, body, v) !== "ok") return null;
+
+    return {
+      node: result,
+      changes: [{ kind: "replace", fromIds: [node.id], toIds: [result.id] }],
+      vars: {
+        variable: v,
+        angle: t,
+        substitution: toLatex(xInT),
+        root: toLatex(form.root),
+        becomes: toLatex(rootInT),
+      },
+    };
+  },
+);
+
+/**
+ * Undo the substitution, reading each trig function off the right triangle the
+ * substitution describes.
+ *
+ * Double angles are broken up first. Integrating cos^2 t produces sin(2t),
+ * which has no direct reading off the triangle, but 2 sin t cos t does.
+ */
+function backFromTrigSub(
+  inT: MathNode,
+  t: string,
+  form: TrigSubForm,
+  v: string,
+): MathNode | null {
+  const expanded = expandDoubleAngles(inT, t);
+  const a = num(form.a);
+  const x = (): MathNode => sym(v);
+  const root = (): MathNode => cloneFresh(form.root);
+
+  let table: Record<string, MathNode>;
+  let inverse: MathNode;
+  switch (form.kind) {
+    case "sine":
+      // x = a sin t: opposite x, hypotenuse a, adjacent sqrt(a^2 - x^2).
+      table = {
+        sin: div(x(), cloneFresh(a)),
+        cos: div(root(), cloneFresh(a)),
+        tan: div(x(), root()),
+        sec: div(cloneFresh(a), root()),
+        cot: div(root(), x()),
+        csc: div(cloneFresh(a), x()),
+      };
+      inverse = fn("arcsin", [div(x(), cloneFresh(a))]);
+      break;
+    case "tangent":
+      // x = a tan t: opposite x, adjacent a, hypotenuse sqrt(a^2 + x^2).
+      table = {
+        sin: div(x(), root()),
+        cos: div(cloneFresh(a), root()),
+        tan: div(x(), cloneFresh(a)),
+        sec: div(root(), cloneFresh(a)),
+        cot: div(cloneFresh(a), x()),
+        csc: div(root(), x()),
+      };
+      inverse = fn("arctan", [div(x(), cloneFresh(a))]);
+      break;
+    case "secant":
+      // x = a sec t: hypotenuse x, adjacent a, opposite sqrt(x^2 - a^2).
+      table = {
+        sin: div(root(), x()),
+        cos: div(cloneFresh(a), x()),
+        tan: div(root(), cloneFresh(a)),
+        sec: div(x(), cloneFresh(a)),
+        cot: div(cloneFresh(a), root()),
+        csc: div(x(), root()),
+      };
+      // There is no arcsec here, and arccos(a/x) is the same angle.
+      inverse = fn("arccos", [div(cloneFresh(a), x())]);
+      break;
+  }
+
+  const replace = (n: MathNode): MathNode => {
+    if (n.type === "fn" && n.args.length === 1) {
+      const arg = n.args[0]!;
+      if (arg.type === "sym" && arg.name === t) {
+        const swap = table[n.name];
+        if (swap) return cloneFresh(swap);
+        return n;
+      }
+    }
+    if (n.type === "sym" && n.name === t) return cloneFresh(inverse);
+    const kids = children(n);
+    if (kids.length === 0) return n;
+    return withChildren(n, kids.map(replace));
+  };
+  return replace(expanded);
+}
+
+/** sin(2t) -> 2 sin t cos t, and cos(2t) -> 1 - 2 sin^2 t. */
+function expandDoubleAngles(n: MathNode, t: string): MathNode {
+  const doubled = (arg: MathNode): boolean =>
+    arg.type === "mul" && arg.args.length === 2 &&
+    arg.args[0]!.type === "num" && arg.args[0]!.value.equals(Rational.of(2)) &&
+    arg.args[1]!.type === "sym" && (arg.args[1] as { name: string }).name === t;
+
+  if (n.type === "fn" && n.args.length === 1 && doubled(n.args[0]!)) {
+    const angle = (): MathNode => sym(t);
+    if (n.name === "sin") {
+      return mul([num(Rational.of(2)), fn("sin", [angle()]), fn("cos", [angle()])]);
+    }
+    if (n.name === "cos") {
+      return add([
+        num(Rational.ONE),
+        neg(mul([num(Rational.of(2)), pow(fn("sin", [angle()]), num(Rational.of(2)))])),
+      ]);
+    }
+  }
+  const kids = children(n);
+  if (kids.length === 0) return n;
+  return withChildren(n, kids.map((k) => expandDoubleAngles(k, t)));
+}
+
 export const intLongDivision = integralRule(
   "INT_LONG_DIVISION",
   ({ body, variable: v, node }) => {
@@ -793,6 +1446,170 @@ export const intPartialFractions = integralRule(
  * answer — an antiderivative like (x^2+1)^4/4 reads best folded up, which is
  * why EXPAND_POWER is not in the pipeline and this is.
  */
+/**
+ * A sum of terms `c * v^r`, where r may be any rational. Written as a map from
+ * the exponent to its coefficient.
+ *
+ * `toPolynomial` only reads whole-number exponents, so it says no to
+ * (u-1)^2 * u^(1/2), and nothing then expanded it — which is how
+ * int x^2 sqrt(x+1) dx came to be declined after the substitution had already
+ * done the hard part. This reads the same shapes but keeps the exponents
+ * rational.
+ */
+type PowerSum = Map<string, { exp: Rational; coeff: Rational }>;
+
+function addTerm(into: PowerSum, exp: Rational, coeff: Rational): void {
+  const k = exp.toLatex();
+  const at = into.get(k);
+  if (at) at.coeff = at.coeff.add(coeff);
+  else into.set(k, { exp, coeff });
+}
+
+function timesPowerSum(a: PowerSum, b: PowerSum): PowerSum {
+  const out: PowerSum = new Map();
+  for (const x of a.values()) {
+    for (const y of b.values()) addTerm(out, x.exp.add(y.exp), x.coeff.mul(y.coeff));
+  }
+  return out;
+}
+
+const MAX_BINOMIAL_POWER = 6;
+
+/** A rational raised to a whole-number power, by repeated multiplication. */
+function raise(base: Rational, power: Rational): Rational | null {
+  if (!power.isInteger()) return null;
+  const times = Number(power.toNumber());
+  if (!Number.isSafeInteger(times) || Math.abs(times) > 32) return null;
+  if (times === 0) return Rational.ONE;
+  if (base.isZero()) return times > 0 ? Rational.ZERO : null;
+  let out = Rational.ONE;
+  for (let i = 0; i < Math.abs(times); i++) out = out.mul(base);
+  return times > 0 ? out : Rational.ONE.div(out);
+}
+
+function asPowerSum(n: MathNode, v: string): PowerSum | null {
+  switch (n.type) {
+    case "num":
+      return new Map([["0", { exp: Rational.ZERO, coeff: n.value }]]);
+    case "sym":
+      return n.name === v
+        ? new Map([["1", { exp: Rational.ONE, coeff: Rational.ONE }]])
+        : null;
+    case "neg": {
+      const inner = asPowerSum(n.arg, v);
+      if (!inner) return null;
+      const out: PowerSum = new Map();
+      for (const t of inner.values()) addTerm(out, t.exp, t.coeff.neg());
+      return out;
+    }
+    case "add": {
+      const out: PowerSum = new Map();
+      for (const a of n.args) {
+        const part = asPowerSum(a, v);
+        if (!part) return null;
+        for (const t of part.values()) addTerm(out, t.exp, t.coeff);
+      }
+      return out;
+    }
+    case "mul": {
+      let out: PowerSum = new Map([["0", { exp: Rational.ZERO, coeff: Rational.ONE }]]);
+      for (const a of n.args) {
+        const part = asPowerSum(a, v);
+        if (!part) return null;
+        out = timesPowerSum(out, part);
+      }
+      return out;
+    }
+    case "div": {
+      const top = asPowerSum(n.num, v);
+      const bottom = asPowerSum(n.den, v);
+      if (!top || !bottom || bottom.size !== 1) return null;
+      const [only] = [...bottom.values()];
+      if (!only || only.coeff.isZero()) return null;
+      const out: PowerSum = new Map();
+      for (const t of top.values()) addTerm(out, t.exp.sub(only.exp), t.coeff.div(only.coeff));
+      return out;
+    }
+    case "pow": {
+      const base = asPowerSum(n.base, v);
+      if (!base || n.exp.type !== "num") return null;
+      // A single term takes any rational power; a sum has to be multiplied
+      // out, so its exponent must be a small whole number.
+      if (base.size === 1) {
+        const [only] = [...base.values()];
+        if (!only) return null;
+        const power = n.exp.value;
+        let coefficient: Rational;
+        if (power.isInteger()) {
+          const raised = raise(only.coeff, power);
+          if (!raised) return null;
+          coefficient = raised;
+        } else {
+          // A fractional power of a coefficient is not rational in general,
+          // so only a bare 1 out front is safe to carry through.
+          if (!only.coeff.equals(Rational.ONE)) return null;
+          coefficient = Rational.ONE;
+        }
+        const exponent = only.exp.mul(power);
+        return new Map([[exponent.toLatex(), { exp: exponent, coeff: coefficient }]]);
+      }
+      const power = n.exp.value;
+      if (!power.isInteger() || power.isNegative() || power.isZero()) return null;
+      const times = Number(power.toNumber());
+      if (times > MAX_BINOMIAL_POWER) return null;
+      let out: PowerSum = new Map([["0", { exp: Rational.ZERO, coeff: Rational.ONE }]]);
+      for (let i = 0; i < times; i++) out = timesPowerSum(out, base);
+      return out;
+    }
+    case "fn":
+      if (n.name === "sqrt" && n.args.length === 1) {
+        return asPowerSum(pow(cloneFresh(n.args[0]!), num(Rational.of(1, 2))), v);
+      }
+      return null;
+    default:
+      return null;
+  }
+}
+
+function powerSumToNode(sum: PowerSum, v: string): MathNode {
+  const terms = [...sum.values()]
+    .filter((t) => !t.coeff.isZero())
+    .sort((a, b) => b.exp.toNumber() - a.exp.toNumber())
+    .map((t) =>
+      t.exp.isZero()
+        ? num(t.coeff)
+        : makeTerm(t.coeff, [
+          t.exp.equals(Rational.ONE) ? sym(v) : pow(sym(v), num(t.exp)),
+        ]),
+    );
+  if (terms.length === 0) return num(Rational.ZERO);
+  return terms.length === 1 ? terms[0]! : add(terms);
+}
+
+/**
+ * Multiply out an integrand whose exponents are not all whole numbers, so the
+ * power rule can take it a term at a time. INT_EXPAND above owns the ordinary
+ * polynomial case and words it better, so this only fires where a fractional
+ * or negative exponent is what stopped it.
+ */
+export const intExpandPowers = integralRule(
+  "INT_EXPAND_POWERS",
+  ({ body, variable: v, node }) => {
+    if (body.type !== "mul" && body.type !== "pow" && body.type !== "div") return null;
+    if (toPolynomial(body, v)) return null;
+    const sum = asPowerSum(body, v);
+    if (!sum || sum.size < 2) return null;
+    const expanded = powerSumToNode(sum, v);
+    if (key(expanded) === key(body)) return null;
+    const result = integral(expanded, sym(v), node.id);
+    return {
+      node: result,
+      changes: [{ kind: "replace", fromIds: [body.id], toIds: [expanded.id] }],
+      vars: { variable: v, expanded: toLatex(expanded) },
+    };
+  },
+);
+
 export const intExpand = integralRule("INT_EXPAND", ({ body, variable: v, node }) => {
   if (body.type !== "pow" && body.type !== "mul") return null;
   const expandable = toPolynomial(body, v);
@@ -827,13 +1644,33 @@ export const integralRules: Rule[] = [
   intSin,
   intCos,
   intSecSquared,
+  intTan,
+  intCot,
+  intSec,
+  intCsc,
+  intCscSquared,
+  intSecCubed,
+  intCscCubed,
   intArctan,
   intArcsin,
+  intArctanScaled,
+  // The rewrites come before the search. Reducing a square or peeling a factor
+  // off an odd power is cheap and leaves something the table can finish, where
+  // substitution and parts would otherwise flail at it.
+  intSinSquared,
+  intCosSquared,
+  intSinOdd,
+  intCosOdd,
+  intSqrtAsPower,
   intSubstitution,
   intLongDivision,
   intPartialFractions,
+  intCyclicByParts,
   intByParts,
+  intFactorRoot,
+  intTrigSubstitution,
   intExpand,
+  intExpandPowers,
 ];
 
 /**

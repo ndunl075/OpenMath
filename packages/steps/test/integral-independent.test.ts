@@ -12,6 +12,37 @@ const INDEFINITE = [
   "\\int x e^{x} \\, dx", "\\int \\ln(x) \\, dx", "\\int x\\cos(x) \\, dx",
   "\\int \\frac{1}{x^{2}+1} \\, dx", "\\int (2x+1)^{5} \\, dx",
   "\\int \\sin(3x) \\, dx", "\\int x^{2}e^{x} \\, dx",
+  // The Calc 2 trig family.
+  "\\int \\tan(x) \\, dx", "\\int \\cot(x) \\, dx",
+  "\\int \\sin(x)^{2} \\, dx", "\\int \\cos(x)^{2} \\, dx",
+  "\\int \\sin(2x)^{2} \\, dx",
+  "\\int \\sin(x)^{3} \\, dx", "\\int \\cos(x)^{3} \\, dx",
+  "\\int \\sin(x)^{5} \\, dx",
+  // Inverse tangent away from a = 1.
+  "\\int \\frac{1}{x^{2}+4} \\, dx", "\\int \\frac{1}{x^{2}+9} \\, dx",
+  // Fractional powers.
+  "\\int x^{\\frac{1}{2}} \\, dx", "\\int x^{-2} \\, dx",
+  // Substitutions that leave a stray x behind, so the substitution has to be
+  // inverted and put back in.
+  "\\int x\\sqrt{x+1} \\, dx", "\\int x^{2}\\sqrt{x+1} \\, dx",
+  "\\int \\frac{x}{\\sqrt{x+1}} \\, dx", "\\int x\\sqrt{2x+1} \\, dx",
+  // Not sqrt(x-3): this file samples between -0.6 and 3.1, where it is
+  // undefined almost everywhere, and the check needs points it can use.
+  "\\int x(x+2)^{5} \\, dx",
+  // Cyclic integration by parts: parts twice comes back to the start.
+  "\\int e^{x}\\sin(x) \\, dx", "\\int e^{x}\\cos(x) \\, dx",
+  "\\int e^{2x}\\sin(3x) \\, dx", "\\int e^{-x}\\cos(x) \\, dx",
+  // Trig substitution, all three shapes.
+  "\\int \\sqrt{1-x^{2}} \\, dx", "\\int \\sqrt{4-x^{2}} \\, dx",
+  "\\int \\frac{x^{2}}{\\sqrt{1-x^{2}}} \\, dx",
+  "\\int \\frac{1}{x^{2}\\sqrt{1-x^{2}}} \\, dx",
+  "\\int \\frac{1}{\\sqrt{x^{2}+1}} \\, dx", "\\int \\sqrt{x^{2}+1} \\, dx",
+  "\\int \\frac{1}{\\sqrt{4+x^{2}}} \\, dx",
+  // The secant-cubed family the tangent substitution lands on.
+  "\\int \\sec(x)^{3} \\, dx", "\\int \\csc(x)^{2} \\, dx",
+  // The secant pair, and the inverse tangent after completing the square.
+  "\\int \\sec(x) \\, dx", "\\int \\csc(x) \\, dx",
+  "\\int \\frac{1}{x^{2}+2x+5} \\, dx", "\\int \\frac{1}{x^{2}+6x+13} \\, dx",
 ];
 
 describe("every antiderivative differentiates back to its integrand", () => {
@@ -24,7 +55,9 @@ describe("every antiderivative differentiates back to its integrand", () => {
       const answer = parseLatex(r.solution.answer.replace(/\s*\+\s*C$/, ""));
       const back = diff(answer, sym("x"));
       let compared = 0;
-      for (const x of [0.43, 1.17, 2.28, -0.61, 3.05]) {
+      // The small values matter: anything carrying sqrt(1 - x^2) is undefined
+      // outside (-1, 1), and the check needs three points it can actually use.
+      for (const x of [0.43, 1.17, 2.28, -0.61, 3.05, 0.21, -0.35, 0.77, -0.82]) {
         const a = evaluateNumeric(back, { x });
         const b = evaluateNumeric(integrand, { x });
         if (!Number.isFinite(a) || !Number.isFinite(b)) continue;
@@ -44,6 +77,12 @@ describe("definite integrals, against values worked by hand", () => {
     ["\\int_{1}^{2} \\frac{1}{x} \\, dx", Math.LN2],
     ["\\int_{0}^{1} e^{x} \\, dx", Math.E - 1],
     ["\\int_{0}^{\\pi} \\sin(x) \\, dx", 2],
+    // Half of pi: the average of sin^2 over a full arch is 1/2.
+    ["\\int_{0}^{\\pi} \\sin(x)^{2} \\, dx", Math.PI / 2],
+    ["\\int_{0}^{\\pi} \\cos(x)^{2} \\, dx", Math.PI / 2],
+    // ln(e) is 1, and the answer should say so rather than leaving ln|e|.
+    ["\\int_{1}^{e} \\frac{1}{x} \\, dx", 1],
+    ["\\int_{0}^{1} \\frac{1}{x^{2}+1} \\, dx", Math.PI / 4],
   ];
   for (const [problem, want] of CASES) {
     it(`${problem} = ${want.toFixed(4)}`, () => {
@@ -51,6 +90,42 @@ describe("definite integrals, against values worked by hand", () => {
       if (!r.ok) throw new Error(`${problem}: ${r.message}`);
       const got = evaluateNumeric(parseLatex(r.solution.answer));
       expect(Math.abs(got - want), `got ${r.solution.answer} = ${got}`).toBeLessThan(1e-6);
+    });
+  }
+});
+
+/**
+ * Improper integrals, against values worked by hand. Not in the corpus,
+ * because every corpus answer is checked by measuring the problem and
+ * quadrature cannot measure an area that runs out to infinity.
+ */
+describe("improper integrals", () => {
+  const CONVERGENT: Array<[string, number]> = [
+    ["\\int_{1}^{\\infty} \\frac{1}{x^{2}} \\, dx", 1],
+    ["\\int_{1}^{\\infty} \\frac{1}{x^{3}} \\, dx", 1 / 2],
+    ["\\int_{2}^{\\infty} \\frac{1}{x^{2}} \\, dx", 1 / 2],
+    ["\\int_{0}^{\\infty} e^{-x} \\, dx", 1],
+    ["\\int_{-\\infty}^{0} e^{x} \\, dx", 1],
+  ];
+  for (const [problem, want] of CONVERGENT) {
+    it(`${problem} = ${want}`, () => {
+      const r = trySolve(problem);
+      if (!r.ok) throw new Error(`${problem}: ${r.message}`);
+      const got = evaluateNumeric(parseLatex(r.solution.answer));
+      expect(Math.abs(got - want), `got ${r.solution.answer} = ${got}`).toBeLessThan(1e-9);
+      expect(r.solution.verified, "verified").toBe(true);
+    });
+  }
+
+  // Divergent: there is no number, and saying so is the answer.
+  for (const problem of [
+    "\\int_{1}^{\\infty} \\frac{1}{x} \\, dx",
+    "\\int_{1}^{\\infty} x \\, dx",
+  ]) {
+    it(`${problem} diverges`, () => {
+      const r = trySolve(problem);
+      expect(r.ok).toBe(false);
+      if (!r.ok) expect(r.message).toContain("diverges");
     });
   }
 });

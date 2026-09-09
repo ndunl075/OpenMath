@@ -52,8 +52,13 @@ describe("scan to steps", () => {
   }
 
   it("routes an out-of-scope scan to a message instead of the solver", () => {
-    const latex = normalizeLatex("\\sum_{i=1}^{n} i");
-    expect(detectOutOfScope(latex)).toBe("sums and products");
+    // A product. \sum came off this list when the series engine landed.
+    expect(detectOutOfScope(normalizeLatex("\\prod_{i=1}^{n} i"))).toBe("products");
+  });
+
+  it("sends a scanned sum to the solver rather than refusing it here", () => {
+    const latex = normalizeLatex("\\sum _ { n = 1 } ^ { 1 0 } n");
+    expect(detectOutOfScope(latex)).toBeNull();
   });
 
   it("sends a scanned integral to the solver rather than refusing it here", () => {
@@ -87,6 +92,39 @@ describe("scan to steps", () => {
     const outcome = trySolve(latex);
     expect(outcome.ok).toBe(false);
     if (!outcome.ok) expect(outcome.reason).toBe("unsupported");
+  });
+
+  /**
+   * The typed path used to skip the repairs the scan path got, so someone
+   * typing cos(0) on the keyboard was answered 0 — c*o*s*0 — while the same
+   * thing photographed came back as 1. Typing "cos" without a backslash is
+   * more likely than scanning it, not less.
+   */
+  describe("typed input gets the same repairs a scan does", () => {
+    const TYPED: Array<[string, string]> = [
+      ["cos(0)", "1"],
+      ["log(100)", "2"],
+      ["sqrt(16)", "4"],
+      ["ln(e)", "1"],
+      ["1 2 3 + 4 5 6", "579"],
+      ["sin(0)", "0"],
+    ];
+    for (const [typed, answer] of TYPED) {
+      it(`${typed} -> ${answer}`, () => {
+        const latex = normalizeLatex(typed);
+        expect(detectOutOfScope(latex)).toBeNull();
+        const outcome = trySolve(latex);
+        if (!outcome.ok) throw new Error(`${latex}: ${outcome.message}`);
+        expect(outcome.solution.answer).toBe(answer);
+      });
+    }
+
+    it("is idempotent, so the scan path passing through twice is harmless", () => {
+      for (const raw of ["cos(0)", "1 2 3", "\\cos(0)", "x^{2} + 1", "\\int x \\, dx"]) {
+        const once = normalizeLatex(raw);
+        expect(normalizeLatex(once)).toBe(once);
+      }
+    });
   });
 
   it("keeps an unreadable scan out of the solver", () => {

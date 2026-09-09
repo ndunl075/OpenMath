@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import { tryParseLatex } from "@openmath/math-core";
-import { detectOutOfScope } from "@openmath/ocr";
+import { detectOutOfScope, normalizeLatex } from "@openmath/ocr";
 import { Icon } from "./Icon.js";
 import { MathView } from "./MathView.js";
 
@@ -61,8 +61,12 @@ export function MathInput({
     if (autoFocus) inputRef.current?.focus();
   }, [autoFocus]);
 
-  const parsed = tryParseLatex(value);
-  const scopeWarning = value.trim() ? detectOutOfScope(value) : null;
+  // The preview and the answer have to agree about what was typed, so both
+  // read the repaired form: cos(0) previews as cos of nought, not as four
+  // letters multiplied together.
+  const repaired = normalizeLatex(value);
+  const parsed = tryParseLatex(repaired);
+  const scopeWarning = value.trim() ? detectOutOfScope(repaired) : null;
   const showError = touched && value.trim().length > 0 && !parsed.ok;
 
   const insert = (key: Key) => {
@@ -96,7 +100,7 @@ export function MathInput({
     <div class="math-input">
       <div class="math-input__preview" aria-live="polite">
         {value.trim() ? (
-          <MathView latex={value} display label={`Preview of ${value}`} />
+          <MathView latex={repaired} display label={`Preview of ${value}`} />
         ) : (
           <span class="math-input__placeholder">Type a problem, for example 2x + 3 = 7</span>
         )}

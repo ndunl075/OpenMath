@@ -76,7 +76,19 @@ interface OcrProvider {
 
 **Runtime**: model runs in a Web Worker so the camera view never janks. First load shows a progress bar with the byte count; weights are cached (Cache Storage) so the second scan is offline. Keep the int8 build as default for iOS Safari memory limits.
 
-**Editable result**: always show the recognized LaTeX in a MathLive field before solving. Users fix OCR mistakes in two taps instead of rescanning. This one UX choice covers more OCR failures than any model swap.
+**Repairing what the model emits — [revised]**, and the highest-value fix in the project so far. A recognition model tokenises digit by digit and often drops the backslash off a function name. Neither is a parse error, so both went straight through the solver and came back as a *wrong answer with a full set of working*:
+
+| Scanned | Was solved as | Answer given | Truth |
+|---|---|---|---|
+| `1 2 3 + 4 5 6` | `1*2*3 + 4*5*6` | 126 | 579 |
+| `2 x + 3 = 1 1` | `2x + 3 = 1` | x = -1 | x = 4 |
+| `cos(0)` | `c*o*s*0` | 0 | 1 |
+
+Every multi-digit number in a photograph was becoming a product. `normalize.ts` now rejoins split digit runs — before the spacing commands that legitimately separate digits are stripped — and restores the backslash on function names it recognises, including inside `\operatorname` and `\mathrm`. Two backstops behind it, because normalization cannot catch every shape: the **parser refuses two juxtaposed numerals** outright (no real notation writes multiplication that way, so what reaches it is a scan artefact, and declining beats answering 126), and bare `dy/dx` is out of scope rather than read as `d*y/(d*x)` and cancelled to `y*x`. `scan-handoff.test.ts` locks all of it in.
+
+**Editable result**: always show the recognized LaTeX in a MathLive field before solving. Users fix OCR mistakes in two taps instead of rescanning. This one UX choice covers more OCR failures than any model swap — and note it is the *only* defence against the class above that a scan can produce but the repairs above have not anticipated.
+
+**Unverified — [revised]**: no model has ever been loaded. `huggingface.co` is unreachable from the build environment, so the provider config (Hub id, dtype, the `VisionEncoderDecoderModel` path, the UniMERNet preprocessing chain) is correct by reading the reference implementation's source, not by observation. Everything downstream of the model is tested; the model itself is the standing risk in §13.
 
 **Handwriting**: Texo is trained on printed + handwritten (UniMER-1M includes HWE). If handwriting is weak on the corpus, fine-tune Texo using its open training pipeline on MathWriting (Google, 230 k handwritten expressions) / HME100K / CROHME. Consumer-GPU trainable per the Texo README.
 
@@ -115,13 +127,54 @@ interface StepEngine {
 }
 ```
 
-**v1 = vendored mathsteps behind an adapter.** MathJSON → mathjs-3 expression string → mathsteps `simplifyExpression` / `solveEquation` → each `newNode.toTex()` → LaTeX. Buys 2 years of pedagogical rules plus their test suite. Don't upgrade its mathjs; it is pinned for a reason.
+**Native rules throughout — [revised]** the vendored-mathsteps plan was skipped. Nothing is vendored: `rules/` holds 14 files of rules written against our own AST, and the adapter that was going to translate to mathjs-3 never existed. Going native immediately cost more up front and avoided pinning a 2015 dependency forever, keeping exact rational arithmetic and stable node ids (which §6.1's animations need and mathjs would not have given us).
 
-**v1.5+ = native MathJSON rules.** Port rules one category at a time, using mathsteps' tests as the acceptance corpus, then delete the adapter. This is where contributors add coverage. Rule = `{ id, match(expr) → boolean, apply(expr) → expr }`; the engine runs a fixed ordering (simplify arithmetic → collect terms → move terms across equals → isolate → check).
+Rule = `{ id, apply(node, ctx) → { node, changes } | null }`. The engine tries rules in priority order and takes the first that matches anywhere in the tree, so **the ordering of the rule list is the curriculum**. Two guards stop it looping: a candidate whose LaTeX matches the current expression is rejected (no empty step cards), and so is one already seen (no rule ping-pong).
 
 **Explanations** live in `explanations/en.json` keyed by `ruleId` with placeholders (`"Move {term} to the other side"`). Adding a rule requires adding its explanation; CI enforces it. Localization is a JSON PR.
 
 **Verification (non-negotiable).** For every step, `ce.parse(before).isEqual(ce.parse(after))`; for equations, substitute solutions back; if the CAS can't decide, sample 5 random points with tolerance. Fails → show the answer only, hide steps, surface the report button. Same check runs in CI over the corpus. A hand-written rewrite engine will produce wrong steps; this is what keeps them off screen.
+
+### 5.1 Coverage, and what is deliberately missing
+
+Kept honest because the alternative is a student photographing homework the app cannot do and finding out one problem at a time. A refusal is a supported outcome: the engine declines rather than guessing, and every refusal below is a decline with a message, not a wrong answer.
+
+**Arithmetic and algebra.** Exact rational arithmetic, fractions, radicals, powers. Expanding, factoring (common factor, difference of squares, quadratics, rational roots for cubics and quartics), collecting like terms. Linear and quadratic equations, higher-degree by rational roots, radical equations with extraneous-root checks, exponential and logarithmic equations with domain checks, absolute value, quadratic inequalities.
+
+**Calculus 1.** The full derivative table: power (integer, negative and fractional exponents), product, quotient, chain, all six trig functions, the three inverse trig, the three hyperbolic, `ln`, base-ten `log`, `exp` and general `a^x`. Higher-order derivatives. Limits by substitution, by factor-and-cancel, by degree comparison at infinity, and by l'Hopital for `0/0` and `inf/inf`.
+
+**Calculus 2 — [revised]** now the whole course, not just the integration chapter.
+
+*Techniques of integration.* Substitution, including the kind that leaves a stray x and has to be inverted (`int x sqrt(x+1) dx`). Integration by parts, repeated, and the cyclic case where parts reproduces the integral and it is solved for algebraically (`int e^x sin x dx`). Partial fractions, long division. Power reduction for `sin^2` and `cos^2`, odd powers of sine and cosine, `tan`, `cot`, `sec`, `csc`, `sec^3` and its cosecant mirror. Trigonometric substitution in all three shapes — `sqrt(a^2-x^2)`, `sqrt(a^2+x^2)`, `sqrt(x^2-a^2)` — with the triangle back-substitution, and a constant pulled out of the root first when the square term does not carry a coefficient of one. Inverse tangent and sine forms including completing the square. Improper integrals with one infinite bound, rewritten as a limit.
+
+*Applications.* Arc length, volumes of revolution by disks, washers and shells, surface area, average value, area between curves, work — all reachable once the student writes the integral, which is the form they arrive in.
+
+*Sequences and series.* Sigma notation and factorials. Finite sums. For infinite series, the tests in the order a course teaches them: nth-term, geometric (with an exact sum), p-series, alternating, ratio, limit comparison against the dominant power, and the integral test, which hands the problem to the integration engine. Every verdict names the test that produced it.
+
+*Power series.* Radius and interval of convergence by the ratio test, with each endpoint put back in and settled separately, and centres away from zero read off the `(x-a)^n`. The standard Maclaurin series are recognised by what they sum to, so `sum x^n/n!` comes back as `e^x` with its reach in the note.
+
+*Taylor series, both directions — **[revised]***. `maclaurin(f, n)` and `taylor(f, a, n)` build the expansion from the function; recognising a series that is written down is the other half, above. There is no *notation* for "find the Maclaurin series of f", so it is offered as a **named operation** the way every CAS does — typed as a word, which needs no symbol nobody would type, and the scan normalizer restores the backslash exactly as it does for `cos`. Coefficients stay symbolic, so `taylor(e^x, 1, 3)` keeps its `e` rather than refusing a number with no decimal.
+
+**Not supported, and what happens instead:**
+
+| Missing | Behaviour |
+|---|---|
+| Parametric and polar curves | no notation for them |
+| Multivariable anything (Calc 3) | out of scope by an earlier decision |
+| Limits of the form `0 * inf` and `1^inf` | declined by name |
+| Divergent limits | refused; there is no way to report infinity as an answer |
+| An answer that is irrational, e.g. `int 1/(x^2+x+1) dx` | declined rather than approximated |
+| Both integration bounds infinite | declined, with a note to split the integral first |
+| A series none of the tests settle | declined by name |
+
+The last four are policy rather than gaps. Approximating an irrational would break the promise that every answer is exact, picking a split point for a doubly-infinite integral would be putting words in the student's mouth, and a convergence test that guessed would be worse than one that declines.
+
+**On naming operations.** Taylor was once listed here as blocked by the input model, on the grounds that a photograph carries mathematics rather than the sentence asking for it. Half of that was true and half was an excuse: there is no notation, but nothing stopped the app offering it as a named operation. Anything else that needs a verb rather than a symbol should follow the same route — a word a student can type, restored by the normalizer, parsed as a function.
+
+
+**How accuracy is checked.** Three layers, deliberately not sharing code. Per step, the engine samples `before` against `after` (equations by checking `lhs - rhs` stays proportional, integrals by differentiating both sides, limits by measurement, and l'Hopital structurally). Per problem, the corpus records a hand-written answer and confirms it by measuring the problem itself — which is why a limit that cannot be measured and an integral running to infinity are tested elsewhere rather than weakening that rule. Across the whole engine, `accuracy-sweep.test.ts` cross-checks against a separately written differentiator, Simpson's rule, and substitution back into the original.
+
+**Series are derived, not measured — [revised].** They were once the exception: convergence cannot be confirmed by adding terms, since enough of `sum 1/n` looks perfectly settled, so the verdicts rested on sampling a ratio — and a factorial passes the largest double at 171, so the sampling ran out of numbers before the ratio did. The ratio test now builds `a(n+1)/a(n)` as an expression, cancels the factorials and subtracts the exponents, and hands what is left to the limit engine. Sampling stays as the fallback and still earns it: `sum n!/2^n` has ratio `(n+1)/2`, whose limit is infinity, and there is no way to report that as an answer.
 
 **Roadmap**: done — derivatives and integrals are both native rules. Integration differs from differentiation in kind: there is no complete algorithm, so `integral.ts` searches (candidate substitutions, a LIATE choice for parts, a rational-root factorisation for partial fractions) and every candidate is differentiated back before it is returned. A guess that does not match the integrand is discarded, and an integral no heuristic finishes is declined rather than half-answered.
 

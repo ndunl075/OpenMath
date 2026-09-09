@@ -3,7 +3,7 @@ import { Rational } from "./rational.js";
 import {
   add, DEFAULT_DERIVATIVE_VARIABLE, definiteIntegral, diff, div, fn, INFINITY,
   integral, isConstantSymbol, limit, type LimitSide, type MathNode, mul, neg,
-  num, pow, rel, type Relation, sym, symbols,
+  num, pow, rel, type Relation, summation, sym, symbols,
 } from "./ast.js";
 
 export { ParseError };
@@ -115,15 +115,30 @@ class Parser {
 
   private parseTerm(): MathNode {
     let acc = this.parseFactor();
+    let last = acc;
     for (;;) {
       if (this.at("op", "*")) {
         this.next();
-        acc = this.mulFlat(acc, this.parseFactor());
+        last = this.parseFactor();
+        acc = this.mulFlat(acc, last);
       } else if (this.at("op", "/")) {
         this.next();
-        acc = div(acc, this.parseFactor());
+        last = this.parseFactor();
+        acc = div(acc, last);
       } else if (this.startsFactor()) {
-        acc = this.mulFlat(acc, this.parseFactor());
+        // Juxtaposing two numerals never means multiplication: real notation
+        // needs \cdot or brackets. It means a scan split one number into
+        // digits, so refusing is right where 1 2 3 -> 6 would be a confident
+        // wrong answer. @openmath/ocr rejoins these before we ever see them;
+        // this is the backstop for the ones it misses.
+        if (last.type === "num" && this.peek().kind === "number") {
+          throw new ParseError(
+            "two numbers written next to each other",
+            this.peek().pos,
+          );
+        }
+        last = this.parseFactor();
+        acc = this.mulFlat(acc, last);
       } else break;
     }
     return acc;
@@ -167,6 +182,13 @@ class Parser {
 
   private parsePower(): MathNode {
     let node = this.parseAtom();
+    // Factorial binds tighter than the exponent: n!^2 is (n!)^2, and 2^n! is
+    // 2 raised to n factorial, which is what reading it here rather than after
+    // the exponent gives.
+    while (this.at("op", "!")) {
+      this.next();
+      node = fn("factorial", [node]);
+    }
     if (this.at("op", "^")) {
       this.next();
       this.exponentDepth++;
@@ -339,6 +361,12 @@ class Parser {
 
     if (name === "lim") return this.parseLimit(tk);
 
+    if (name === "sum") return this.parseSummation(tk);
+
+    if (name === "taylor" || name === "maclaurin") {
+      return this.parseTaylor(tk, name === "maclaurin");
+    }
+
     if (FUNCTIONS.has(name)) {
       let base: MathNode | null = null;
       if (this.at("op", "_")) {
@@ -466,6 +494,87 @@ class Parser {
    * `0^+` is not an exponent and reading it as one turns a perfectly good
    * one-sided limit into a syntax error.
    */
+  /**
+   * `\sum_{n=1}^{\infty} a_n`, and the finite form with a number on top.
+   *
+   * The subscript carries both the index and where it starts, joined by an
+   * equals sign, which is the one place in the grammar where `=` is not a
+   * relation. Reading it here rather than letting parseExpr see it is what
+   * stops `n=1` becoming an equation.
+   */
+  private parseSummation(tk: Token): MathNode {
+    if (!this.eat("op", "_")) {
+      throw new ParseError("\\sum needs a subscript saying where the index starts", tk.pos);
+    }
+    this.expect("lbrace");
+
+    const it = this.peek();
+    if (it.kind !== "ident") throw new ParseError("expected an index variable", it.pos);
+    this.next();
+    const index = it.value;
+
+    if (!this.eat("op", "=")) {
+      throw new ParseError("expected = after the index of the sum", this.peek().pos);
+    }
+    const end = this.findGroupEnd(tk.pos);
+    if (end <= this.i) {
+      throw new ParseError("the sum does not say where the index starts", this.peek().pos);
+    }
+    const from = this.parseSlice(this.i, end);
+    this.i = end + 1;
+
+    if (!this.eat("op", "^")) {
+      throw new ParseError("\\sum needs an upper limit", this.peek().pos);
+    }
+    const to = this.parseGroup();
+
+    return summation(this.parseLimitBody(), sym(index), from, to);
+  }
+
+  /**
+   * `taylor(f, a, n)` and `maclaurin(f, n)`.
+   *
+   * A named operation rather than a piece of notation, because there is no
+   * notation for it: "find the Maclaurin series of f" is a sentence, and this
+   * is the shortest thing a student can type that means the same. The OCR
+   * normalizer restores the backslash, so a scan that reads the word gets
+   * here too.
+   *
+   * The order defaults to 4, which is what a question asks for when it does
+   * not say — enough terms to show the pattern.
+   */
+  private parseTaylor(tk: Token, maclaurin: boolean): MathNode {
+    const args = this.parseArgumentList(tk);
+    const body = args[0];
+    if (!body) throw new ParseError(`${tk.value} needs a function to expand`, tk.pos);
+
+    const centre = maclaurin ? num(Rational.ZERO) : args[1] ?? num(Rational.ZERO);
+    const orderArg = maclaurin ? args[1] : args[2];
+    const order = orderArg ?? num(Rational.of(4));
+
+    const free = [...symbols(body)].filter((s) => !isConstantSymbol(s));
+    const variable = free.length === 1 && free[0]
+      ? free[0]
+      : DEFAULT_DERIVATIVE_VARIABLE;
+    return fn("taylor", [body, sym(variable), centre, order]);
+  }
+
+  /** `(a, b, c)` — the arguments of a multi-argument function. */
+  private parseArgumentList(tk: Token): MathNode[] {
+    if (!this.at("lparen") && !this.at("lbrace")) {
+      throw new ParseError(`${tk.value} needs its arguments in brackets`, tk.pos);
+    }
+    const closing = this.at("lparen") ? "rparen" : "rbrace";
+    this.next();
+    const args: MathNode[] = [];
+    if (!this.at(closing)) {
+      args.push(this.parseExpr());
+      while (this.eat("comma")) args.push(this.parseExpr());
+    }
+    this.expect(closing);
+    return args;
+  }
+
   private parseLimit(tk: Token): MathNode {
     if (!this.eat("op", "_")) {
       throw new ParseError("\\lim needs a subscript saying what approaches what", tk.pos);
@@ -603,22 +712,12 @@ class Parser {
    * "limit of integration" it is usually called, because `parseLimit` already
    * means the other kind of limit, the one \lim writes.
    *
-   * An infinite bound is refused here rather than parsed, because an improper
-   * integral is a limit problem and answering it as though the bound were an
-   * ordinary number would be wrong.
+   * An infinite bound reads as infinity like any other. It used to be refused
+   * here, on the grounds that an improper integral is a limit problem — which
+   * is true, and is now how it is answered: @openmath/steps rewrites it as a
+   * limit of a proper integral and hands that to the limit engine.
    */
-  private parseIntegralBound(tk: Token): MathNode {
-    let j = this.i;
-    if (this.t[j]?.kind === "lbrace") j++;
-    const sign = this.t[j];
-    if (sign && sign.kind === "op" && (sign.value === "-" || sign.value === "+")) j++;
-    const bound = this.t[j];
-    if (bound && bound.kind === "command" && bound.value === "infty") {
-      throw new ParseError(
-        "an integral with an infinite limit is improper and is not supported yet",
-        tk.pos,
-      );
-    }
+  private parseIntegralBound(_tk: Token): MathNode {
     return this.parseGroup();
   }
 

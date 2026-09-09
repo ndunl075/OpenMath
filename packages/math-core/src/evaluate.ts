@@ -1,4 +1,6 @@
-import { asLimit, INFINITY, type LimitSide, type MathNode } from "./ast.js";
+import {
+  asLimit, asSummation, type FnNode, INFINITY, type LimitSide, type MathNode,
+} from "./ast.js";
 import { Rational } from "./rational.js";
 
 export type Env = Record<string, number>;
@@ -283,10 +285,74 @@ export function evaluateNumeric(n: MathNode, env: Env = {}): number {
       // Nor can a limit: the body is evaluated near the point, never at it.
       if (n.name === "lim") return evaluateLimitNode(n, env);
       if (n.name === "integral") return evaluateIntegral(n, env);
+      if (n.name === "sum") return evaluateSummation(n, env);
       return evaluateFunction(n.name, n.args.map((a) => evaluateNumeric(a, env)));
     case "rel":
       return NaN;
   }
+}
+
+/**
+ * How many terms of a series to add before giving up on it settling.
+ *
+ * Generous, because a slowly converging series is still a converging one:
+ * sum 1/n^2 needs thousands of terms before its tail is negligible. The limit
+ * exists to stop a divergent series running for ever, not to be a statement
+ * about how fast a real one ought to converge.
+ */
+const MAX_SERIES_TERMS = 20000;
+
+/** A partial sum is settled when it stops moving relative to its own size. */
+const SERIES_TOLERANCE = 1e-12;
+
+/**
+ * Add up a summation.
+ *
+ * A finite one is simply added, term by term. An infinite one is added until
+ * the running total stops changing, which is a measurement rather than a
+ * proof — it is used to check an answer the rules produced, never to produce
+ * one. A series that has not settled comes back NaN rather than reporting
+ * whatever the partial sum happened to reach.
+ */
+function evaluateSummation(n: FnNode, env: Env): number {
+  const parts = asSummation(n);
+  if (!parts) return NaN;
+
+  const from = evaluateNumeric(parts.from, env);
+  if (!Number.isFinite(from) || !Number.isInteger(from)) return NaN;
+
+  const term = (k: number): number =>
+    evaluateNumeric(parts.body, { ...env, [parts.index]: k });
+
+  if (!parts.infinite) {
+    const to = evaluateNumeric(parts.to, env);
+    if (!Number.isFinite(to) || !Number.isInteger(to)) return NaN;
+    if (to < from) return 0;
+    if (to - from > MAX_SERIES_TERMS) return NaN;
+    let total = 0;
+    for (let k = from; k <= to; k++) {
+      const t = term(k);
+      if (!Number.isFinite(t)) return NaN;
+      total += t;
+    }
+    return total;
+  }
+
+  let total = 0;
+  let settledFor = 0;
+  for (let k = from; k < from + MAX_SERIES_TERMS; k++) {
+    const t = term(k);
+    if (!Number.isFinite(t)) return NaN;
+    const next = total + t;
+    // Three consecutive negligible terms, so an alternating series is not
+    // called settled on the strength of one term that happened to be small.
+    if (Math.abs(next - total) <= SERIES_TOLERANCE * Math.max(1, Math.abs(next))) {
+      settledFor++;
+      if (settledFor >= 3) return next;
+    } else settledFor = 0;
+    total = next;
+  }
+  return NaN;
 }
 
 function evaluateFunction(name: string, a: number[]): number {
@@ -321,6 +387,15 @@ function evaluateFunction(name: string, a: number[]): number {
       return Math.log(x) / Math.log(base);
     }
     case "exp": return Math.exp(x);
+    case "factorial": {
+      if (!Number.isInteger(x) || x < 0) return NaN;
+      // 171! is past the largest double, and returning Infinity there is the
+      // truthful answer for a number that large.
+      if (x > 170) return Infinity;
+      let out = 1;
+      for (let k = 2; k <= x; k++) out *= k;
+      return out;
+    }
     default: return NaN;
   }
 }
