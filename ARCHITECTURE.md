@@ -153,11 +153,12 @@ Kept honest because the alternative is a student photographing homework the app 
 
 *Power series.* Radius and interval of convergence by the ratio test, with each endpoint put back in and settled separately, and centres away from zero read off the `(x-a)^n`. The standard Maclaurin series are recognised by what they sum to, so `sum x^n/n!` comes back as `e^x` with its reach in the note.
 
+*Taylor series, both directions — **[revised]***. `maclaurin(f, n)` and `taylor(f, a, n)` build the expansion from the function; recognising a series that is written down is the other half, above. There is no *notation* for "find the Maclaurin series of f", so it is offered as a **named operation** the way every CAS does — typed as a word, which needs no symbol nobody would type, and the scan normalizer restores the backslash exactly as it does for `cos`. Coefficients stay symbolic, so `taylor(e^x, 1, 3)` keeps its `e` rather than refusing a number with no decimal.
+
 **Not supported, and what happens instead:**
 
 | Missing | Behaviour |
 |---|---|
-| Taylor series in the *generating* direction — given `f`, produce its series | no way to ask: see below |
 | Parametric and polar curves | no notation for them |
 | Multivariable anything (Calc 3) | out of scope by an earlier decision |
 | Limits of the form `0 * inf` and `1^inf` | declined by name |
@@ -168,10 +169,12 @@ Kept honest because the alternative is a student photographing homework the app 
 
 The last four are policy rather than gaps. Approximating an irrational would break the promise that every answer is exact, picking a split point for a doubly-infinite integral would be putting words in the student's mouth, and a convergence test that guessed would be worse than one that declines.
 
-**The Taylor problem is the input model, not the engine.** Every derivative needed to build a Taylor series is already here. What is missing is a way to *ask*: a photograph carries mathematics, not the sentence "find the Maclaurin series of `f` about 0", and the keypad has no way to say it either. Recognising a series that is written down is expressible and is supported; generating one from a function is not, and inventing a notation students would never type would be worse than the gap. Closing it properly means letting the app read words, which reopens the no-LLM decision in section 0.
+**On naming operations.** Taylor was once listed here as blocked by the input model, on the grounds that a photograph carries mathematics rather than the sentence asking for it. Half of that was true and half was an excuse: there is no notation, but nothing stopped the app offering it as a named operation. Anything else that needs a verb rather than a symbol should follow the same route — a word a student can type, restored by the normalizer, parsed as a function.
 
 
 **How accuracy is checked.** Three layers, deliberately not sharing code. Per step, the engine samples `before` against `after` (equations by checking `lhs - rhs` stays proportional, integrals by differentiating both sides, limits by measurement, and l'Hopital structurally). Per problem, the corpus records a hand-written answer and confirms it by measuring the problem itself — which is why a limit that cannot be measured and an integral running to infinity are tested elsewhere rather than weakening that rule. Across the whole engine, `accuracy-sweep.test.ts` cross-checks against a separately written differentiator, Simpson's rule, and substitution back into the original.
+
+**Series are derived, not measured — [revised].** They were once the exception: convergence cannot be confirmed by adding terms, since enough of `sum 1/n` looks perfectly settled, so the verdicts rested on sampling a ratio — and a factorial passes the largest double at 171, so the sampling ran out of numbers before the ratio did. The ratio test now builds `a(n+1)/a(n)` as an expression, cancels the factorials and subtracts the exponents, and hands what is left to the limit engine. Sampling stays as the fallback and still earns it: `sum n!/2^n` has ratio `(n+1)/2`, whose limit is infinity, and there is no way to report that as an answer.
 
 **Roadmap**: done — derivatives and integrals are both native rules. Integration differs from differentiation in kind: there is no complete algorithm, so `integral.ts` searches (candidate substitutions, a LIATE choice for parts, a rational-root factorisation for partial fractions) and every candidate is differentiated back before it is returned. A guess that does not match the integrand is discarded, and an integral no heuristic finishes is declined rather than half-answered.
 
