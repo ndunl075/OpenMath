@@ -1,0 +1,12 @@
+# Six images from breezedeus/Pix2Text docs/examples (MIT), retained verbatim.
+# See SOURCES.md for attribution and README.md for what this set is and is not.
+#
+# This is NOT the accuracy corpus. Five of the six are deliberately out of
+# scope; they measure that OpenMath refuses the right things by the right name,
+# which is a bug class that has already bitten once. Only 006 is solvable.
+{"file": "photos/001.png", "latex": "S_{2} - S_{1} = \\int_{t_{1}}^{t_{2}} v \\, dt", "category": "handwritten", "notes": "definite integral with symbolic bounds and an undefined integrand; no closed form, must be refused rather than guessed"}
+{"file": "photos/002.png", "latex": "\\int_{-\\infty}^{+\\infty} e^{-t(s + \\frac{i x_{j}}{2t})^{2}} ds = \\int_{-\\infty}^{+\\infty} e^{-t s^{2}} ds", "category": "handwritten", "notes": "Gaussian integral over an infinite interval; out of scope, and the improper bounds are the part worth checking"}
+{"file": "photos/003.png", "latex": "\\begin{cases} \\frac{dy}{dx} + y = 3 \\\\ \\frac{d^{2}y}{dx^{2}} + 3\\left(\\frac{dy}{dx}\\right)^{3} + y = 0 \\end{cases}", "category": "handwritten", "notes": "system of differential equations; must report piecewise/multi-row, never flatten two rows into one problem"}
+{"file": "photos/004.jpg", "latex": "\\begin{cases} 25a - 5b + c = 1 \\\\ a - b + c = 1 \\\\ 9a - 3b + c = 0 \\end{cases}", "category": "printed", "notes": "system of three linear equations; systems are a documented non-goal, so the refusal must name that"}
+{"file": "photos/005.jpg", "latex": "\\begin{bmatrix} 0 & 1 & 0 & 0 \\\\ 0 & 0 & \\frac{m^{2}gl^{2}}{Mml^{2}} & 0 \\\\ 0 & 0 & 0 & 1 \\\\ 0 & 0 & \\frac{-mgl(M + m)}{Mml^{2}} & 0 \\end{bmatrix}", "category": "printed", "notes": "4x4 matrix; must be refused as \"matrices\" specifically"}
+{"file": "photos/006.png", "latex": "\\lim_{x \\to \\frac{1}{4}} \\frac{1 - 4^{x - \\frac{1}{4}}}{1 - 4x}", "category": "handwritten", "answer": "\\frac{\\ln\\left(4\\right)}{4}", "notes": "the only in-scope problem here: a 0/0 limit needing l'Hopital. Handwritten, and the exponent is small and cramped, so it is a real test of the recogniser"}

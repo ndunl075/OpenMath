@@ -45,8 +45,19 @@ describe("layout environments from a real recogniser", () => {
     expect(detectOutOfScope(normalizeLatex(raw))).toBe("matrices");
   });
 
-  it("still refuses piecewise definitions, and names them", () => {
-    const raw = "f(x) = \\begin{cases} x & x > 0 \\\\ -x & x \\le 0 \\end{cases}";
-    expect(detectOutOfScope(normalizeLatex(raw))).toBe("piecewise definitions");
+  /*
+   * `cases` carries two meanings behind the same brace: a piecewise function,
+   * and a system of equations. A photographed system of three linear equations
+   * used to come back as "piecewise definitions are not supported yet", which
+   * names a thing the student did not write. The message covers both readings
+   * because the notation genuinely does not distinguish them.
+   */
+  it.each([
+    ["f(x) = \\begin{cases} x & x > 0 \\\\ -x & x \\le 0 \\end{cases}", "a piecewise function"],
+    ["\\begin{cases} 25a - 5b + c = 1 \\\\ a - b + c = 1 \\end{cases}", "a system of equations"],
+  ])("names both readings of a brace (%s is %s)", (raw) => {
+    expect(detectOutOfScope(normalizeLatex(raw))).toBe(
+      "systems of equations and piecewise definitions",
+    );
   });
 });

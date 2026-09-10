@@ -478,7 +478,11 @@ const OUT_OF_SCOPE = [
   // either a matrix or genuinely more than one row. Those are different
   // problems and deserve different messages.
   { pattern: /\\begin\s*\{[A-Za-z]*matrix\*?\}/, label: "matrices" },
-  { pattern: /\\begin\s*\{cases\*?\}/, label: "piecewise definitions" },
+  // `cases` carries two meanings and the brace looks the same for both: a
+  // piecewise function, and a system of equations. Naming only one of them
+  // tells a student photographing three simultaneous equations that they
+  // wrote a piecewise definition, which is not what they wrote.
+  { pattern: /\\begin\s*\{cases\*?\}/, label: "systems of equations and piecewise definitions" },
   { pattern: /\\begin\s*\{/, label: "more than one line of working at a time" },
   { pattern: /\\oint/, label: "contour integrals" },
   // \sum came off this list when the series engine landed; \prod has no

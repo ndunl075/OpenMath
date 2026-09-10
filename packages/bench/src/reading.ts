@@ -111,7 +111,22 @@ export function answersMatch(expected: Reading, actual: Reading): boolean {
  */
 export function labelledAnswerMatches(labelled: Reading, solved: Reading): boolean {
   if (answersMatch(labelled, solved)) return true;
-  if (labelled.answer === undefined || solved.answers.length !== 1) return false;
+  if (labelled.answer === undefined) return false;
+
+  /*
+   * `answersMatch` compares two readings of the same problem, so it refuses a
+   * pair whose kinds differ. A label and a solution never share a kind: the
+   * label is a bare answer and reads as "evaluate", the ground truth is a limit
+   * or an integral or an equation. Every label written as an expression rather
+   * than a statement — 579, \frac{5}{6}, \frac{\ln 4}{4} — therefore fell
+   * through to the statement branch below, matched nothing, and was reported as
+   * disagreeing with a solver that had produced the identical string.
+   *
+   * Compare what the two evaluate to instead of how each was classified.
+   */
+  if (solved.answer !== undefined && expressionsEqual(labelled.answer, solved.answer)) return true;
+
+  if (solved.answers.length !== 1) return false;
   const statement = STATEMENT.exec(solved.answers[0]!);
   if (!statement) return false;
   return expressionsEqual(statement[3]!, labelled.answer);
